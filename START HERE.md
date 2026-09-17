@@ -4,9 +4,23 @@ Youbot helps you build a personal concierge for the people who message you. Give
 
 Version 1 runs on your computer. Youbot itself is free. You choose your AI service and pay that provider for any usage, or run a local AI model. Youbot works while your computer is awake and the launcher stays open.
 
+## Recommended installation on macOS or Linux
+
+Open Terminal, download the installer, review it, and then run it:
+
+```bash
+curl --proto '=https' --tlsv1.2 -fsS https://youbot.live/install.sh -o install.sh
+less install.sh
+bash install.sh
+```
+
+The installer does not use `sudo`. It installs versioned application files inside `~/.youbot`, preserves your configuration and data during updates, and places the `youbot` command in `~/.local/bin`. Start it with `~/.local/bin/youbot start`, then open [http://localhost:11490](http://localhost:11490).
+
 ## On a Mac
 
-1. Download the release folder and extract it. Keep it somewhere you can find again, such as your home folder.
+The installer above is the recommended path. The repository launcher remains available for a guided source checkout:
+
+1. Download the source folder and extract it. Keep it somewhere you can find again, such as your home folder.
 2. Open **Start Youbot.command**.
 3. Your browser will open a short setup guide. Choose a username and a password you will remember.
 4. Wait for setup to finish. The first start downloads the tools Youbot needs, so it can take several minutes.
@@ -22,10 +36,14 @@ If macOS says the file cannot be opened, confirm you downloaded the intended You
 
 Windows must be 64-bit. If your device policy blocks downloaded scripts, ask the device administrator for help. You do not need to change the computer’s execution policy or security settings. The launcher uses a process-only PowerShell setting for its own setup script.
 
+## On Linux
+
+Use the macOS/Linux installer at the top of this guide. A desktop launcher is not required. You need a current 64-bit Intel/AMD or ARM64 system plus standard build tools if a native dependency has no prebuilt package.
+
 ## What you need
 
 - An internet connection for first setup, and enough free space for dependencies and build files.
-- A current 64-bit Mac or Windows computer. Node.js 22 or later is used if installed; otherwise the launcher downloads a private copy from nodejs.org and checks its download checksum.
+- A current 64-bit macOS, Linux, or Windows computer. Node.js 22 or later is used if installed; otherwise the installer or launcher downloads a private copy from nodejs.org and checks its download checksum.
 - An AI account and API key for online AI. An ordinary chat subscription may not include API credits. Each provider has its own eligibility, regional availability and charges.
 - For local AI, install Ollama and a model that supports tools first. Local AI needs more memory and may be slower.
 
@@ -33,7 +51,7 @@ Youbot has native dependencies. Some computers may require developer/build tools
 
 ## Open it next time
 
-Open **Start Youbot.command** or **Start Youbot.cmd** again and select **Start Youbot**. Your login, settings and conversations are kept. Keep the launcher window open while using Youbot.
+For an installer setup, run `youbot start` or `~/.local/bin/youbot start`. For a launcher setup, open **Start Youbot.command** or **Start Youbot.cmd** again and select **Start Youbot**. Your login, settings and conversations are kept.
 
 To stop, return to the setup browser tab and select **Stop Youbot**, or close the launcher window. Scheduled work pauses when Youbot is stopped or your computer sleeps. Closing only the Youbot browser tab does not stop the concierge.
 
@@ -49,4 +67,4 @@ Desktop data is stored in `.youbot-desktop` inside your home folder, separate fr
 
 ## Release status
 
-The release bundle includes the built concierge and interface. The source checkout can also build them automatically. Clean Mac and Windows installation and signed native installer packages require separate release validation. Paid managed hosting is phase two and is not part of version 1.
+The public macOS/Linux installer builds the published source revision and installs it inside the current user account. The Windows source launcher remains available. Signed native installer packages require separate release validation. Paid managed hosting is phase two and is not part of version 1.

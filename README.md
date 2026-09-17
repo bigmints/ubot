@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="youbot-core/web/public/youbot.svg" width="80" alt="Youbot Logo" />
+  <img src="youbot-core/branding/youbot.svg" width="80" alt="Youbot Logo" />
 </p>
 
 <h1 align="center">Youbot</h1>
@@ -19,10 +19,10 @@
 
 ## Start here
 
-Want to use Youbot without learning terminal commands? Open [START HERE.md](START%20HERE.md). It walks through the Mac and Windows launchers, your first AI connection, and troubleshooting.
+For macOS or Linux, use the reviewed user-scoped installer below. Windows users can open [START HERE.md](START%20HERE.md) for the launcher instructions.
 
 - **Self-hosted:** free software; you manage your computer and AI account.
-- **Version 1:** self-hosted on Mac and Windows. Paid managed hosting is planned for phase two and is not part of this release.
+- **Version 1:** self-hosted on macOS, Linux, and Windows. Paid managed hosting is planned for phase two and is not part of this release.
 
 The instructions below are for developers and existing installations.
 
@@ -32,9 +32,9 @@ Youbot is a **self-hosted AI concierge** that helps visitors using the informati
 
 Youbot's server runs on your own computer. Connected messaging services and configured AI providers receive the information needed for the requests you send through them.
 
-### Planned: reusable collection engine
+### Collections
 
-The next proposed capability is a reusable headless collection engine with LLM-callable tools. Youbot will be its first integration: owners add catalogues or written information, review organized items through cards or schedules, and keep visitor answers current through conversational updates. Other projects can use the same package with their own model, authentication and interface. This is a documented implementation plan, not a released feature. Start with the [collections planning package](docs/collections/README.md) for the specification, architecture, assigned stories, and verification plan.
+Youbot includes a reusable headless collection engine with provider-neutral tools. Owners can add catalogues or written information, review organized items through cards, galleries, or schedules, publish selected facts, and keep visitor answers current through conversational updates. Other projects can use the same package with their own model, authentication, and interface. See the [collection engine package](packages/collection-engine/README.md) and [collections documentation](docs/collections/README.md).
 
 ### Key Capabilities
 
@@ -71,18 +71,15 @@ The next proposed capability is a reusable headless collection engine with LLM-c
 ## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/Bigmints-com/youbot.git
-cd youbot
-
-# Install dependencies + build + install
-make install
-
-# Start
-youbot start
+curl --proto '=https' --tlsv1.2 -fsS https://youbot.live/install.sh -o install.sh
+less install.sh
+bash install.sh
+~/.local/bin/youbot start
 ```
 
 Dashboard: **http://localhost:11490**
+
+The installer runs without `sudo`, resolves the requested source version to an immutable Git commit, verifies any downloaded private Node.js runtime, and keeps application releases separate from your settings and data. Add `~/.local/bin` to `PATH` if you want to run `youbot` without the full path. For a manual source build, clone this repository and run `make verify && make install`.
 
 ### Connect Your Channels
 
@@ -99,9 +96,12 @@ Dashboard: **http://localhost:11490**
 
 ```
 youbot/
+├── install.sh                # User-scoped macOS/Linux installer
+├── packages/
+│   └── collection-engine/    # Reusable provider-neutral collection engine
 ├── Makefile                  # Build + install pipeline
 ├── start.sh / stop.sh        # Dev mode scripts
-└── youbot-core/                # Main application
+└── youbot-core/              # Main application
     ├── src/
     │   ├── api/              # REST API (custom HTTP router)
     │   ├── engine/           # LLM orchestrator, tool routing, unified handler
@@ -112,7 +112,8 @@ youbot/
     │   ├── memory/           # Soul system, conversation store, personas
     │   ├── data/             # SQLite database & config management
     │   └── logger/           # Ring-buffer structured logging
-    └── web/                  # Next.js 16 + shadcn/ui dashboard
+    ├── web-ui/               # Next.js 16 + shadcn/ui dashboard source
+    └── webchat-relay/        # Public website and visitor relay
 ```
 
 ### Message Flow (LLM-First)
@@ -135,8 +136,8 @@ All valid messages — from both the owner and visitors — go through the LLM o
 | Database | `~/.youbot/data/youbot.db` (SQLite)       |
 | Skills   | `~/.youbot/skills/<name>/SKILL.md`      |
 | Identity | `~/.youbot/data/SOUL.md`, `IDENTITY.md` |
-| Backend  | `~/.youbot/lib/` (compiled JS)          |
-| Web UI   | `~/.youbot/web/` (Next.js static)       |
+| Backend  | `~/.youbot/current/lib/` (compiled JS)  |
+| Web UI   | `~/.youbot/current/web/` (Next.js static) |
 | Logs     | `~/.youbot/logs/`                       |
 
 ---

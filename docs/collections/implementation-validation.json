@@ -1,0 +1,1865 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-14T14:43:28.381568+00:00",
+  "scope": "Final independent focused verification of repaired reusable engine and Youbot integration against approved revision 3. Includes paginated off-page expiry, source-backed missing-fieldId manual protection, and unit-aware filtering, with regenerated dist and a newly hashed tested archive. PDFs/originals/jobs remain host-owned. No native story closure or release authorization.",
+  "reviewer": {
+    "actor": "/root/collections_quality",
+    "role": "implementation verification specialist",
+    "independence": "Separate from implementation authors; verification-plan authored by this specialist. This evidence is for a later independent aggregate review."
+  },
+  "specification": {
+    "id": "conversational-collections",
+    "revision": 3,
+    "status": "approved",
+    "digest": "074f8512344f7013d8f204dfd673d59d58f03da4de41af8f5dee691de1010aa7",
+    "drift": false,
+    "approval": {
+      "by": "Project owner",
+      "source": "Current conversation: user directed set a goal, build it, test and integrate with Youbot after the revision-3 package-boundary correction.",
+      "assurance": "Human approval recorded for this product revision; no execution or release permission granted."
+    }
+  },
+  "overallOutcome": "passed_focused_verification_with_limits",
+  "commandOutcome": "Final 11 validation commands pass, including package 16 tests, new exact packed verifier, original extracted-tarball repros and corrected strict assertions, backend 12 files/93 tests/build and independent dispatch/retry checks. One harness-only result-shape error is retained and superseded. Reused final UI lint/build/8 expiry assertions after verifying all 87 UI source/config hashes unchanged; 121 prior UI warnings/0 errors remain. Earlier unchanged PDF benchmark evidence retained.",
+  "gitIdentity": {
+    "head": "d7e082ee88898a9abf4211a85115cc082c4b1df7",
+    "headTree": "be35a35aec09985bc3a63aef2a9f5cfdf961f62b",
+    "dirty": true,
+    "notACommittedImplementationRevision": true,
+    "beforeCaptureAt": "2026-09-14T14:39:57.609940+00:00",
+    "currentSourceTestsFresh": true,
+    "sourceChangesDuringVerification": [],
+    "changesSincePreviousManifest": [
+      "docs/collections/engine-api.md",
+      "packages/collection-engine/src/engine.ts",
+      "packages/collection-engine/src/schemas.ts",
+      "packages/collection-engine/test/engine.test.mjs"
+    ],
+    "sourceManifestPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-manifest.json",
+    "sourceManifestFiles": 312,
+    "initialIdentitySha256": "956426052ed5d2b9c7e0776ad3ce1c99e61a25df067553156242b7ab8bb986f7",
+    "scopedTrackedDiffPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/scoped-tracked.diff",
+    "scopedTrackedDiffSha256": "6ebccb459743ffa4235658d10ed17096643f24550db759d80a9192276dc9ce29",
+    "finalSourceCapturePath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+    "note": "Current source/config/document hashes unchanged throughout final repair run. All 87 UI hashes match prior validated source, so unaffected UI commands are reused. Prior manifests and reports are preserved. HEAD is baseline only; manifest plus newly tested tarball identify dirty implementation."
+  },
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "node": "v26.7.0",
+    "npm": "11.19.0"
+  },
+  "commands": [
+    {
+      "id": "package-tests",
+      "argv": [
+        "npm",
+        "test"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/packages/collection-engine",
+      "startedAt": "2026-09-14T13:51:50.194810+00:00",
+      "completedAt": "2026-09-14T13:51:51.252115+00:00",
+      "durationSeconds": 1.057,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "14/14 package tests passed: public/private publication, restart, multi-instance/multi-process persistence, duplicate-item cross-collection evidence, inclusive dates, reference integrity, money sorting, reconciliation and schemas.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/package-tests.stdout.log",
+      "stdoutSha256": "4ab07371e6d0e89f727250dca84a3c78cf7701a33d2b846ecf6cac13c2064d7c",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/package-tests.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "package-tests-final"
+    },
+    {
+      "id": "packed-verifier",
+      "argv": [
+        "node",
+        "scripts/verify-collection-engine-package.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:51:51.252357+00:00",
+      "completedAt": "2026-09-14T13:51:52.639685+00:00",
+      "durationSeconds": 1.387,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Exact tested tarball installed in external consumer: 19 tools, zero runtime dependencies, ESM/CJS, read/write-effect metadata, nested schemas, output validation, OpenAI/MCP normalization fixtures, restart, concurrency, visitor denial and policy revocation passed.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/packed-verifier.stdout.log",
+      "stdoutSha256": "3299114ea999b8f2b47af122f09bc42340d9eb74477ad7eed01e3867bc4ce3a8",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/packed-verifier.stderr.log",
+      "stderrSha256": "02bb24ffdb22368d271dd86f8fc43cca3cb1627974f553308d185c9443ccb67a",
+      "supersededBy": "packed-verifier-final"
+    },
+    {
+      "id": "backend-focused-tests",
+      "argv": [
+        "npm",
+        "test",
+        "--",
+        "src/concierge/collections/__tests__",
+        "src/engine/visitor-dispatch.test.ts",
+        "src/engine/visitor-reply.test.ts",
+        "src/concierge/__tests__/visitor-safety.test.ts",
+        "src/concierge/__tests__/store.test.ts",
+        "src/automation/approvals/visitor-routing.test.ts",
+        "src/automation/followups/visitor-reply.test.ts",
+        "src/api/__tests__/auth.test.ts",
+        "src/concierge/__tests__/owner-profile.test.ts"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core",
+      "startedAt": "2026-09-14T13:51:52.639790+00:00",
+      "completedAt": "2026-09-14T13:51:53.748513+00:00",
+      "durationSeconds": 1.109,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "12 files/90 tests passed from exact recorded argv, including auth and owner-profile; collection routes cover actual PDF parser, durable text/PDF authoring jobs, disk reload, generated conflict preservation, idempotent retry, private source review and answer preview. LLM/transport dependencies controlled.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-focused-tests.stdout.log",
+      "stdoutSha256": "57eafeef6029a1d7d10e4820e230de5266e63260148643abaa62a4ecf15ce6f5",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-focused-tests.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "backend-focused-final"
+    },
+    {
+      "id": "backend-build",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core",
+      "startedAt": "2026-09-14T13:51:53.748801+00:00",
+      "completedAt": "2026-09-14T13:51:58.030333+00:00",
+      "durationSeconds": 4.282,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "TypeScript backend build passed.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-build.stdout.log",
+      "stdoutSha256": "660397e0d69cc2d68eb0575d60b95761159c0241dbd0076072cd81054646fd3d",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-build.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "backend-build-final"
+    },
+    {
+      "id": "ui-lint",
+      "argv": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T13:51:58.030594+00:00",
+      "completedAt": "2026-09-14T13:52:00.884388+00:00",
+      "durationSeconds": 2.854,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "ESLint passed with 121 warnings and zero errors.",
+      "supersededBy": "ui-lint-overlap",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint.stdout.log",
+      "stdoutSha256": "a0ed2eb7343effcab07c9545f6cb215e48e1e2349098a81260e98f7a1fcdef45",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-build",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T13:52:00.884755+00:00",
+      "completedAt": "2026-09-14T13:52:08.286297+00:00",
+      "durationSeconds": 7.402,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Next.js production build and TypeScript checking passed including /concierge/collections.",
+      "supersededBy": "ui-build-overlap",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build.stdout.log",
+      "stdoutSha256": "5d2c7651150091b9fd2b56c7fad179e0b1c5c87319e4a2ed71de1db2a3c54281",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "dispatch-window-regression",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/dispatch-window-regression.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:52:08.286724+00:00",
+      "completedAt": "2026-09-14T13:52:08.335092+00:00",
+      "durationSeconds": 0.048,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Independent real compiled handler/engine: withdrawal after first evidence validation inside automatedReply before callback send is held; zero sends, handled false, response empty.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/dispatch-window-regression.stdout.log",
+      "stdoutSha256": "9302731c7b138b5e69ac8a13022063c03a20ff1476fc5cc8095f19e44b3bd719",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/dispatch-window-regression.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "dispatch-window-final"
+    },
+    {
+      "id": "stale-session-regression",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/stale-session-regression.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:52:08.335341+00:00",
+      "completedAt": "2026-09-14T13:52:08.377039+00:00",
+      "durationSeconds": 0.042,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Independent real compiled handler/engine: first tool turn records published evidence; unpublish then no-tool subsequent turn revalidates remembered receipt and sends nothing.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/stale-session-regression.stdout.log",
+      "stdoutSha256": "9c22410c7a9b72616fb379861fef6f8b78b3486a38681b25d602ac577dc83e0b",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/stale-session-regression.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "stale-session-final"
+    },
+    {
+      "id": "independent-engine-edges",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/independent-engine-edges.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:55:15.485213+00:00",
+      "completedAt": "2026-09-14T13:55:15.530846+00:00",
+      "durationSeconds": 0.046,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Six grouped independent edge checks passed: mixed units; off-page publication invalidation; empty scoped invalidation; invalid calendar/leap dates, unresolved/clarified proposal and end-of-UTC-day expiry; malformed actual output rejection; audience metadata/counts.",
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/independent-engine-edges.stdout.log",
+      "stdoutSha256": "685b44568d40847c82c7dc1baea59684e2d93edbdb184fc1c39a76b3c3f4fb6f",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/independent-engine-edges.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "independent-engine-edges-final"
+    },
+    {
+      "id": "real-pdf-250-pages",
+      "argv": [
+        "node",
+        "--import",
+        "./youbot-core/node_modules/tsx/dist/loader.mjs",
+        "docs/collections/evidence/pdf-limit-benchmark-20260914.mts",
+        "--case",
+        "pages_250"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:55:15.530872+00:00",
+      "completedAt": "2026-09-14T13:55:16.201694+00:00",
+      "durationSeconds": 0.671,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Independent real host-parser rerun accepts 250 sparse text pages, 250 segments and 17142 characters; 574.780 ms and 697.359 MiB process lifetime max RSS in this single run.",
+      "freshnessNote": "Reused unchanged UI/parser evidence; current source hashes match prior manifest. Relevant artifact/log hashes revalidated.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/real-pdf-250-pages.stdout.log",
+      "stdoutSha256": "10049121c2e740776f6e6f009efa99aa5472a34a632a48d0df66cd6c69ad91f7",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/real-pdf-250-pages.stderr.log",
+      "stderrSha256": "e53f3e578923caebbd2fd4b7918897a7ebb5445343a3ed8f3107cf24c1c3a435"
+    },
+    {
+      "id": "real-pdf-251-pages",
+      "argv": [
+        "node",
+        "--import",
+        "./youbot-core/node_modules/tsx/dist/loader.mjs",
+        "docs/collections/evidence/pdf-limit-benchmark-20260914.mts",
+        "--case",
+        "pages_251"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:55:16.201718+00:00",
+      "completedAt": "2026-09-14T13:55:16.782052+00:00",
+      "durationSeconds": 0.58,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Independent real host-parser rerun rejects 251 sparse text pages with LIMIT_EXCEEDED/413 and exact maxPages 250/actualPages 251; 490.645 ms and 690.813 MiB process lifetime max RSS.",
+      "freshnessNote": "Reused unchanged UI/parser evidence; current source hashes match prior manifest. Relevant artifact/log hashes revalidated.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/real-pdf-251-pages.stdout.log",
+      "stdoutSha256": "befcb96ad3808bd3589304b9a71beb23ef5db5630e3ff3cfdd9ebdb7fe246b3c",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/real-pdf-251-pages.stderr.log",
+      "stderrSha256": "0689c39f734ab169d228b62e1e1984e9e81ed96c48755e354c066f99c2b1b107"
+    },
+    {
+      "id": "benchmark-consistency",
+      "argv": [
+        "python3",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/benchmark-consistency.py"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T13:58:37.183278+00:00",
+      "completedAt": "2026-09-14T13:58:37.223751+00:00",
+      "durationSeconds": 0.04,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before.json",
+      "summary": "Verified retained 24 rows, eight cases with three repetitions, original parser/fixture/harness hashes, 250/251 boundaries and report median/RSS arithmetic. Independent boundary reruns match fixture bytes and result semantics. Not a customer-corpus or production resource guarantee.",
+      "freshnessNote": "Reused unchanged UI/parser evidence; current source hashes match prior manifest. Relevant artifact/log hashes revalidated.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/benchmark-consistency.stdout.log",
+      "stdoutSha256": "7d464b2ae87a7dd5146351a6966c683a13055f994fae729b36491af4373041db",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/benchmark-consistency.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-lint-final",
+      "argv": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T13:58:37.224134+00:00",
+      "completedAt": "2026-09-14T13:58:39.997507+00:00",
+      "durationSeconds": 2.773,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-opener-ui.json",
+      "summary": "ESLint passed with 121 warnings and zero errors.",
+      "supersededBy": "ui-lint-overlap",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-final.stdout.log",
+      "stdoutSha256": "a0ed2eb7343effcab07c9545f6cb215e48e1e2349098a81260e98f7a1fcdef45",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-build-final",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T13:58:39.997852+00:00",
+      "completedAt": "2026-09-14T13:58:47.045969+00:00",
+      "durationSeconds": 7.048,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-opener-ui.json",
+      "summary": "Next.js production build and TypeScript checking passed including /concierge/collections.",
+      "supersededBy": "ui-build-overlap",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-final.stdout.log",
+      "stdoutSha256": "d7e094449f38957ff104d096bec3a7b159131f00c7359e7cec7cf4cb45b9af11",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-lint-settled",
+      "argv": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T14:02:17.579580+00:00",
+      "completedAt": "2026-09-14T14:02:19.963904+00:00",
+      "durationSeconds": 2.384,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-date-ui.json",
+      "summary": "ESLint passed with 121 warnings and zero errors.",
+      "supersededBy": "ui-lint-overlap",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-settled.stdout.log",
+      "stdoutSha256": "a0ed2eb7343effcab07c9545f6cb215e48e1e2349098a81260e98f7a1fcdef45",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-settled.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-build-settled",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T14:02:19.964304+00:00",
+      "completedAt": "2026-09-14T14:02:27.048489+00:00",
+      "durationSeconds": 7.084,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-date-ui.json",
+      "summary": "Next.js production build and TypeScript checking passed including /concierge/collections.",
+      "supersededBy": "ui-build-overlap",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-settled.stdout.log",
+      "stdoutSha256": "ff55dc1b0393de313f5d16976b8193cb5ba74df7b5e4287102e1968c5248ee7a",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-settled.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-validity-boundaries",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/ui-validity-boundaries.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:04:06.921299+00:00",
+      "completedAt": "2026-09-14T14:04:07.063095+00:00",
+      "durationSeconds": 0.142,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-final-ui.json",
+      "summary": "Eight independent cases against actual transpiled UI helper pass: date-only inclusive UTC-day, timestamp before/equal/after expiry and timezone-offset equality. No browser execution.",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-validity-boundaries.stdout.log",
+      "stdoutSha256": "deab064a3062f6825ab3803a15e958c81609bd8c82e9c5a0a3a1cded0048d33f",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-validity-boundaries.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "ui-validity-boundaries-overlap"
+    },
+    {
+      "id": "ui-lint-complete",
+      "argv": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T14:04:07.063503+00:00",
+      "completedAt": "2026-09-14T14:04:09.329940+00:00",
+      "durationSeconds": 2.266,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-final-ui.json",
+      "summary": "ESLint passed with 121 warnings and zero errors.",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-complete.stdout.log",
+      "stdoutSha256": "a0ed2eb7343effcab07c9545f6cb215e48e1e2349098a81260e98f7a1fcdef45",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-complete.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "ui-lint-overlap"
+    },
+    {
+      "id": "ui-build-complete",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T14:04:09.330437+00:00",
+      "completedAt": "2026-09-14T14:04:17.117914+00:00",
+      "durationSeconds": 7.787,
+      "exitCode": 0,
+      "outcome": "passed",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-final-ui.json",
+      "summary": "Next.js production build and TypeScript checking passed including /concierge/collections.",
+      "freshnessNote": "Historical passing command retained; final affected source is covered by superseding command.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-complete.stdout.log",
+      "stdoutSha256": "6fc63013c5358b22708a408feb4e3371f75ba7c8505b8f3b8b9b8e98d630d085",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-complete.stderr.log",
+      "stderrSha256": "e66fc23bccaf46ed9be42630985d387ba85bebe29fa392222574aaf48517b6b6",
+      "supersededBy": "ui-build-overlap"
+    },
+    {
+      "id": "independent-overlapping-retry",
+      "argv": [
+        "node",
+        "/Users/pretheesh/Projects/youbot/youbot-core/node_modules/vitest/vitest.mjs",
+        "run",
+        "--root",
+        "/tmp/youbot-quality-overlap-20260914T141753Z",
+        "race.test.ts"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:17:53.336308+00:00",
+      "completedAt": "2026-09-14T14:17:53.767982+00:00",
+      "durationSeconds": 0.432,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Original independent non-authoring overlap regression preserved byte-for-byte. Two distinct retry UUIDs while model is gated produce exactly one model call; 1 test passes against real TS host routes and isolated disk state. Model is a controlled test double.",
+      "currentSourceFresh": false,
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/independent-overlapping-retry.stdout.log",
+      "stdoutSha256": "eadb2adfbb8e3a45782f4867e398163f3fe35e689f6d71a1fa2bf8c1f9aa7cf7",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/independent-overlapping-retry.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "independent-overlapping-retry-final"
+    },
+    {
+      "id": "backend-focused-overlap",
+      "argv": [
+        "npm",
+        "test",
+        "--",
+        "src/concierge/collections/__tests__",
+        "src/engine/visitor-dispatch.test.ts",
+        "src/engine/visitor-reply.test.ts",
+        "src/concierge/__tests__/visitor-safety.test.ts",
+        "src/concierge/__tests__/store.test.ts",
+        "src/automation/approvals/visitor-routing.test.ts",
+        "src/automation/followups/visitor-reply.test.ts",
+        "src/api/__tests__/auth.test.ts",
+        "src/concierge/__tests__/owner-profile.test.ts"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core",
+      "startedAt": "2026-09-14T14:17:53.768383+00:00",
+      "completedAt": "2026-09-14T14:17:54.844116+00:00",
+      "durationSeconds": 1.076,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "12 files/93 tests passed from exact expanded collection/dispatch/auth/store/owner-profile selection. Includes durable text/PDF disk reload, generated revision conflict, sequential retry identity and overlapping retry claim, abandoned-runtime recovery and stale-completion fencing after takeover.",
+      "currentSourceFresh": false,
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-focused-overlap.stdout.log",
+      "stdoutSha256": "3202410038164057d6494505d916bd44cb1e811331b03b63549359c11bc9a8bc",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-focused-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "backend-focused-final"
+    },
+    {
+      "id": "backend-build-overlap",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core",
+      "startedAt": "2026-09-14T14:17:54.844594+00:00",
+      "completedAt": "2026-09-14T14:17:59.131622+00:00",
+      "durationSeconds": 4.287,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "TypeScript backend build passed after retry-claim repair.",
+      "currentSourceFresh": false,
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-build-overlap.stdout.log",
+      "stdoutSha256": "660397e0d69cc2d68eb0575d60b95761159c0241dbd0076072cd81054646fd3d",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/backend-build-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "backend-build-final"
+    },
+    {
+      "id": "dispatch-window-overlap",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/dispatch-window-regression.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:17:59.132144+00:00",
+      "completedAt": "2026-09-14T14:17:59.182585+00:00",
+      "durationSeconds": 0.05,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Preserved independent compiled-handler withdrawal-after-first-check regression passes on freshly rebuilt backend: zero sends, handled false.",
+      "currentSourceFresh": false,
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/dispatch-window-overlap.stdout.log",
+      "stdoutSha256": "20e8f5313c81ab009f2686b8ec0687cc340125932b6713b7dfdd7e6ba84cdf31",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/dispatch-window-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "dispatch-window-final"
+    },
+    {
+      "id": "stale-session-overlap",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/stale-session-regression.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:17:59.182983+00:00",
+      "completedAt": "2026-09-14T14:17:59.230116+00:00",
+      "durationSeconds": 0.047,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Preserved independent compiled-handler subsequent no-tool turn revalidates remembered withdrawn evidence and sends nothing.",
+      "currentSourceFresh": false,
+      "freshnessNote": "Retained historical result superseded by current package-repair validation against regenerated dist/new tested archive.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/stale-session-overlap.stdout.log",
+      "stdoutSha256": "b899773798885f8de3a29c781bfcc7ff6b87b89cc7849d38dd7336d5563c271a",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/stale-session-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "supersededBy": "stale-session-final"
+    },
+    {
+      "id": "ui-lint-overlap",
+      "argv": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T14:17:59.230537+00:00",
+      "completedAt": "2026-09-14T14:18:02.223775+00:00",
+      "durationSeconds": 2.993,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Final UI lint passed with 121 warnings and zero errors.",
+      "currentSourceFresh": true,
+      "freshnessNote": "Reused unchanged UI/parser evidence; current source hashes match prior manifest. Relevant artifact/log hashes revalidated.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-overlap.stdout.log",
+      "stdoutSha256": "a0ed2eb7343effcab07c9545f6cb215e48e1e2349098a81260e98f7a1fcdef45",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-lint-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-build-overlap",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core/web-ui",
+      "startedAt": "2026-09-14T14:18:02.224201+00:00",
+      "completedAt": "2026-09-14T14:18:09.905034+00:00",
+      "durationSeconds": 7.681,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Final Next.js production build/type checking passed with corrected date boundaries, opener restoration and in-progress retry state.",
+      "currentSourceFresh": true,
+      "freshnessNote": "Reused unchanged UI/parser evidence; current source hashes match prior manifest. Relevant artifact/log hashes revalidated.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-overlap.stdout.log",
+      "stdoutSha256": "ad7682b070a33c656ea2e9032659ef838825f4f78b6d3b66927eb40ee826474c",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-build-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ui-validity-boundaries-overlap",
+      "argv": [
+        "node",
+        "/tmp/youbot-repaired-validation-20260914T135150Z/ui-validity-boundaries.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:18:09.905596+00:00",
+      "completedAt": "2026-09-14T14:18:10.060795+00:00",
+      "durationSeconds": 0.155,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Eight assertions against actual transpiled current UI isOutdated helper pass for inclusive UTC-day expiry and exact timestamp equality/offsets; no browser execution.",
+      "currentSourceFresh": true,
+      "freshnessNote": "Reused unchanged UI/parser evidence; current source hashes match prior manifest. Relevant artifact/log hashes revalidated.",
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-before-overlap.json",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-validity-boundaries-overlap.stdout.log",
+      "stdoutSha256": "deab064a3062f6825ab3803a15e958c81609bd8c82e9c5a0a3a1cded0048d33f",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T141853Z/ui-validity-boundaries-overlap.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "package-tests-final",
+      "argv": [
+        "npm",
+        "test"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/packages/collection-engine",
+      "startedAt": "2026-09-14T14:39:57.625172+00:00",
+      "completedAt": "2026-09-14T14:39:58.791851+00:00",
+      "durationSeconds": 1.167,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "16/16 package tests pass, including off-page full-query expiry, unit-aware numeric filtering, and source-backed manual field protection when evidence lacks fieldId.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/package-tests-final.stdout.log",
+      "stdoutSha256": "49d04cdedb4f79104b9e7485534a086925ada2e794fb390bd497b2a2b39013a1",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/package-tests-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "packed-verifier-final",
+      "argv": [
+        "node",
+        "scripts/verify-collection-engine-package.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:39:58.792161+00:00",
+      "completedAt": "2026-09-14T14:40:00.317577+00:00",
+      "durationSeconds": 1.525,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "New exact packed external consumer passes 19-tool metadata/schema/output contract, ESM/CJS, zero runtime dependencies, restart/concurrency/policy/visitor checks and two protocol fixtures.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-verifier-final.stdout.log",
+      "stdoutSha256": "3299114ea999b8f2b47af122f09bc42340d9eb74477ad7eed01e3867bc4ce3a8",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-verifier-final.stderr.log",
+      "stderrSha256": "02bb24ffdb22368d271dd86f8fc43cca3cb1627974f553308d185c9443ccb67a"
+    },
+    {
+      "id": "packed-prior-reproductions",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/consumer/review-reproductions.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:00.317733+00:00",
+      "completedAt": "2026-09-14T14:40:00.364163+00:00",
+      "durationSeconds": 0.046,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Original independent reviewer script copied byte-for-byte and executed against newly extracted tested tarball. Off-page expiry reports STALE_EVIDENCE and missing-fieldId source replacement reports PROPOSAL_INVALID; earlier type/reconciliation/output checks pass.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-prior-reproductions.stdout.log",
+      "stdoutSha256": "a8767d67f2ee92a35c80a4d2f4d802456137cdbff9e0acf0f4c64ec2d9527bf4",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-prior-reproductions.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "packed-units-probe",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/consumer/units-probe.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:00.364460+00:00",
+      "completedAt": "2026-09-14T14:40:00.418263+00:00",
+      "durationSeconds": 0.054,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Original reviewer unit probe executed against same extracted tested tarball: mixed-unit numeric filter without unit reports INPUT_INCOMPLETE; prior expiry and manual-protection probes remain correct.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-units-probe.stdout.log",
+      "stdoutSha256": "df01d64f96630a69ec5ccfd378fbdf9a1f6e699d31c49f6bdb0233f7043d7dae",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-units-probe.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "packed-strict-repair-assertions",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/consumer/strict-repair-assertions.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:00.418639+00:00",
+      "completedAt": "2026-09-14T14:40:00.475137+00:00",
+      "durationSeconds": 0.057,
+      "exitCode": 1,
+      "outcome": "failed_verification_harness",
+      "summary": "Verifier harness error only: used collections_get result as if it contained items; failed readback TypeError after critical earlier assertions. Script/log preserved; corrected result-shape usage is verified separately.",
+      "currentSourceFresh": false,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "supersededBy": "packed-strict-repair-assertions-corrected",
+      "failureClassification": "verification_harness_result_shape_error_not_product_failure",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-strict-repair-assertions.stdout.log",
+      "stdoutSha256": "df01d64f96630a69ec5ccfd378fbdf9a1f6e699d31c49f6bdb0233f7043d7dae",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-strict-repair-assertions.stderr.log",
+      "stderrSha256": "d1b4cdb58cdfbd7a4bb6c47e7a9b67f0219b1d8bb23e007ec7b8c7af2df67c0b"
+    },
+    {
+      "id": "independent-engine-edges-final",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/independent-engine-edges.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:00.475484+00:00",
+      "completedAt": "2026-09-14T14:40:00.522752+00:00",
+      "durationSeconds": 0.047,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Preserved six grouped independent engine edge checks pass on regenerated dist: units ordering, scoped/paginated generation changes, real calendar/clarification/expiry, malformed output rejection and audience metadata.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/independent-engine-edges-final.stdout.log",
+      "stdoutSha256": "685b44568d40847c82c7dc1baea59684e2d93edbdb184fc1c39a76b3c3f4fb6f",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/independent-engine-edges-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "backend-focused-final",
+      "argv": [
+        "npm",
+        "test",
+        "--",
+        "src/concierge/collections/__tests__",
+        "src/engine/visitor-dispatch.test.ts",
+        "src/engine/visitor-reply.test.ts",
+        "src/concierge/__tests__/visitor-safety.test.ts",
+        "src/concierge/__tests__/store.test.ts",
+        "src/automation/approvals/visitor-routing.test.ts",
+        "src/automation/followups/visitor-reply.test.ts",
+        "src/api/__tests__/auth.test.ts",
+        "src/concierge/__tests__/owner-profile.test.ts"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core",
+      "startedAt": "2026-09-14T14:40:00.523056+00:00",
+      "completedAt": "2026-09-14T14:40:01.864778+00:00",
+      "durationSeconds": 1.342,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "12 files/93 tests pass against regenerated package dist, including 11 route tests with durable PDF/text reload, conflict preservation, sequential/overlapping retry, abandoned runtime and takeover fencing; auth/store/dispatch included.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/backend-focused-final.stdout.log",
+      "stdoutSha256": "c763a657d1d110536227c380bd64cdacc76308cda5a39cca9971d9df3b049c1e",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/backend-focused-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "backend-build-final",
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot/youbot-core",
+      "startedAt": "2026-09-14T14:40:01.865077+00:00",
+      "completedAt": "2026-09-14T14:40:06.286605+00:00",
+      "durationSeconds": 4.422,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Backend TypeScript build passes with regenerated repaired package dist.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/backend-build-final.stdout.log",
+      "stdoutSha256": "660397e0d69cc2d68eb0575d60b95761159c0241dbd0076072cd81054646fd3d",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/backend-build-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "dispatch-window-final",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/dispatch-window-regression.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:06.287077+00:00",
+      "completedAt": "2026-09-14T14:40:06.339780+00:00",
+      "durationSeconds": 0.053,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Independent compiled-handler after-first-check withdrawal regression passes with zero sends.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/dispatch-window-final.stdout.log",
+      "stdoutSha256": "e4a39c805e3673084923df0cf2a7b9fad5955326ab2fd95a73f025980f8279c8",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/dispatch-window-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "stale-session-final",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/stale-session-regression.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:06.340091+00:00",
+      "completedAt": "2026-09-14T14:40:06.386248+00:00",
+      "durationSeconds": 0.046,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Independent compiled-handler remembered stale evidence/no-current-tool regression passes with zero sends.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/stale-session-final.stdout.log",
+      "stdoutSha256": "f08685b6e6aff1ca50a4f96fe35349f6ef656e9b59938a5e611d306b66b540e9",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/stale-session-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "independent-overlapping-retry-final",
+      "argv": [
+        "node",
+        "/Users/pretheesh/Projects/youbot/youbot-core/node_modules/vitest/vitest.mjs",
+        "run",
+        "--root",
+        "/tmp/youbot-package-final-20260914T143957Z/overlap-consumer",
+        "race.test.ts"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:40:06.386604+00:00",
+      "completedAt": "2026-09-14T14:40:06.808778+00:00",
+      "durationSeconds": 0.422,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Original independent overlapping-retry test passes and asserts exactly one model invocation under two gated concurrent retry UUIDs.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/independent-overlapping-retry-final.stdout.log",
+      "stdoutSha256": "32219a69085829a20f9d8f6a0c2832a41d1535523ac81a0bbeb469c5acf80fa6",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/independent-overlapping-retry-final.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "packed-strict-repair-assertions-corrected",
+      "argv": [
+        "node",
+        "/tmp/youbot-package-final-20260914T143957Z/consumer/strict-repair-assertions-corrected.mjs"
+      ],
+      "cwd": "/Users/pretheesh/Projects/youbot",
+      "startedAt": "2026-09-14T14:41:02.670943+00:00",
+      "completedAt": "2026-09-14T14:41:02.722014+00:00",
+      "durationSeconds": 0.051,
+      "exitCode": 0,
+      "outcome": "passed",
+      "summary": "Strict assertions against exact extracted tarball pass: off-page expiry STALE_EVIDENCE; source-backed missing-fieldId overwrite blocked with manual value preserved; no-unit numeric filter INPUT_INCOMPLETE; explicit m2 returns one metric item, excludes incompatible imperial item and marks complete=false.",
+      "currentSourceFresh": true,
+      "sourceIdentityPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/source-before.json",
+      "freshnessNote": "Source/config/document snapshot unchanged before and after this final repair run.",
+      "stdoutPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-strict-repair-assertions-corrected.stdout.log",
+      "stdoutSha256": "7e5abb81f13daa40a93992b8d10b063228478e1506aa1c213ef08bcc3705cf13",
+      "stderrPath": "docs/collections/evidence/implementation-validation-20260914T144328Z/packed-strict-repair-assertions-corrected.stderr.log",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "additionalReproduction": {
+    "historicalFailurePath": "docs/collections/evidence/dispatch-window-failure-20260914T125219Z",
+    "productionChangesByReviewer": false,
+    "fixedDispatchWindow": {
+      "script": "docs/collections/evidence/implementation-validation-20260914T144328Z/dispatch-window-regression.mjs",
+      "outcome": "passed",
+      "expectedAndObserved": "Withdraw after first check, before callback send: current evidence is stale, sent[],handled:false,response empty.",
+      "command": "dispatch-window-final"
+    },
+    "staleSessionNoTools": {
+      "script": "docs/collections/evidence/implementation-validation-20260914T144328Z/stale-session-regression.mjs",
+      "outcome": "passed",
+      "expectedAndObserved": "Remember receipt from earlier successful tool turn; unpublish; next turn has no tools; sent[],handled:false.",
+      "command": "stale-session-final"
+    },
+    "interfaceAdaptation": "Original failing script is immutable. The passing copy adds current inbox remember/read-evidence methods and handles InboxDispatchHeld; it does not change the withdrawal injection point or no-send assertion.",
+    "durabilityBoundary": "Independent small harness keeps receipt state in memory; separate executed concierge store test verifies SQLite receipt persistence across restart and held provisional-outbox removal.",
+    "concurrentWriterRegression": "Package tests again pass independent instances and two cooperating processes; packed verifier also passes multiInstanceWrites.",
+    "engineEdgeScript": "docs/collections/evidence/implementation-validation-20260914T144328Z/independent-engine-edges.mjs",
+    "overlappingRetry": {
+      "script": "docs/collections/evidence/implementation-validation-20260914T144328Z/independent-overlapping-retry.test.ts",
+      "sha256": "bc2628ccd4f346c84c9663c7d3873cdeedc990c9855f56673e29e74c1097c2d6",
+      "originalFailure": "Coordinator independent reviewer observed two model calls; preserved original script.",
+      "currentIndependentOutcome": "Exactly one model call before gate release; independent test passed after repair.",
+      "command": "independent-overlapping-retry-final"
+    },
+    "finalPackedRepair": {
+      "originalScripts": [
+        "docs/collections/evidence/implementation-validation-20260914T144328Z/consumer/review-reproductions.mjs",
+        "docs/collections/evidence/implementation-validation-20260914T144328Z/consumer/units-probe.mjs"
+      ],
+      "strictAssertions": "docs/collections/evidence/implementation-validation-20260914T144328Z/consumer/strict-repair-assertions-corrected.mjs",
+      "testedTarballSha256": "0479c8be9f0262011f2be5d889905613dbfbd8fb745859a7820301dbbda1d676",
+      "harnessCorrection": "Original added strict helper incorrectly read collections_get.items. Preserved failure replaced only that readback with collections_item_get.data.values; product assertions unchanged."
+    }
+  },
+  "requirements": [
+    {
+      "id": "CC-01",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Built collection route plus coordinator browser desktop/narrow authoring/publication flow; existing inbox regression tests pass.",
+      "commands": [
+        "backend-focused-final",
+        "backend-build-final",
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "CC-02",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Core/service/route and actual registry context tests cover tenant/privacy/owner/visitor denial; exhaustive real channel auth matrix not run.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-03",
+      "status": "partial",
+      "evidenceSummary": "Focused typed schema, real calendar date, reference, money and cross-collection unit cases pass; broad domain corpus remains unverified.",
+      "commands": [
+        "package-tests-final",
+        "independent-engine-edges-final"
+      ]
+    },
+    {
+      "id": "CC-04",
+      "status": "partial",
+      "evidenceSummary": "Dangling and cross-entity references rejected; full building/unit and course/session hierarchy/timezone corpus not executed.",
+      "commands": [
+        "package-tests-final"
+      ]
+    },
+    {
+      "id": "CC-05",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Real PDF page segments/private original are retained; owner-only source inspector returns passages without local path disclosure. Coordinator browser source inspection passed.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "CC-06",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Host actual pdf-parse text/page coverage, partial/empty/encrypted/scanned/malformed/over-byte-limit rejection and private original storage pass; coordinator PDF selection/process ready-review/coverage passed. Not a package importer.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "CC-07",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Durable text/PDF source/ingest/job/proposal identities survive disk reload; generated conflict operations retained; sequential replay and original independent overlapping retry (exactly one model call) pass. Crash/power-loss remains separate.",
+      "commands": [
+        "backend-focused-final",
+        "independent-overlapping-retry-final"
+      ]
+    },
+    {
+      "id": "CC-08",
+      "status": "partial",
+      "evidenceSummary": "Strong-ID/candidate/manual protection pass, including source-backed updates with missing fieldId evidence; blocked apply preserves manual value in exact tarball. Broad revised-customer-catalogue corpus remains unverified.",
+      "commands": [
+        "package-tests-final",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "CC-09",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Host model outputs are mocked in route tests; validated proposals, apply and corrections work, with coordinator browser review/publication. Live model ambiguity accuracy remains unmeasured.",
+      "commands": [
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-10",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Core revision conflicts/archive undo and concurrent acknowledged writes pass; backend checked publication/readback passes. Broader failure corpus remains unexecuted.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    },
+    {
+      "id": "CC-11",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Core/publication route tests plus coordinator successful browser confirmation and persisted1published readback. Draft-only/private facts excluded in preview tests.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-12",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Core archive/undo preserves draft semantics; host before-send withdrawal and remembered stale-session reply are held without transport.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    },
+    {
+      "id": "CC-13",
+      "status": "partial",
+      "evidenceSummary": "Inclusive validity and exact timestamp boundaries pass; paginated receipt now becomes stale when an off-page matching item expires. Broad live time-boundary transport/recurrence corpus remains unverified.",
+      "commands": [
+        "package-tests-final",
+        "independent-engine-edges-final",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "CC-14",
+      "status": "partial",
+      "evidenceSummary": "Persisted view descriptors and built responsive UI observed through coordinator browser; every domain/layout semantic edge not independently exercised.",
+      "commands": [
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "CC-15",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Current Radix opener restoration and durable job hydration/status/retry source verified; final UI lint/build pass. Coordinator browser focus/reload/retry checks attributed separately; full independent accessibility matrix not run.",
+      "commands": [
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "CC-16",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Currency/unit ordering and explicit unit numeric filtering pass with incompatible-value exclusion and incomplete disclosure; omitted unit requests clarification. Paginated generation and off-page time expiry are independently asserted.",
+      "commands": [
+        "package-tests-final",
+        "independent-engine-edges-final",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "CC-17",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Visitor registry sees only permitted published facts; deterministic preview supports visitor query with supporting items. Live model explanatory quality unmeasured.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "CC-18",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Existing pre-send stale check plus independent after-first-check withdrawal race and stale-session/no-current-tool case all pass. SQLite receipt persistence and held outbox cleanup verified by focused store tests.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final",
+        "dispatch-window-final",
+        "stale-session-final",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "CC-19",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Current visitor dispatch context/mutation denial and visitor-reply/approval/followup regression suites pass; live channel delivery and full answerFromKnowledge policy permutations remain outside these tests.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "CC-20",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "New deterministic answer-preview uses visitor retrieval; backend tests reject draft/private matches and assert no content mutation. Coordinator observed prepublish exclusion and postpublish card/answer with supporting facts.",
+      "commands": [
+        "backend-focused-final",
+        "backend-build-final",
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "CC-21",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "JSON concurrent-writer/restart and SQLite session evidence restart pass; upload receipt/original retry persists. Power-loss/stale-lock/migration disaster recovery remains untested.",
+      "commands": [
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-22",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Host malformed parser and failed mocked-model recovery tested, without secret/original-path leakage. Actual provider outages/cost budget performance unmeasured.",
+      "commands": [
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-23",
+      "status": "partial",
+      "evidenceSummary": "Actual local PDF parser tests plus two independently rerun 250/251-page cases; retained 24-row benchmark consistency verified. Synthetic sparse fixtures do not establish live model omission/critical-field accuracy.",
+      "commands": [
+        "backend-focused-final",
+        "real-pdf-250-pages",
+        "real-pdf-251-pages",
+        "benchmark-consistency"
+      ]
+    },
+    {
+      "id": "CC-24",
+      "status": "not_verified_for_release",
+      "evidenceSummary": "Source/static builds and coordinator browser persisted publication pass. No clean-machine installed Youbot/macOS/Windows migration release evidence or real-channel delivery.",
+      "commands": []
+    },
+    {
+      "id": "CC-25",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Exact hashed headless tarball runs external ESM/CJS consumer with19tools/0runtime deps and no parser/provider requirements.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-26",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "All 19 tools declare access/effect metadata and concrete nested/output schemas; packed consumer verifies contracts; dispatcher rejects malformed actual output. No exhaustive invalid-shape matrix for every nested field.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "independent-engine-edges-final",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "CC-27",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Core context/entity/privacy plus host visitor spoof/mutation denial and send-window/session receipts pass. Live multi-host permission-revocation matrix not exhaustive.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-28",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Persistence/policy boundary and actual concurrent/restart adapter cases pass. No mandatory parser/blob/import-job/extraction port; crash/power-loss tests remain future evidence.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    },
+    {
+      "id": "CC-29",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Host performs real PDF parsing and mocked LLM organization; core remains provider-free. Engine evidence is checked at send callback and remembered across no-tool session turns.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    },
+    {
+      "id": "CC-30",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Package has0runtime deps; Youbot uses public APIs for integrated PDF-derived data/source/preview flow and the independent consumer remains framework-free.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "backend-focused-final",
+        "backend-build-final"
+      ]
+    },
+    {
+      "id": "CC-31",
+      "status": "partial",
+      "evidenceSummary": "ESM/CJS/version and replay errors tested; prior schema migration/rollback/cancellation compatibility not covered.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    },
+    {
+      "id": "CC-32",
+      "status": "supported_in_tested_scope",
+      "evidenceSummary": "Actual archived tarball/hash external consumer,ESM/CJS,two protocol fixtures,restart,multi-instance writes,visitor denial all pass. Live-provider and installed-host release proofs remain separate.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "id": "CC-S01",
+      "requirements": [
+        "CC-02",
+        "CC-03",
+        "CC-04",
+        "CC-06",
+        "CC-10",
+        "CC-18",
+        "CC-21",
+        "CC-22",
+        "CC-25",
+        "CC-26",
+        "CC-27",
+        "CC-28",
+        "CC-29",
+        "CC-30",
+        "CC-31"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S02",
+      "requirements": [
+        "CC-02",
+        "CC-03",
+        "CC-04",
+        "CC-10",
+        "CC-21",
+        "CC-25",
+        "CC-27",
+        "CC-28",
+        "CC-31"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S03",
+      "requirements": [
+        "CC-02",
+        "CC-05",
+        "CC-06",
+        "CC-07",
+        "CC-21",
+        "CC-22",
+        "CC-25",
+        "CC-27",
+        "CC-28",
+        "CC-29"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S04",
+      "requirements": [
+        "CC-03",
+        "CC-04",
+        "CC-05",
+        "CC-07",
+        "CC-08",
+        "CC-09",
+        "CC-22",
+        "CC-25",
+        "CC-28",
+        "CC-29",
+        "CC-30"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S05",
+      "requirements": [
+        "CC-02",
+        "CC-08",
+        "CC-09",
+        "CC-10",
+        "CC-11",
+        "CC-12",
+        "CC-13",
+        "CC-21",
+        "CC-25",
+        "CC-26",
+        "CC-27",
+        "CC-29",
+        "CC-31"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S06",
+      "requirements": [
+        "CC-01",
+        "CC-05",
+        "CC-09",
+        "CC-11",
+        "CC-13",
+        "CC-14",
+        "CC-15",
+        "CC-20",
+        "CC-30"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S07",
+      "requirements": [
+        "CC-01",
+        "CC-05",
+        "CC-11",
+        "CC-12",
+        "CC-13",
+        "CC-14",
+        "CC-15",
+        "CC-25",
+        "CC-30"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S08",
+      "requirements": [
+        "CC-01",
+        "CC-06",
+        "CC-07",
+        "CC-08",
+        "CC-09",
+        "CC-10",
+        "CC-15",
+        "CC-22",
+        "CC-26",
+        "CC-27",
+        "CC-29",
+        "CC-30"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report.",
+      "boundedVerification": {
+        "verdict": "PASS",
+        "scope": "Durable text/PDF disk reload, generated conflict preservation, sequential and overlapping retry identity; no duplicate source/ingest/proposal in route tests and exactly one model call in original independent overlap regression. Owner UI hydration/status/in-progress retry control source reviewed.",
+        "commands": [
+          "independent-overlapping-retry-final",
+          "backend-focused-final",
+          "backend-build-final",
+          "ui-lint-overlap",
+          "ui-build-overlap"
+        ],
+        "limitations": "Disk reload uses cache reset in-process; model/transport are controlled; no abrupt OS crash/power-loss or independent specialist browser execution. Earlier coordinator browser recovery/focus checks are separately attributed."
+      }
+    },
+    {
+      "id": "CC-S09",
+      "requirements": [
+        "CC-02",
+        "CC-13",
+        "CC-16",
+        "CC-17",
+        "CC-18",
+        "CC-21",
+        "CC-22",
+        "CC-25",
+        "CC-27",
+        "CC-28",
+        "CC-29",
+        "CC-31"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S10",
+      "requirements": [
+        "CC-05",
+        "CC-17",
+        "CC-18",
+        "CC-19",
+        "CC-20",
+        "CC-22",
+        "CC-26",
+        "CC-27",
+        "CC-29",
+        "CC-30"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S11",
+      "requirements": [
+        "CC-01",
+        "CC-02",
+        "CC-03",
+        "CC-04",
+        "CC-05",
+        "CC-06",
+        "CC-07",
+        "CC-08",
+        "CC-09",
+        "CC-10",
+        "CC-11",
+        "CC-12",
+        "CC-13",
+        "CC-14",
+        "CC-15",
+        "CC-16",
+        "CC-17",
+        "CC-18",
+        "CC-19",
+        "CC-20",
+        "CC-21",
+        "CC-22",
+        "CC-23",
+        "CC-25",
+        "CC-26",
+        "CC-27",
+        "CC-28",
+        "CC-29",
+        "CC-30",
+        "CC-31"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S12",
+      "requirements": [
+        "CC-06",
+        "CC-13",
+        "CC-21",
+        "CC-23",
+        "CC-24",
+        "CC-25",
+        "CC-28",
+        "CC-31",
+        "CC-32"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S13",
+      "requirements": [
+        "CC-25",
+        "CC-26",
+        "CC-27",
+        "CC-28",
+        "CC-29",
+        "CC-30",
+        "CC-31",
+        "CC-32"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    },
+    {
+      "id": "CC-S14",
+      "requirements": [
+        "CC-01",
+        "CC-02",
+        "CC-03",
+        "CC-04",
+        "CC-05",
+        "CC-06",
+        "CC-07",
+        "CC-08",
+        "CC-09",
+        "CC-10",
+        "CC-11",
+        "CC-12",
+        "CC-13",
+        "CC-14",
+        "CC-15",
+        "CC-16",
+        "CC-17",
+        "CC-18",
+        "CC-19",
+        "CC-20",
+        "CC-21",
+        "CC-22",
+        "CC-23",
+        "CC-24",
+        "CC-25",
+        "CC-26",
+        "CC-27",
+        "CC-28",
+        "CC-29",
+        "CC-30",
+        "CC-31",
+        "CC-32"
+      ],
+      "status": "evidence_available_not_closed",
+      "note": "Fresh exact-source focused evidence available; native independent review and aggregate acceptance remain separate. No story closed by this report."
+    }
+  ],
+  "findings": [],
+  "limitations": [
+    "All executed focused checks pass; full 39-scenario/32-criterion acceptance is not exhaustively established.",
+    "Backend observed count is 12 files/93 tests from final exact selection; independent overlapping retry adds one separate test.",
+    "Final UI lint has 121 warnings, zero errors.",
+    "Browser executions are coordinator-attributed; this specialist did source review and executable checks only.",
+    "LLM generation/transport mocked in route tests; real PDF parsing executes locally. No live provider quality/cost benchmark or external message send.",
+    "Durable authoring restart means new services/stores reload disk after cache reset within same process; abrupt OS-process death/restart and multiprocess authoring-job writes not verified.",
+    "JSON engine concurrency/restart and actual SQLite evidence persistence pass; stale locks, power loss, migration/restore and installed-platform evidence remain gaps.",
+    "Real PDF benchmark uses sparse synthetic text documents. No OCR/dense customer brochures/parallel-load or production latency, memory or timeout guarantee.",
+    "Two provider-protocol fixtures do not establish two live-provider compatibility.",
+    "No Factory/Spacecrew native closure, release/deployment/registry publication or Fikr delivery performed by this specialist.",
+    "One supplemental verification harness run failed because it read the wrong result shape; corrected strict assertions passed against unchanged tarball/source. Both logs/scripts are preserved."
+  ],
+  "notPerformed": [
+    "Factory/Spacecrew work closure",
+    "Final independent aggregate acceptance",
+    "Release/deployment/registry publication",
+    "Fikr external message delivery"
+  ],
+  "packedArtifact": {
+    "filename": "youbot-collection-engine-0.1.0.tgz",
+    "sha256": "0479c8be9f0262011f2be5d889905613dbfbd8fb745859a7820301dbbda1d676",
+    "bytes": 66529,
+    "members": 39,
+    "observedDuring": "packed-verifier-final",
+    "path": "docs/collections/evidence/implementation-validation-20260914T144328Z/tested-youbot-collection-engine-0.1.0.tgz",
+    "captureMethod": "Captured actual valid tarball while packed verifier ran before cleanup, then extracted those exact bytes for original independent repro scripts and strict assertions."
+  },
+  "toolSurface": {
+    "publicEngineTools": 19,
+    "visitorEngineReadTools": 6,
+    "hostModelTools": 14,
+    "hostModelToolsEvidence": "Source excludes change_apply,publish,unpublish,archive,undo from19 definitions; backend registration test checks effect exclusions.",
+    "proof": "Package tests and packed verifier validate public count and visitor set; backend tools test invokes actual registry with isOwner:false and rejects spoofed authority/mutations."
+  },
+  "resolvedFindings": [
+    {
+      "id": "IV-F01",
+      "resolution": "Concurrent acknowledged JSON writes persist for independent instances and processes.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final"
+      ]
+    },
+    {
+      "id": "IV-F02-dispatch",
+      "resolution": "Actual host registry visitor read-only dispatch/context/privacy denial implemented and tested.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "IV-F02-freshness",
+      "resolution": "Initial independent send-window regression failed and was preserved. Corrected backend now holds withdrawal inside the final send callback and stale remembered session facts without current tool calls.",
+      "commands": [
+        "backend-focused-final",
+        "dispatch-window-final",
+        "stale-session-final"
+      ]
+    },
+    {
+      "id": "IV-F03",
+      "resolution": "Host PDF parsing/private originals/coverage/retry/proposal flow now tested and coordinator browser exercised; reusable package correctly retains no file parser.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "IV-F04",
+      "resolution": "Owner source passage inspector now implemented and tested; coordinator browser confirmed passage inspection.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "IV-F05",
+      "resolution": "Deterministic visitor answer preview now returns public supporting facts without drafts/private fields or content mutation; coordinator browser confirmed postpublication answer.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "IV-R01-qualified-evidence",
+      "resolution": "Duplicate local item IDs across collections no longer lose identity; package and independent page/empty-scope generation invalidation tests pass.",
+      "commands": [
+        "package-tests-final",
+        "independent-engine-edges-final",
+        "dispatch-window-final",
+        "stale-session-final"
+      ]
+    },
+    {
+      "id": "IV-R02-types-ordering",
+      "resolution": "Impossible dates/dangling or cross-entity references rejected; explicit compatible currency/unit ordering with exclusion disclosure; inclusive expiry/clarification checks pass.",
+      "commands": [
+        "package-tests-final",
+        "independent-engine-edges-final"
+      ]
+    },
+    {
+      "id": "IV-R03-reconciliation-contract",
+      "resolution": "Strong-ID deterministic matching, ambiguous candidate/manual field protections and read/write/effect/nested/output contracts tested; malformed actual output rejected. Broad customer reconciliation/LLM quality remains unmeasured.",
+      "commands": [
+        "package-tests-final",
+        "packed-verifier-final",
+        "independent-engine-edges-final"
+      ]
+    },
+    {
+      "id": "IV-R04-authoring-recovery",
+      "resolution": "Durable text/PDF source/job disk reload, generated revision-conflict preservation, stable retry/proposal identity and no duplicate source/ingest/model execution pass in focused route tests.",
+      "commands": [
+        "backend-focused-final"
+      ]
+    },
+    {
+      "id": "IV-R05-opener-focus",
+      "resolution": "Independent source review found missing restoration in controlled Radix dialogs; coordinator reproduced Escape focus loss. Explicit opener restoration now source-verified; coordinator reports passing browser retest.",
+      "commands": [
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "IV-R06-temporal-display",
+      "resolution": "Independent source review found date-only Outdated badge expired at start of day; final UI source aligns with engine inclusive UTC-day boundary.",
+      "commands": [
+        "ui-validity-boundaries-overlap",
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "IV-R07-overlapping-retry",
+      "resolution": "Original independent gated-model test with distinct concurrent retry UUIDs now observes exactly one model invocation. Focused route regressions also pass after claimed-job retry repair. Earlier bounded sequential PASS was superseded when overlap defect was reported; intermediate CHANGES_REQUESTED report retained.",
+      "commands": [
+        "independent-overlapping-retry-final",
+        "backend-focused-final",
+        "backend-build-final",
+        "ui-lint-overlap",
+        "ui-build-overlap"
+      ]
+    },
+    {
+      "id": "IV-R08-off-page-expiry",
+      "resolution": "Independent original repro on new tarball reports STALE_EVIDENCE when an unreturned matching item expires; strict assertion and package regression pass.",
+      "commands": [
+        "package-tests-final",
+        "packed-prior-reproductions",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "IV-R09-missing-field-provenance",
+      "resolution": "Source-backed replacement without fieldId provenance retains manual name, marks unresolved issue and blocks apply with PROPOSAL_INVALID; exact tarball assertions pass.",
+      "commands": [
+        "package-tests-final",
+        "packed-prior-reproductions",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    },
+    {
+      "id": "IV-R10-explicit-unit-filter",
+      "resolution": "Ambiguous numeric unit filter requests clarification; explicit m2 filter excludes imperial values and marks incompleteness, independently asserted on the tested archive.",
+      "commands": [
+        "package-tests-final",
+        "packed-units-probe",
+        "packed-strict-repair-assertions-corrected"
+      ]
+    }
+  ],
+  "browserEvidence": {
+    "source": "Coordinator /root reports localhost browser execution, not independently run by collections_quality. Prior browser report retained as history; fresh checks below are attributed.",
+    "editorFocus": "Coordinator: Property input focused on open; Escape returns to BUTTON aria-label Edit item after explicit opener repair.",
+    "sourceInspectorFocus": "Coordinator: source inspector opens as modal; Escape returns to exact Review source button.",
+    "durableJobRecovery": "Coordinator: reload shows persisted conflict/retry; Retry yields needs-review with one proposed change; second reload preserves needs-review job and proposal.",
+    "independentBoundary": "This specialist independently inspected source and executed lint/build; no browser automation was executed by this specialist.",
+    "timingBoundary": "Coordinator browser recovery/focus evidence was supplied before overlapping-retry repair. Final retry-in-progress guards are independently source-reviewed and built; no new specialist browser run is claimed."
+  },
+  "previousReportArchive": "docs/collections/evidence/implementation-validation-20260914T144328Z/previous-implementation-validation.json",
+  "fullAcceptanceOutcome": "No remaining reproduced blocker in executed focused checks. Final extracted-tarball expiry/manual-protection/unit assertions and host integration pass. Native exact-revision reviews, full acceptance and release remain separate.",
+  "remainingAcceptanceGaps": [
+    {
+      "requirements": [
+        "CC-03",
+        "CC-04",
+        "CC-08",
+        "CC-13",
+        "CC-23"
+      ],
+      "gap": "Broad property/class hierarchy, timezone/recurrence, revised-catalogue reconciliation and live model critical-field accuracy corpus remains unexecuted; focused typed/reference/order/currentness cases now pass."
+    },
+    {
+      "requirements": [
+        "CC-15"
+      ],
+      "gap": "Independent comprehensive keyboard/screen-reader/accessibility execution remains unverified; current source and coordinator focus/recovery browser checks are recorded separately."
+    },
+    {
+      "requirements": [
+        "CC-24",
+        "CC-31"
+      ],
+      "gap": "Clean-machine installed host, upgrade/rollback, crash/power-loss/stale-lock recovery and real visitor delivery remain unverified."
+    },
+    {
+      "requirements": [
+        "CC-19"
+      ],
+      "gap": "Full live-channel/provider/policy matrix remains outside controlled dispatch tests."
+    }
+  ],
+  "historicalFailingDispatchEvidence": "docs/collections/evidence/dispatch-window-failure-20260914T125219Z",
+  "sourceReview": {
+    "authoringJobs": {
+      "paths": [
+        "youbot-core/src/concierge/collections/authoring-jobs.ts",
+        "youbot-core/src/concierge/collections/routes.ts",
+        "youbot-core/src/concierge/collections/__tests__/routes.test.ts",
+        "youbot-core/web-ui/app/concierge/collections/page.tsx"
+      ],
+      "observed": "Persisted job identity/status/attempt/source/ingest/generated/proposal/conflict state; owner routes list/get/retry; UI loadDetail hydrates list plus proposal job get, retained status/conflict/retry paths. Backend tests assert one model call and no duplicate source/ingest/proposal across retry. JSON file restricted to 0600.",
+      "boundary": "Restart route tests clear service/store caches and reload actual disk in-process; they do not terminate/restart an OS process or simulate crash/power loss. Job queue serializes one process; no multiprocess authoring-job guarantee demonstrated.",
+      "overlapRepair": "Current source reviewed after stable notice: claimed in-flight retry prevents a second concurrent execution; focused route tests exercise abandoned-runtime recovery and stale-completion fencing after takeover; original independent overlap script exercises exactly one model call. UI retry guard is disabled during organizing. OS crash and multiprocess guarantees are not inferred from these checks."
+    },
+    "dialogs": {
+      "observed": "Radix modal Dialog wrappers supply modal focus trapping and dismissal. Repaired controlled dialogs capture exact opener button and call preventDefault plus connected opener.focus in onCloseAutoFocus. Source and edit call sites pass event.currentTarget. Initial edit field autofocus remains. Browser behavior is coordinator-attributed only.",
+      "dependencyPath": "youbot-core/web-ui/node_modules/@radix-ui/react-dialog/dist/index.mjs",
+      "dependencySha256": "8532dcb7cc753e376c065e69ae649676cffe7274357505bc56f1f09a8ebb0fb7"
+    },
+    "temporalDisplay": {
+      "observed": "Actual final isOutdated helper independently transpiled and executed through eight inclusive UTC-day and exact timestamp boundary cases; matches engine expiry at equality. Source file remains unchanged.",
+      "commands": [
+        "ui-validity-boundaries"
+      ]
+    }
+  },
+  "benchmarkEvidence": {
+    "report": "docs/collections/evidence/pdf-limit-benchmark-20260914.md",
+    "raw": "docs/collections/evidence/pdf-limit-benchmark-20260914.json",
+    "harness": "docs/collections/evidence/pdf-limit-benchmark-20260914.mts",
+    "consistencyResult": "docs/collections/evidence/implementation-validation-20260914T141853Z/benchmark-consistency.stdout.log",
+    "independentRuns": [
+      "real-pdf-250-pages",
+      "real-pdf-251-pages"
+    ],
+    "scope": "Real parser on deterministic sparse text PDFs. Retained 24-run data independently recomputed and source hashes matched; two boundary cases independently rerun. Original 250-page median 514.0 ms/max lifetime RSS 698.5 MiB remains historical benchmark evidence, not a new 24-run execution."
+  },
+  "uiEvidenceReuse": {
+    "sourceFiles": 87,
+    "allHashesMatchPriorManifest": true,
+    "priorManifest": "docs/collections/evidence/implementation-validation-20260914T141853Z/source-manifest.json",
+    "reusedCommands": [
+      "ui-lint-overlap",
+      "ui-build-overlap",
+      "ui-validity-boundaries-overlap"
+    ],
+    "proof": "docs/collections/evidence/implementation-validation-20260914T144328Z/ui-reuse.json"
+  },
+  "documentationIdentity": {
+    "path": "docs/collections/engine-api.md",
+    "sha256": "020eb9fa837a38be43ee90ddba32fec0e3c540182de7135fafe91380516b8e6a",
+    "note": "Final S13 metadata/nested/output schema/runtime-validation documentation correction captured; no UI retest needed for this doc-only change."
+  }
+}
