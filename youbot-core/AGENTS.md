@@ -363,7 +363,7 @@ User request → Agent tries existing tools → Can't handle it?
 
 ```bash
 # From source
-git clone https://github.com/Bigmints-com/youbot.git
+git clone https://github.com/Bigmints-com/ubot.git
 cd youbot && make deps
 make install         # Builds + installs to ~/.youbot + CLI to ~/.local/bin
 
