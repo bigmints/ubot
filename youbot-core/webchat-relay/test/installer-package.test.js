@@ -30,7 +30,9 @@ test('the staged relay image layout serves its packaged installer', () => {
 test('the relay build contract copies the canonical installer', () => {
   const dockerfile = fs.readFileSync(path.join(__dirname, '../Dockerfile'), 'utf8');
   const deploy = fs.readFileSync(path.join(__dirname, '../../deploy-relay.sh'), 'utf8');
-  assert.match(dockerfile, /^COPY install\.sh \.$/m);
+  assert.match(dockerfile, /^COPY --chown=node:node install\.sh \.$/m);
+  assert.match(dockerfile, /^COPY --chown=node:node server\.js \.$/m);
+  assert.match(dockerfile, /^COPY --chown=node:node website\/ website\/$/m);
   assert.match(deploy, /install -m 755 "\$SCRIPT_DIR\/\.\.\/install\.sh" "\$BUILD_CONTEXT\/install\.sh"/);
   assert.match(deploy, /--source "\$BUILD_CONTEXT"/);
 });
