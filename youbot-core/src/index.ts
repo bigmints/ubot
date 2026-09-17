@@ -104,8 +104,8 @@ metricsCollector.setDatabase(db as any);
 const configWsPath = youbotConfig.workspace?.path;
 const WORKSPACE_PATH = configWsPath
   ? (path.isAbsolute(configWsPath) ? configWsPath : path.join(YOUBOT_HOME || process.cwd(), configWsPath))
-  : YOUBOT_HOME 
-    ? path.join(YOUBOT_HOME, 'workspace') 
+  : YOUBOT_HOME
+    ? path.join(YOUBOT_HOME, 'workspace')
     : path.join(process.cwd(), 'workspace');
 
 // Create workspace provider — hooks can override this (e.g. GCS for cloud-shared)
@@ -465,13 +465,13 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     if (shouldGate) {
       const authHeader = req.headers?.['authorization'] || '';
       let authorized = false;
-      
+
       // Check 1: Valid session cookie
       const sessionToken = getSessionFromCookie(req);
       if (sessionToken && validateSession(sessionToken)) {
         authorized = true;
       }
-      
+
       // Check 2: Valid Bearer API key (for programmatic access)
       if (!authorized && authHeader.startsWith('Bearer ')) {
         const { authenticate: apiAuth } = await import('./api/middleware/auth.js');
@@ -486,7 +486,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       if (!authorized && resolvedAuth.mode === 'sso') {
         authorized = await authenticateSsoRequest(req);
       }
-      
+
       if (!authorized) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -538,7 +538,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       res.end(JSON.stringify({ success: true, message: 'No local auth required' }));
       return;
     }
-    
+
     try {
       const retryAfter = loginRetryAfter(req);
       if (retryAfter > 0) {
@@ -637,7 +637,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     }
     return;
   }
-  
+
   // Health check endpoint
   if (url === '/health' && method === 'GET') {
     const report = await getReadinessReport();
@@ -672,7 +672,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     res.end(JSON.stringify({ mode: RAW_MODE, features: FEATURES }));
     return;
   }
-  
+
   // API endpoint for app state
   if (url === '/api/state' && method === 'GET') {
     const metrics = metricsCollector.getSummary();
@@ -703,7 +703,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
     res.end(JSON.stringify(log.getEntries(since)));
     return;
   }
-  
+
   // Route all /api/* to the API router
   if (url.startsWith('/api/')) {
     const handled = await handleApiRoute(req, res, url, method);
@@ -747,18 +747,18 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
 
   // ── Production: serve static files (Next.js static export) ─────────
   let filePath = url === '/' ? '/index.html' : url;
-  
+
   // Try exact path, then .html suffix, then /index.html (Next.js static export routes)
   let file = await serveStatic(filePath);
   if (!file && !path.extname(filePath)) {
     file = await serveStatic(filePath + '.html');
     if (!file) file = await serveStatic(filePath + '/index.html');
   }
-  
+
   if (file) {
     // Cache static assets, no-cache for HTML
-    const cacheControl = file.contentType === 'text/html' 
-      ? 'no-cache, no-store, must-revalidate' 
+    const cacheControl = file.contentType === 'text/html'
+      ? 'no-cache, no-store, must-revalidate'
       : 'public, max-age=31536000, immutable';
     res.writeHead(200, { 'Content-Type': file.contentType, 'Cache-Control': cacheControl });
     res.end(file.content);
@@ -772,7 +772,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         return;
       }
     }
-    
+
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found');
   }
@@ -812,7 +812,7 @@ function createServer(): http.Server {
   if (hooks.middleware?.onServerStart) {
     hooks.middleware.onServerStart(server);
   }
-  
+
   return server;
 }
 
@@ -875,7 +875,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
       console.log(`📊 Health check: http://${displayHost}:${PORT}/health`);
       console.log(`📈 State API: http://${displayHost}:${PORT}/api/state`);
       console.log(`[YOUBOT] Mode: ${MODE.toUpperCase()} | Features: WA=${FEATURES.whatsapp} TG=${FEATURES.telegram} CLI=${FEATURES.cli}`);
-      
+
       // Resume active plans in the background
       agent?.resumeActivePlans().catch((err: any) => {
         console.error('[Main] Error resuming active plans:', err.message);

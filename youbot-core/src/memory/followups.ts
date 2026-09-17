@@ -1,7 +1,7 @@
 /**
  * Follow-Up Store
  * SQLite-backed follow-up tracking for conversation continuity.
- * 
+ *
  * Ensures every conversation reaches closure by tracking pending actions,
  * scheduled check-ins, and unresolved items across all channels.
  */
@@ -107,12 +107,12 @@ export function createFollowUpStore(db: DatabaseConnection): FollowUpStore {
 
       await db.execute(
         `INSERT INTO youbot_follow_ups (
-          id, session_id, contact_id, channel, reason, context, status, priority, 
+          id, session_id, contact_id, channel, reason, context, status, priority,
           follow_up_at, created_at, attempts, max_attempts, approval_id
         ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, 0, ?, ?)`,
         [
-          id, input.sessionId, input.contactId, input.channel, input.reason, 
-          input.context || '', priority, input.followUpAt.toISOString(), now, 
+          id, input.sessionId, input.contactId, input.channel, input.reason,
+          input.context || '', priority, input.followUpAt.toISOString(), now,
           maxAttempts, input.approvalId || null
         ]
       );
@@ -214,7 +214,7 @@ export function createFollowUpStore(db: DatabaseConnection): FollowUpStore {
 
       const fields: string[] = ['attempts = ?'];
       const params: any[] = [newAttempts];
-      
+
       if (newFollowUpAt) {
         fields.push('follow_up_at = ?');
         params.push(newFollowUpAt.toISOString());
@@ -232,13 +232,13 @@ export function createFollowUpStore(db: DatabaseConnection): FollowUpStore {
 
     async getStats(): Promise<{ pending: number; completed: number; cancelled: number; expired: number; overdue: number }> {
       const now = new Date().toISOString();
-      
+
       const getCount = async (status?: string, overdue?: boolean) => {
         let sql = `SELECT COUNT(*) as count FROM youbot_follow_ups WHERE 1=1`;
         const params: any[] = [];
         if (status) { sql += ` AND status = ?`; params.push(status); }
         if (overdue) { sql += ` AND follow_up_at <= ?`; params.push(now); }
-        
+
         const row = await db.get<{count: number}>(sql, params);
         return row?.count || 0;
       };

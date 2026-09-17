@@ -48,9 +48,9 @@ export function createMemoryStore(db: DatabaseConnection): MemoryStore {
 			const id = uuidv4();
 
 			await db.execute(
-				`INSERT INTO youbot_memories (id, contact_id, category, key, value, source, confidence, expires_at, created_at, updated_at) 
+				`INSERT INTO youbot_memories (id, contact_id, category, key, value, source, confidence, expires_at, created_at, updated_at)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-				 ON CONFLICT(contact_id, category, key) 
+				 ON CONFLICT(contact_id, category, key)
 				 DO UPDATE SET value = excluded.value, source = excluded.source, confidence = excluded.confidence, updated_at = excluded.updated_at, expires_at = excluded.expires_at`,
 				[id, contactId, category, key, value, source, confidence, expiresAt, now, now]
 			);

@@ -105,7 +105,7 @@ export class TaskSchedulerService {
     if (!this.db) return;
     try {
       await this.db.execute(
-        `INSERT OR REPLACE INTO youbot_scheduled_tasks 
+        `INSERT OR REPLACE INTO youbot_scheduled_tasks
           (id, name, description, tag, schedule, data, priority, status, tags, metadata, created_at, updated_at, next_run_at, run_count, failure_count, enabled)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -152,7 +152,7 @@ export class TaskSchedulerService {
       for (const row of rows) {
         const handlerTag = row.tag;
         const factory = this.handlerFactories.get(handlerTag);
-        
+
         if (!factory) {
           this.logger?.warn(`No handler factory registered for tag '${handlerTag}'. Task ${row.id} will not be loaded.`);
           continue;

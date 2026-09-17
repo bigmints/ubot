@@ -1,6 +1,6 @@
 /**
  * Prompt A/B Testing Framework
- * 
+ *
  * Compares system prompt variants by tracking tool routing accuracy.
  */
 
@@ -62,7 +62,7 @@ export class PromptExperimentManager {
       const row = await this.db.get(
         `SELECT * FROM youbot_prompt_experiments WHERE active = 1 LIMIT 1`
       );
-        
+
       if (!row) return null;
 
       return {
@@ -115,13 +115,13 @@ export class PromptExperimentManager {
 
   async getResults(experimentId: string): Promise<any[]> {
     if (!this.db) return [];
-    
+
     try {
       const rows = await this.db.query(
-        `SELECT variant_id, COUNT(*) as count, AVG(tool_calls) as avg_tool_calls, AVG(tool_successes) as avg_successes, AVG(tool_failures) as avg_failures, AVG(response_time_ms) as avg_time 
-         FROM youbot_experiment_results 
-         WHERE experiment_id = ? 
-         GROUP BY variant_id`, 
+        `SELECT variant_id, COUNT(*) as count, AVG(tool_calls) as avg_tool_calls, AVG(tool_successes) as avg_successes, AVG(tool_failures) as avg_failures, AVG(response_time_ms) as avg_time
+         FROM youbot_experiment_results
+         WHERE experiment_id = ?
+         GROUP BY variant_id`,
          [experimentId]
       );
       return rows;

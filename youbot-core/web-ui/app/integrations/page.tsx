@@ -87,24 +87,24 @@ export default function IntegrationsPage() {
             <CardContent className="space-y-5 pt-6 flex-1">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Client ID</label>
-                <Input 
-                  value={googleConfig.client_id} 
-                  onChange={e => setGoogleConfig(prev => ({...prev, client_id: e.target.value}))} 
+                <Input
+                  value={googleConfig.client_id}
+                  onChange={e => setGoogleConfig(prev => ({...prev, client_id: e.target.value}))}
                   placeholder="e.g. 1234567890-abc.apps.googleusercontent.com"
                   className="font-mono text-xs"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Client Secret</label>
-                <Input 
+                <Input
                   type="password"
-                  value={googleConfig.client_secret} 
-                  onChange={e => setGoogleConfig(prev => ({...prev, client_secret: e.target.value}))} 
+                  value={googleConfig.client_secret}
+                  onChange={e => setGoogleConfig(prev => ({...prev, client_secret: e.target.value}))}
                   placeholder="••••••••••••••••••••••••"
                   className="font-mono text-xs"
                 />
               </div>
-              
+
               <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg border border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <p><strong>Note:</strong> You must configure your Google Cloud Console OAuth consent screen and create OAuth Client IDs.</p>
                 <Dialog>
@@ -126,7 +126,7 @@ export default function IntegrationsPage() {
                         <h4 className="font-semibold text-foreground">1. Create a Google Cloud Project</h4>
                         <p className="text-muted-foreground">Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline inline-flex items-center">Google Cloud Console <ExternalLink className="w-3 h-3 ml-1" /></a> and create a new project.</p>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <h4 className="font-semibold text-foreground">2. Enable the Google Calendar API</h4>
                         <p className="text-muted-foreground">Navigate to <strong>APIs & Services {'>'} Library</strong>. Search for "Google Calendar API" and click <strong>Enable</strong>.</p>
@@ -156,7 +156,7 @@ export default function IntegrationsPage() {
                           {typeof window !== 'undefined' ? window.location.origin : 'https://[your-domain]'}/integrations/google/callback
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <h4 className="font-semibold text-foreground">5. Copy your Credentials</h4>
                         <p className="text-muted-foreground">Once created, copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the form on this page and save.</p>
@@ -171,7 +171,7 @@ export default function IntegrationsPage() {
                 <Save className="w-4 h-4 mr-2" />
                 Save Config
               </Button>
-              
+
               {googleConfig.authenticated ? (
                 <Button variant="destructive" size="sm" onClick={handleDisconnect} disabled={loading}>
                   <Unlink className="w-4 h-4 mr-2" />

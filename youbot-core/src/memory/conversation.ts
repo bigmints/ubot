@@ -51,13 +51,13 @@ export function createConversationStore(db: DatabaseConnection): ConversationSto
 
     async getSession(id: string): Promise<ConversationSession | undefined> {
       const data = await db.get(`
-        SELECT s.id, s.type, s.name, s.created_at, s.updated_at, COUNT(m.id) as count 
-        FROM youbot_chat_sessions s 
-        LEFT JOIN youbot_chat_messages m ON s.id = m.session_id 
-        WHERE s.id = ? 
+        SELECT s.id, s.type, s.name, s.created_at, s.updated_at, COUNT(m.id) as count
+        FROM youbot_chat_sessions s
+        LEFT JOIN youbot_chat_messages m ON s.id = m.session_id
+        WHERE s.id = ?
         GROUP BY s.id
       `, [id]);
-      
+
       if (!data) return undefined;
 
       return {
@@ -83,12 +83,12 @@ export function createConversationStore(db: DatabaseConnection): ConversationSto
                  (SELECT latest.role FROM youbot_chat_messages latest WHERE latest.session_id = s.id ORDER BY latest.timestamp DESC LIMIT 1) as last_message_role,
                  (SELECT latest.content FROM youbot_chat_messages latest WHERE latest.session_id = s.id ORDER BY latest.timestamp DESC LIMIT 1) as last_message_content,
                  (SELECT latest.timestamp FROM youbot_chat_messages latest WHERE latest.session_id = s.id ORDER BY latest.timestamp DESC LIMIT 1) as last_message_timestamp
-          FROM youbot_chat_sessions s 
-          LEFT JOIN youbot_chat_messages m ON s.id = m.session_id 
-          GROUP BY s.id 
+          FROM youbot_chat_sessions s
+          LEFT JOIN youbot_chat_messages m ON s.id = m.session_id
+          GROUP BY s.id
           ORDER BY s.updated_at DESC
         `);
-        
+
         return sessions.map((row: any) => ({
           id: row.id,
           type: row.type,
@@ -144,7 +144,7 @@ export function createConversationStore(db: DatabaseConnection): ConversationSto
          ) ORDER BY timestamp ASC`,
         [sessionId, limit]
       );
-      
+
       return data.map((row: any) => ({
         id: row.id,
         sessionId: row.session_id,
@@ -159,12 +159,12 @@ export function createConversationStore(db: DatabaseConnection): ConversationSto
       const data = await db.query(
         `SELECT m.* FROM youbot_chat_messages m
          JOIN youbot_chat_sessions s ON m.session_id = s.id
-         WHERE s.type = 'web' 
+         WHERE s.type = 'web'
            AND m.timestamp >= ?
          ORDER BY m.timestamp ASC`,
         [new Date(sinceMs).toISOString()]
       );
-      
+
       return data.map((row: any) => ({
         id: row.id,
         sessionId: row.session_id,

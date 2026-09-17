@@ -44,16 +44,16 @@ export async function handleChatRoutes(
     }
     // Use large body parser for file uploads
     const body = await parseLargeBody(req) as any;
-    
+
     if ((body as any)._error) {
       error(res, 'Payload too large (max 15MB)', 413);
       return true;
     }
-    
+
     const message = body.message || body.content || '';
     const isOwner = ctx.auth?.isOwner ?? false;
     let sessionId = body.sessionId || 'web-console';
-    
+
     // Sandbox non-owner sessions to prevent access to dashboard threads
     if (!isOwner) {
       const clientPrefix = ctx.auth?.clientName ? `api_${ctx.auth.clientName.replace(/\W+/g, '_')}_` : 'api_anon_';
@@ -61,7 +61,7 @@ export async function handleChatRoutes(
         sessionId = `${clientPrefix}${sessionId}`;
       }
     }
-    
+
     if (!message.trim()) {
       error(res, 'Message is required');
       return true;
@@ -72,7 +72,7 @@ export async function handleChatRoutes(
     console.log(`[Upload] body.attachments present: ${Array.isArray(body.attachments)}, count: ${body.attachments?.length || 0}`);
     if (Array.isArray(body.attachments) && body.attachments.length > 0) {
       attachments = [];
-      
+
       // Ensure uploads directory exists
       const uploadsDir = path.join(ctx.workspacePath || path.join(process.cwd(), 'workspace'), 'uploads');
       console.log(`[Upload] Uploads dir: ${uploadsDir}`);
@@ -151,7 +151,7 @@ export async function handleChatRoutes(
       }
       const jobId = crypto.randomUUID();
       await ctx.asyncJobStore.create(jobId, sessionId);
-      
+
       // Periodic cleanup (keep last 24 hours of jobs)
       await ctx.asyncJobStore.cleanup(24 * 60 * 60 * 1000);
 
@@ -162,10 +162,10 @@ export async function handleChatRoutes(
           ctx.asyncJobStore?.addEvent(jobId, event).catch(() => {});
         }
       ).then((response) => {
-        ctx.asyncJobStore?.update(jobId, { 
-          status: 'completed', 
-          result: response, 
-          completedAt: Date.now() 
+        ctx.asyncJobStore?.update(jobId, {
+          status: 'completed',
+          result: response,
+          completedAt: Date.now()
         });
 
         // Auto-name thread (same as sync path)
@@ -192,10 +192,10 @@ export async function handleChatRoutes(
           }).catch(() => {});
         } catch { /* best-effort */ }
       }).catch((e: any) => {
-        ctx.asyncJobStore?.update(jobId, { 
-          status: 'failed', 
-          error: e.message, 
-          completedAt: Date.now() 
+        ctx.asyncJobStore?.update(jobId, {
+          status: 'failed',
+          error: e.message,
+          completedAt: Date.now()
         });
       });
 
@@ -275,7 +275,7 @@ export async function handleChatRoutes(
   if (url.startsWith('/api/chat/uploads/') && method === 'GET') {
     const fileId = url.replace('/api/chat/uploads/', '').split('?')[0];
     const uploadsDir = path.join(ctx.workspacePath || path.join(process.cwd(), 'workspace'), 'uploads');
-    
+
     // Find the file by ID prefix
     try {
       const files = fs.readdirSync(uploadsDir);

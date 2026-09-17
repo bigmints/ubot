@@ -17,8 +17,8 @@ create index if not exists idx_youbot_agent_memories_session on public.youbot_ag
 create index if not exists idx_youbot_agent_memories_agent on public.youbot_agent_memories(agent_id);
 
 -- Create an HNSW index for fast semantic similarity search
-create index if not exists idx_youbot_agent_memories_embedding 
-    on public.youbot_agent_memories 
+create index if not exists idx_youbot_agent_memories_embedding
+    on public.youbot_agent_memories
     using hnsw (embedding vector_cosine_ops)
     with (m = 16, ef_construction = 64);
 
@@ -50,7 +50,7 @@ begin
         m.metadata,
         1 - (m.embedding <=> query_embedding) as similarity
     from public.youbot_agent_memories m
-    where 
+    where
         (filter_session_id is null or m.session_id = filter_session_id)
         and (filter_agent_id is null or m.agent_id = filter_agent_id)
         and 1 - (m.embedding <=> query_embedding) > match_threshold

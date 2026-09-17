@@ -26,7 +26,7 @@ export async function handleIntegrationsGoogleRoutes(
   if (url === basePath && method === 'GET') {
     const config = loadYoubotConfig();
     const calendar = config.capabilities?.google?.services?.calendar;
-    
+
     json(res, {
       configured: !!calendar?.credentials?.client_id && !!calendar?.credentials?.client_secret,
       authenticated: !!calendar?.credentials?.refresh_token,
@@ -39,16 +39,16 @@ export async function handleIntegrationsGoogleRoutes(
   if (url === basePath && method === 'POST') {
     const body = await parseBody(req) as Record<string, any>;
     const config = loadYoubotConfig();
-    
+
     if (!config.capabilities) config.capabilities = {};
     if (!config.capabilities.google) config.capabilities.google = { enabled: true, services: {} };
     if (!config.capabilities.google.services) config.capabilities.google.services = {};
     if (!config.capabilities.google.services.calendar) config.capabilities.google.services.calendar = { enabled: true, credentials: {} };
-    
+
     const creds = config.capabilities.google.services.calendar.credentials!;
     if (body.client_id !== undefined) creds.client_id = body.client_id;
     if (body.client_secret !== undefined) creds.client_secret = body.client_secret;
-    
+
     if (!creds.redirect_uris) {
       creds.redirect_uris = ['http://localhost:4080/integrations/google/callback', 'http://localhost:4081/integrations/google/callback'];
     }
@@ -62,7 +62,7 @@ export async function handleIntegrationsGoogleRoutes(
   if (url.startsWith(`${basePath}/auth-url`) && method === 'GET') {
     const fullUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
     const redirectUri = fullUrl.searchParams.get('redirect_uri');
-    
+
     const config = loadYoubotConfig();
     const creds = config.capabilities?.google?.services?.calendar?.credentials;
     if (!creds?.client_id || !creds?.client_secret) {

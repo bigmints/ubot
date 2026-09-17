@@ -346,7 +346,7 @@ cmd_doctor() {
   if [ -d "$YOUBOT_DATA" ]; then
     local db_size=""
     if [ -f "$YOUBOT_DATA/youbot.db" ]; then
-      db_size=" ($(du -sh "$YOUBOT_DATA/youbot.db" 2>/dev/null | cut -f1 | xargs))" 
+      db_size=" ($(du -sh "$YOUBOT_DATA/youbot.db" 2>/dev/null | cut -f1 | xargs))"
     fi
     echo "  ✅ Data directory exists$db_size"
   else

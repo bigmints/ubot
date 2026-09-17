@@ -343,8 +343,8 @@ export class SQLiteConnection implements DatabaseConnection {
   private async runCrmMigration(db: Database) {
     try {
       const unmigrated = await db.all(`
-        SELECT DISTINCT contact_id 
-        FROM youbot_memories 
+        SELECT DISTINCT contact_id
+        FROM youbot_memories
         WHERE contact_id NOT IN (
           SELECT platform_id FROM youbot_contact_identities
         ) AND contact_id != '00000000-0000-0000-0000-000000000000'
@@ -352,7 +352,7 @@ export class SQLiteConnection implements DatabaseConnection {
 
       if (unmigrated.length > 0) {
         console.log(`[SQLite] Migrating ${unmigrated.length} legacy contacts to Universal CRM...`);
-        
+
         // Need uuid for generating new IDs
         const { v4: uuidv4 } = require('uuid');
 
@@ -367,7 +367,7 @@ export class SQLiteConnection implements DatabaseConnection {
           } else if (oldId.includes('webchat:')) {
             channel = 'webchat';
           }
-          
+
           const newId = uuidv4();
           await db.run('INSERT INTO youbot_contacts (id, display_name, type, tags, metadata) VALUES (?, ?, ?, ?, ?)', [newId, oldId, 'person', '[]', '{}']);
           await db.run('INSERT INTO youbot_contact_identities (contact_id, channel, platform_id) VALUES (?, ?, ?)', [newId, channel, oldId]);

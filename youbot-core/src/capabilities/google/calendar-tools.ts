@@ -14,7 +14,7 @@ function getCalendarClient() {
     creds.client_secret,
     creds.redirect_uris?.[0]
   );
-  
+
   oauth2Client.setCredentials({ refresh_token: creds.refresh_token });
   return google.calendar({ version: 'v3', auth: oauth2Client });
 }

@@ -87,7 +87,7 @@ export class VectorStore {
         try {
           const emb = JSON.parse(row.embedding_json);
           const similarity = cosineSimilarity(queryEmbedding, emb);
-          
+
           if (similarity >= matchThreshold) {
             matches.push({
               id: row.id,

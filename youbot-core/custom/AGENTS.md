@@ -302,4 +302,3 @@ const BASE_URL = process.env.MYAPP_BASE_URL || 'http://localhost:3000';
 - Use the `safe()` wrapper pattern to catch all errors consistently
 
 ---
-

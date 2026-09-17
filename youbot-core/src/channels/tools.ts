@@ -165,12 +165,12 @@ const messagingToolModule: ToolModule = {
         ? String((rawBody as any).value || (rawBody as any).text || JSON.stringify(rawBody))
         : String(rawBody);
       if (!to || !body) return { toolName: 'send_message', success: false, error: 'Missing "to" or "body" parameter', duration: 0 };
-      
+
       const asVoiceNote = args.as_voice_note === true || args.as_voice_note === 'true';
 
       try {
         let channel = args.channel as string | undefined;
-        
+
         // Smart channel detection: if no channel specified and the recipient looks like
         // an international phone number, prefer WhatsApp (if connected) over other providers.
         if (!channel && /^\+\d{10,}$/.test(to.replace(/\s/g, ''))) {
@@ -183,9 +183,9 @@ const messagingToolModule: ToolModule = {
             // WhatsApp not registered — fall through to default
           }
         }
-        
+
         const provider = mr.resolveProvider(channel);
-        
+
         let finalTo = to;
         const contactStore = ctx.getContactStore();
         if (contactStore && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(to)) {
@@ -200,7 +200,7 @@ const messagingToolModule: ToolModule = {
             }
           }
         }
-        
+
         let sendOpts: any = {};
         let resultMessage = `Message sent to ${finalTo} via ${provider.channel}: "${body}"`;
 
@@ -226,7 +226,7 @@ const messagingToolModule: ToolModule = {
         }
 
         await provider.sendMessage(finalTo, body, sendOpts);
-        
+
         // Setup deferred cleanup if a temporary audio file was created
         if (sendOpts.mediaPath) {
           setTimeout(async () => {
@@ -241,7 +241,7 @@ const messagingToolModule: ToolModule = {
       }
     });
 
-    
+
     registry.register('crm_search_contacts', async (args) => {
       const contactStore = ctx.getContactStore();
       if (!contactStore) return { toolName: 'crm_search_contacts', success: false, error: 'Contact store not available', duration: 0 };

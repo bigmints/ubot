@@ -67,7 +67,7 @@ export function createAsyncJobStore(db: DatabaseConnection): AsyncJobStore {
     async update(jobId: string, updates: Partial<Omit<AsyncJob, 'id' | 'sessionId' | 'startedAt'>>): Promise<boolean> {
       const fields: string[] = [];
       const params: any[] = [];
-      
+
       if (updates.status) { fields.push('status = ?'); params.push(updates.status); }
       if (updates.result !== undefined) { fields.push('result = ?'); params.push(JSON.stringify(updates.result)); }
       if (updates.error !== undefined) { fields.push('error = ?'); params.push(updates.error); }
