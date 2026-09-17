@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,21 +7,12 @@ import { CoreLayoutWrapper } from "@/components/layout-wrapper";
 import { ThemeInjector } from "@/components/theme-injector";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ExtensionsLoader } from "@/lib/extensions";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { TelemetryProvider } from "@/components/telemetry-provider";
 
 // Static SSR defaults — ThemeInjector overrides at runtime from config.json theme
 export const metadata: Metadata = {
   title: "Youbot",
-  description: "AI Agent Platform",
+  description: "Build your personal concierge. Welcome visitors and manage conversations.",
 };
 
 export default function RootLayout({
@@ -32,10 +22,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ThemeProvider>
+<body className="antialiased">
+<TelemetryProvider />
+<ThemeProvider>
           <ExtensionsLoader />
           <TooltipProvider>
             <CoreLayoutWrapper>{children}</CoreLayoutWrapper>

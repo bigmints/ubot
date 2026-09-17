@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Send, Wifi, WifiOff, RefreshCw, Power, PowerOff, Bot } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, Power, PowerOff, Bot } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { StandardPage } from "@/components/workspace-frame";
 
 export default function TelegramPage() {
   const [status, setStatus] = useState("disconnected");
@@ -93,16 +94,7 @@ export default function TelegramPage() {
         : "bg-muted-foreground";
 
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      <div className="flex items-center gap-3 border-b pb-6 mb-6">
-        <Send className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Telegram</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Connect a Telegram bot to receive and send messages
-          </p>
-        </div>
-      </div>
+    <StandardPage title="Telegram" description="Connect a Telegram bot to receive and send messages.">
 
       {/* Connection Status */}
       <Card>
@@ -270,6 +262,6 @@ export default function TelegramPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </StandardPage>
   );
 }

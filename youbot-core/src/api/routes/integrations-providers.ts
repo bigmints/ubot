@@ -11,7 +11,7 @@
  *   GET    /api/integrations/:category/models     — Discover models
  */
 
-import type { ApiContext } from '../context.js';
+import { parseBody, type ApiContext } from '../context.js';
 import type { ProviderConfig, ProvidersSection } from '../../data/config.js';
 import { loadYoubotConfig, saveYoubotConfig } from '../../data/config.js';
 import { saveVertexCredentials, loadVertexCredentials, getVertexBaseUrl } from '../../engine/vertex-auth.js';
@@ -27,16 +27,6 @@ function json(res: http.ServerResponse, data: unknown, status = 200) {
 
 function error(res: http.ServerResponse, msg: string, status = 400) {
   json(res, { error: msg }, status);
-}
-
-async function parseBody(req: http.IncomingMessage): Promise<unknown> {
-  return new Promise((resolve) => {
-    let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-    req.on('end', () => {
-      try { resolve(JSON.parse(body)); } catch { resolve({}); }
-    });
-  });
 }
 
 type Category = 'models' | 'search' | 'cli' | 'llm-image' | 'llm-transcript';
@@ -359,7 +349,7 @@ export async function handleIntegrationProviderRoutes(
 
 // ─── Sync Helpers ────────────────────────────────────────
 
-function syncModelsToAgent(ctx: ApiContext): void {
+export function syncModelsToAgent(ctx: ApiContext): void {
   if (!ctx.agentOrchestrator) return;
   const cfg = loadYoubotConfig();
   const section = cfg.capabilities?.models;
@@ -380,6 +370,8 @@ function syncModelsToAgent(ctx: ApiContext): void {
         model: (p.model || '') as string,
         isDefault: key === defaultKey,
         models: (p.models || DEFAULT_PROVIDER_MODELS[key] || {}) as any,
+        credentialSource: p.credentialSource === 'provider-access' ? 'provider-access' as const : undefined,
+        runtimeProviderId: typeof p.runtimeProviderId === 'string' ? p.runtimeProviderId : undefined,
       }));
 
     ctx.agentOrchestrator.updateConfig({
@@ -388,7 +380,7 @@ function syncModelsToAgent(ctx: ApiContext): void {
       llmBaseUrl: (defaultProvider.baseUrl || '') as string,
       llmModel: (defaultProvider.model || '') as string,
       llmApiKey: (defaultProvider.apiKey || '') as string,
+      modelRouting: ((cfg as any).modelRouting || {}) as any,
     });
   }
 }
-

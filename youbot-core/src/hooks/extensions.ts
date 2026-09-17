@@ -65,6 +65,8 @@ export interface AuthHook {
    * Return AuthResult to handle auth, or null to fall through to default API key auth.
    */
   authenticate(req: http.IncomingMessage): Promise<AuthResult | null>;
+  /** Return the external sign-in URL used when an SSO session is missing. */
+  getLoginUrl?(returnTo?: string): string | null;
 }
 
 // ── Middleware Hook ────────────────────────────────────

@@ -5,7 +5,7 @@
  * any tool module in isolation.
  */
 
-import type { ToolRegistry, ToolExecutor, ToolContext, ToolModule } from '../types.js';
+import type { ToolRegistry, ToolExecutor, ToolContext, ToolExecutionContext, ToolModule } from '../types.js';
 import type { ToolCallResult, ToolExecutionResult } from '../../engine/types.js';
 
 // ─── Mock Registry ───────────────────────────────────────
@@ -14,7 +14,7 @@ export interface MockRegistry extends ToolRegistry {
   /** All registered executors, keyed by tool name */
   executors: Map<string, ToolExecutor>;
   /** Execute a tool by name with args (convenience wrapper) */
-  call(toolName: string, args?: Record<string, unknown>): Promise<ToolExecutionResult>;
+  call(toolName: string, args?: Record<string, unknown>, execution?: ToolExecutionContext): Promise<ToolExecutionResult>;
   /** Get list of registered tool names */
   registeredNames(): string[];
 }
@@ -33,20 +33,24 @@ export function createMockRegistry(): MockRegistry {
       return executors.has(toolName);
     },
 
-    async execute(toolCall: ToolCallResult): Promise<ToolExecutionResult> {
+    async execute(toolCall: ToolCallResult, execution?: ToolExecutionContext): Promise<ToolExecutionResult> {
       const executor = executors.get(toolCall.toolName);
       if (!executor) {
         return { toolName: toolCall.toolName, success: false, error: `Unknown tool: ${toolCall.toolName}`, duration: 0 };
       }
-      return executor(toolCall.arguments || {});
+      return executor(toolCall.arguments || {}, execution);
     },
 
-    async call(toolName: string, args: Record<string, unknown> = {}): Promise<ToolExecutionResult> {
+    async call(
+      toolName: string,
+      args: Record<string, unknown> = {},
+      execution?: ToolExecutionContext,
+    ): Promise<ToolExecutionResult> {
       const executor = executors.get(toolName);
       if (!executor) {
         throw new Error(`Tool "${toolName}" not registered`);
       }
-      return executor(args);
+      return executor(args, execution);
     },
 
     registeredNames(): string[] {
@@ -91,6 +95,7 @@ export function createMockContext(opts: MockContextOptions = {}): ToolContext {
     getFollowUpStore: () => null,
     getSpawnedSessionStore: () => null,
     getWorkspaceProvider: () => null,
+    getContactStore: () => null,
   };
 
   return {

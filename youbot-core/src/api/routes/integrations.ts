@@ -4,7 +4,8 @@
  */
 
 import http from 'http';
-import { parseBody, json, error, type ApiContext } from '../context.js';
+import { parseBody, readBodyBuffer, json, error, type ApiContext } from '../context.js';
+import { resolveRoutedHttpModel } from '../../integrations/model-routing.js';
 
 export async function handleIntegrationRoutes(
   req: http.IncomingMessage,
@@ -267,13 +268,8 @@ export async function handleIntegrationRoutes(
         return true;
       }
 
-      // Read raw audio body
-      const chunks: Buffer[] = [];
-      await new Promise<void>((resolve) => {
-        req.on('data', (chunk: Buffer) => chunks.push(chunk));
-        req.on('end', resolve);
-      });
-      const audioBuffer = Buffer.concat(chunks);
+      // Bound uploads while streaming so one request cannot exhaust process memory.
+      const audioBuffer = await readBodyBuffer(req, 25 * 1024 * 1024);
 
       if (audioBuffer.length === 0) {
         error(res, 'No audio data received');
@@ -293,7 +289,7 @@ export async function handleIntegrationRoutes(
 
       // Save to temp file
       const { join } = await import('path');
-      const { writeFileSync, mkdirSync } = await import('fs');
+      const { writeFileSync, mkdirSync, unlinkSync } = await import('fs');
       const { randomUUID } = await import('crypto');
       const tmpDir = join(process.env.YOUBOT_HOME || process.cwd(), 'workspace', 'uploads');
       mkdirSync(tmpDir, { recursive: true });
@@ -301,10 +297,21 @@ export async function handleIntegrationRoutes(
       writeFileSync(tmpPath, audioBuffer);
 
       // Transcribe
-      const result = await transcribeAudio(tmpPath);
-
-      // Clean up
-      try { const { unlinkSync } = await import('fs'); unlinkSync(tmpPath); } catch {}
+      const cfg = ctx.agentOrchestrator?.getConfig?.() as any;
+      const provider = cfg
+        ? await resolveRoutedHttpModel(cfg, 'transcription', 'whisper-1')
+        : undefined;
+      let result;
+      try {
+        result = await transcribeAudio(tmpPath, {
+          providerBaseUrl: provider?.baseUrl,
+          providerApiKey: provider?.apiKey,
+          providerModelId: provider?.modelId,
+          providerHeaders: provider?.headers,
+        });
+      } finally {
+        try { unlinkSync(tmpPath); } catch {}
+      }
 
       json(res, {
         text: result.text,
@@ -312,7 +319,8 @@ export async function handleIntegrationRoutes(
         language: result.language,
       });
     } catch (err: any) {
-      error(res, err.message, 500);
+      const oversized = err?.statusCode === 413;
+      error(res, oversized ? 'Audio upload exceeds the 25 MB limit' : err.message, oversized ? 413 : 500);
     }
     return true;
   }
@@ -360,9 +368,9 @@ export async function handleIntegrationRoutes(
 
       try {
         const cfg = ctx.agentOrchestrator?.getConfig?.() as any;
-        const providers: Record<string, any> = cfg?.llmProviders || {};
-        const defaultId = cfg?.defaultLlmProviderId;
-        const provider = defaultId ? providers[defaultId] : Object.values(providers)[0] as any;
+        const provider = cfg
+          ? await resolveRoutedHttpModel(cfg, 'tts', 'tts-1')
+          : undefined;
 
         if (provider?.baseUrl) {
           let baseUrl = String(provider.baseUrl).replace(/\/+$/, '');
@@ -370,20 +378,23 @@ export async function handleIntegrationRoutes(
           if (!baseUrl.endsWith('/v1')) baseUrl = baseUrl + '/v1';
           if (baseUrl.includes('://localhost:')) baseUrl = baseUrl.replace('://localhost:', '://127.0.0.1:');
 
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...(provider.headers ?? {}),
+          };
           if (provider.apiKey) headers['Authorization'] = `Bearer ${provider.apiKey}`;
 
           const ttsRes = await fetch(`${baseUrl}/audio/speech`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({ model: 'tts-1', input: cleanText, voice, speed, response_format: 'wav' }),
+            body: JSON.stringify({ model: provider.modelId, input: cleanText, voice, speed, response_format: 'wav' }),
           });
 
           if (ttsRes.ok) {
             audioBuffer = Buffer.from(await ttsRes.arrayBuffer());
           } else {
-            const errBody = await ttsRes.text().catch(() => '');
-            console.warn(`[TTS] Provider ${ttsRes.status}: ${errBody.slice(0, 150)} — falling back`);
+          await ttsRes.body?.cancel().catch(() => undefined);
+          console.warn(`[TTS] Provider request failed with status ${ttsRes.status}; falling back`);
           }
         }
       } catch (err: any) {

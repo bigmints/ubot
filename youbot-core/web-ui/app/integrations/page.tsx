@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PageBreadcrumb } from "@/components/page-breadcrumb";
+import { StandardPage } from "@/components/workspace-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -69,16 +69,7 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-muted/30">
-      <div className="mx-auto max-w-4xl p-6 space-y-6">
-        <PageBreadcrumb />
-        
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-muted-foreground">
-            Connect external services to give the AI access to your data.
-          </p>
-        </div>
+    <StandardPage title="Apps & services" description="Connect external services and manage their access to your workspace.">
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="flex flex-col border-border/50 shadow-sm overflow-hidden">
@@ -195,7 +186,6 @@ export default function IntegrationsPage() {
             </CardFooter>
           </Card>
         </div>
-      </div>
-    </div>
+    </StandardPage>
   );
 }

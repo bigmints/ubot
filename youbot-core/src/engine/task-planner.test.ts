@@ -22,7 +22,7 @@ describe('Task Planner', () => {
       const plan = await createTaskPlan('test-session', 'Simple task', ['general'], generate);
       
       expect(plan.steps).toHaveLength(1);
-      expect(plan.steps[0].agentType).toBe('general');
+      expect(plan.steps[0].agentType).toBe('nexus');
       expect(generate).not.toHaveBeenCalled();
     });
 

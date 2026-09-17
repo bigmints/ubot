@@ -19,7 +19,9 @@ export async function api<T = unknown>(
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(err || `HTTP ${res.status}`);
+    let message = err;
+    try { const parsed = JSON.parse(err); message = typeof parsed.error === 'string' ? parsed.error : typeof parsed.message === 'string' ? parsed.message : err; } catch { /* Non-JSON server response. */ }
+    throw new Error(message || `Request failed (${res.status}).`);
   }
   return res.json();
 }

@@ -48,6 +48,7 @@ export class WebchatConnection {
   private eventListeners = new Map<string, Set<Function>>();
   private pollAbortController: AbortController | null = null;
   private running = false;
+  private _supportsSessionReplies = false;
   private _reconnectAttempts = 0;
   /** Track message IDs currently being processed to avoid re-dispatching */
   private inFlightMessageIds = new Set<string>();
@@ -62,6 +63,26 @@ export class WebchatConnection {
 
   get relayUrl(): string {
     return this.config.relayUrl;
+  }
+
+  get supportsSessionReplies(): boolean {
+    return this._supportsSessionReplies;
+  }
+
+  /** Persist an asynchronous reply to an existing visitor session. Never swallow delivery errors. */
+  async sendMessage(session: string, response: string, requestId: string): Promise<void> {
+    if (this.status !== 'connected' || !this.supportsSessionReplies) {
+      throw new Error('Website relay is not ready for manual replies.');
+    }
+    const res = await fetch(`${this.config.relayUrl}/api/bot/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Bot-Secret': this.config.botSecret || '' },
+      body: JSON.stringify({ session, response, requestId }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`Website reply was not confirmed (${res.status}).`);
+    const receipt = await res.json() as { ok?: boolean; requestId?: string };
+    if (receipt.ok !== true || receipt.requestId !== requestId) throw new Error('Website reply receipt was invalid.');
   }
 
   async connect(): Promise<void> {
@@ -80,7 +101,9 @@ export class WebchatConnection {
       if (!healthRes.ok) {
         throw new Error(`Relay health check failed: ${healthRes.status}`);
       }
-      console.log(`[Webchat] ✅ Connected to relay: ${this.config.relayUrl}`);
+      const health = await healthRes.json() as { capabilities?: { sessionReplies?: boolean } };
+      this._supportsSessionReplies = health.capabilities?.sessionReplies === true;
+      console.log('[Webchat] Connected to relay');
       this.updateStatus('connected');
       this._reconnectAttempts = 0;
     } catch (err: any) {
@@ -95,6 +118,7 @@ export class WebchatConnection {
 
   async disconnect(): Promise<void> {
     this.running = false;
+    this._supportsSessionReplies = false;
     if (this.pollAbortController) {
       this.pollAbortController.abort();
       this.pollAbortController = null;
@@ -185,13 +209,14 @@ export class WebchatConnection {
           throw new Error(`Poll failed: ${res.status}`);
         }
 
-        const data = await res.json() as { messages?: WebchatMessage[] };
+        const data = await res.json() as { messages?: WebchatMessage[]; capabilities?: { sessionReplies?: boolean } };
+        this._supportsSessionReplies = data.capabilities?.sessionReplies === true;
         if (data.messages && data.messages.length > 0) {
           for (const msg of data.messages) {
             // Skip messages already being processed (prevents re-delivery while LLM is running)
             if (this.inFlightMessageIds.has(msg.id)) continue;
             this.inFlightMessageIds.add(msg.id);
-            console.log(`[Webchat] 📩 session=${msg.session} name=${msg.name} body="${msg.message.slice(0, 60)}"`);
+          console.log(`[Webchat] Received visitor message (${msg.message.length} chars)`);
             this.emit('message.received', msg);
           }
         } else {
@@ -264,7 +289,7 @@ export class WebchatConnection {
         try {
           (listener as Function)(...args);
         } catch (err) {
-          console.error(`[Webchat] Event handler error (${event}):`, err);
+          console.error(`[Webchat] Event handler error (${event})`);
         }
       }
     }

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -21,7 +20,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Pencil, RefreshCw, Trash2, FileCode2 } from "lucide-react";
+import { RefreshCw, Trash2, FileCode2 } from "lucide-react";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -56,6 +57,9 @@ export default function SkillsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Skill | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("name");
 
   const loadSkills = useCallback(async () => {
     setLoading(true);
@@ -148,21 +152,17 @@ export default function SkillsPage() {
     }
   };
 
+  const visibleSkills = skills
+    .filter((skill) => {
+      const matchesSearch = `${skill.name} ${skill.description} ${skill.trigger.events.join(" ")}`.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || (statusFilter === "enabled" ? skill.enabled : !skill.enabled);
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => sort === "recent" ? new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() : a.name.localeCompare(b.name));
+
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      <div className="flex items-center justify-between border-b pb-6 mb-6">
-        <div className="flex items-center gap-3">
-          <FileCode2 className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Skills</h1>
-            <p className="text-muted-foreground text-sm mt-1">Stored as SKILL.md files · Edit raw to change trigger, instructions &amp; outcome</p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={loadSkills}>
-          <RefreshCw className="size-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+    <StandardPage title="Skills" description="Manage reusable instructions, triggers and outcomes for your agent." actions={<Button variant="outline" onClick={loadSkills}><RefreshCw className="size-4"/>Refresh</Button>}>
+      <ListToolbar className="rounded-xl border bg-card" searchLabel="Search skills" searchPlaceholder="Search skills" searchValue={search} onSearchChange={setSearch} filters={[{label:"Skill status",value:statusFilter,onValueChange:setStatusFilter,options:[{value:"all",label:"All skills"},{value:"enabled",label:"Enabled"},{value:"disabled",label:"Disabled"}]}]} sort={{label:"Sort skills",value:sort,onValueChange:setSort,options:[{value:"name",label:"Name A–Z"},{value:"recent",label:"Recently updated"}]}} resultLabel={`${visibleSkills.length} of ${skills.length} skills`} active={!!search||statusFilter!=="all"||sort!=="name"} onReset={()=>{setSearch("");setStatusFilter("all");setSort("name");}} />
 
       <Card>
         <CardContent className="p-0">
@@ -170,27 +170,27 @@ export default function SkillsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Trigger</TableHead>
+                <TableHead className="hidden sm:table-cell">Description</TableHead>
+                <TableHead className="hidden md:table-cell">Trigger</TableHead>
                 <TableHead>Enabled</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {skills.length === 0 ? (
+              {visibleSkills.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    {loading ? "Loading skills..." : "No skills configured. Ask the agent to create one."}
+                    {loading ? "Loading skills..." : skills.length ? "No skills match your search or filter." : "No skills configured. Add a skill through the supported skill management tools."}
                   </TableCell>
                 </TableRow>
               ) : (
-                skills.map((skill) => (
+                visibleSkills.map((skill) => (
                   <TableRow key={skill.id}>
                     <TableCell className="font-medium font-mono text-sm">{skill.id}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
+                    <TableCell className="hidden text-sm text-muted-foreground max-w-xs truncate sm:table-cell">
                       {skill.description}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {skill.trigger.events?.map((e) => (
                           <Badge key={e} variant="secondary" className="text-xs font-mono">
@@ -293,6 +293,6 @@ export default function SkillsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </StandardPage>
   );
 }

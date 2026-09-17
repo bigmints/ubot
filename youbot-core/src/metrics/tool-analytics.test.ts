@@ -1,79 +1,57 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { toolAnalytics, ToolUsageStats } from './tool-analytics.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createToolAnalytics, type ToolAnalytics } from './tool-analytics.js';
 
 describe('Tool Analytics', () => {
+  let analytics: ToolAnalytics;
+
   beforeEach(() => {
-    toolAnalytics.reset();
+    analytics = createToolAnalytics();
   });
 
-  it('should record tool executions', () => {
-    toolAnalytics.recordExecution('test_tool', true, 100);
-    const stats = toolAnalytics.getStats();
-    expect(stats).toHaveProperty('test_tool');
-    expect(stats['test_tool'].totalCalls).toBe(1);
-    expect(stats['test_tool'].successfulCalls).toBe(1);
-    expect(stats['test_tool'].failedCalls).toBe(0);
-    expect(stats['test_tool'].averageDuration).toBe(100);
+  it('records successful and failed executions', async () => {
+    await analytics.recordToolCall('test_tool', true, 100);
+    await analytics.recordToolCall('test_tool', false, 50, 'failure');
+
+    const stats = await analytics.getToolStats('test_tool');
+    expect(stats).toMatchObject({
+      totalCalls: 2,
+      successfulCalls: 1,
+      failedCalls: 1,
+      averageDuration: 75,
+      errorRate: 50,
+    });
   });
 
-  it('should record failed tool executions', () => {
-    toolAnalytics.recordExecution('fail_tool', false, 50, 'Test error');
-    const stats = toolAnalytics.getStats();
-    expect(stats).toHaveProperty('fail_tool');
-    expect(stats['fail_tool'].totalCalls).toBe(1);
-    expect(stats['fail_tool'].successfulCalls).toBe(0);
-    expect(stats['fail_tool'].failedCalls).toBe(1);
-    expect(stats['fail_tool'].errorRate).toBe(1);
+  it('returns an isolated copy of tool stats', async () => {
+    await analytics.recordToolCall('specific_tool', true, 150);
+    const stats = await analytics.getToolStats('specific_tool');
+    expect(stats).not.toBeNull();
+    expect(stats?.totalCalls).toBe(1);
+    if (stats) stats.totalCalls = 99;
+    expect((await analytics.getToolStats('specific_tool'))?.totalCalls).toBe(1);
   });
 
-  it('should calculate error rates correctly', () => {
-    toolAnalytics.recordExecution('rate_test', true, 100);
-    toolAnalytics.recordExecution('rate_test', false, 50, 'First error');
-    toolAnalytics.recordExecution('rate_test', true, 75);
-    toolAnalytics.recordExecution('rate_test', false, 30, 'Second error');
-    
-    const stats = toolAnalytics.getStats();
-    expect(stats['rate_test'].totalCalls).toBe(4);
-    expect(stats['rate_test'].successfulCalls).toBe(2);
-    expect(stats['rate_test'].failedCalls).toBe(2);
-    expect(stats['rate_test'].errorRate).toBe(0.5);
+  it('returns null for an unknown tool', async () => {
+    await expect(analytics.getToolStats('missing')).resolves.toBeNull();
   });
 
-  it('should calculate average durations correctly', () => {
-    toolAnalytics.recordExecution('avg_test', true, 100);
-    toolAnalytics.recordExecution('avg_test', true, 200);
-    toolAnalytics.recordExecution('avg_test', true, 300);
-    
-    const stats = toolAnalytics.getStats();
-    expect(stats['avg_test'].averageDuration).toBeCloseTo(200); // (100+200+300)/3
+  it('resets one tool without removing others', async () => {
+    await analytics.recordToolCall('remove', true, 10);
+    await analytics.recordToolCall('keep', true, 20);
+    await analytics.resetToolStats('remove');
+
+    await expect(analytics.getToolStats('remove')).resolves.toBeNull();
+    expect((await analytics.getToolStats('keep'))?.totalCalls).toBe(1);
   });
 
-  it('should get stats for specific tool', () => {
-    toolAnalytics.recordExecution('specific_tool', true, 150);
-    const toolStats = toolAnalytics.getToolStats('specific_tool');
-    expect(toolStats).not.toBeNull();
-    expect(toolStats!.totalCalls).toBe(1);
-    expect(toolStats!.successfulCalls).toBe(1);
-  });
+  it('ranks tools by usage and failure count', async () => {
+    await analytics.recordToolCall('busy', true, 10);
+    await analytics.recordToolCall('busy', false, 20);
+    await analytics.recordToolCall('quiet', false, 30);
 
-  it('should return null for non-existent tool', () => {
-    const toolStats = toolAnalytics.getToolStats('non_existent_tool');
-    expect(toolStats).toBeNull();
-  });
-
-  it('should reset all stats', () => {
-    toolAnalytics.recordExecution('reset_test', true, 100);
-    expect(toolAnalytics.getStats()).toHaveProperty('reset_test');
-    
-    toolAnalytics.reset();
-    expect(toolAnalytics.getStats()).toEqual({});
-  });
-
-  it('should convert to JSON', () => {
-    toolAnalytics.recordExecution('json_test', true, 200);
-    const json = toolAnalytics.toJSON();
-    expect(json).toHaveProperty('stats');
-    expect(json).toHaveProperty('timestamp');
-    expect(json.stats).toHaveProperty('json_test');
+    expect((await analytics.getMostUsedTools(1))[0].toolName).toBe('busy');
+    expect((await analytics.getMostFailedTools(2)).map((item) => item.toolName)).toEqual(
+      expect.arrayContaining(['busy', 'quiet']),
+    );
   });
 });

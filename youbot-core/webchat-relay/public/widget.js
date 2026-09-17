@@ -3,8 +3,8 @@
  * Embeddable chat widget for external websites.
  *
  * Usage:
- *   <script src="https://your-relay.run.app/widget.js"
- *           data-server="https://your-relay.run.app"></script>
+ *   <script src="https://youbot.live/widget.js"
+ *           data-server="https://youbot.live/your-relay-id"></script>
  *
  * The widget talks to the cloud relay, which bridges to the local YOUBOT.
  */
@@ -12,8 +12,17 @@
   "use strict";
 
   const script = document.currentScript;
-  const BASE_URL = script?.getAttribute("data-server")
-    || script?.src ? new URL(script.src).origin : window.location.origin;
+  const configuredServer = script?.getAttribute("data-server");
+  const BASE_URL = (configuredServer
+    || (script?.src ? new URL(script.src).origin : window.location.origin)).replace(/\/$/, "");
+
+  if (!window.youbotTelemetry && !document.querySelector('script[data-youbot-telemetry="relay_ui"]')) {
+    const telemetryScript = document.createElement("script");
+    telemetryScript.src = new URL("/telemetry.js", BASE_URL).href;
+    telemetryScript.dataset.youbotTelemetry = "relay_ui";
+    telemetryScript.referrerPolicy = "no-referrer";
+    document.head.appendChild(telemetryScript);
+  }
 
   // ── State ───────────────────────────────────────────────
 
@@ -28,7 +37,7 @@
   let isLoading = false;
 
   // Session persistence
-  const STORAGE_KEY = "youbot_webchat_session";
+  const STORAGE_KEY = "youbot_webchat_session_" + BASE_URL;
   try { sessionId = localStorage.getItem(STORAGE_KEY) || ""; } catch {}
   if (!sessionId) {
     sessionId = "wc_" + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
@@ -214,12 +223,14 @@
   }
 
   async function fetchHistory() {
+    if (isLoading) return;
     try {
       const r = await fetch(`${BASE_URL}/api/history?session=${sessionId}`);
       if (r.ok) {
         const d = await r.json();
-        if (d.messages?.length) {
+        if (d.messages?.length && !isLoading) {
           messages = d.messages.map(m => ({
+            id: m.id,
             role: m.role === "user" ? "user" : "bot",
             text: m.content,
             time: new Date(m.timestamp),
@@ -230,7 +241,30 @@
     } catch {}
   }
 
+  let checkingReplies = false;
+  async function receiveReplies() {
+    if (!isOpen || document.hidden || checkingReplies) return;
+    checkingReplies = true;
+    try {
+      const response = await fetch(`${BASE_URL}/api/history?session=${encodeURIComponent(sessionId)}`, { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = await response.json();
+      let changed = false;
+      for (const event of data.messages || []) {
+        if (event.delivery !== 'session' || !event.id || messages.some(message => message.id === event.id)) continue;
+        messages.push({ id: event.id, role: 'bot', text: event.content, time: new Date(event.timestamp) });
+        changed = true;
+      }
+      if (changed) renderMessages();
+    } catch { /* Retry when the visitor reconnects. */ }
+    finally { checkingReplies = false; }
+  }
+  setInterval(receiveReplies, 3000);
+  document.addEventListener('visibilitychange', receiveReplies);
+  window.addEventListener('online', receiveReplies);
+
   async function sendMessage(text) {
+    window.youbotTelemetry?.event('relay_message', { outcome: 'accepted', media_kind: 'text' });
     messages.push({ role: "user", text, time: new Date() });
     isLoading = true;
     renderMessages();
@@ -244,10 +278,13 @@
       if (r.ok) {
         const d = await r.json();
         if (d.response) messages.push({ role: "bot", text: d.response, time: new Date() });
+        window.youbotTelemetry?.event('relay_message', { outcome: d.timeout ? 'timeout' : 'replied', media_kind: 'text' });
       } else {
+        window.youbotTelemetry?.event('relay_message', { outcome: 'client_error', media_kind: 'text' });
         messages.push({ role: "bot", text: "Sorry, something went wrong.", time: new Date() });
       }
     } catch {
+      window.youbotTelemetry?.event('relay_message', { outcome: 'client_error', media_kind: 'text' });
       messages.push({ role: "bot", text: "Connection error. Please try again.", time: new Date() });
     }
 
@@ -305,6 +342,7 @@
 
     bubble.addEventListener("click", () => {
       isOpen = !isOpen;
+      window.youbotTelemetry?.event('ui_interaction', { interaction: 'click', control: 'button', action: isOpen ? 'widget_open' : 'widget_close' });
       bubble.innerHTML = isOpen ? ICON_CLOSE : ICON_CHAT;
       bubble.classList.toggle("youbot-open", isOpen);
       panel.classList.toggle("youbot-visible", isOpen);

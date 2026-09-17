@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
-  ScrollText,
   Pause,
   Play,
   Trash2,
-  Filter,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 
 interface LogEntry {
   id: number;
@@ -50,6 +49,8 @@ export default function LogsPage() {
   const [paused, setPaused] = useState(false);
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("oldest");
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -90,11 +91,13 @@ export default function LogsPage() {
     }
   }, [entries, paused]);
 
-  const filtered = entries.filter((e) => {
-    if (filterTag && e.tag !== filterTag) return false;
-    if (filterLevel && e.level !== filterLevel) return false;
-    return true;
-  });
+  const filtered = entries
+    .filter((entry) => {
+      if (filterTag && entry.tag !== filterTag) return false;
+      if (filterLevel && entry.level !== filterLevel) return false;
+      return `${entry.tag} ${entry.level} ${entry.message}`.toLowerCase().includes(search.toLowerCase());
+    })
+    .sort((a, b) => sort === "newest" ? b.ts.localeCompare(a.ts) : a.ts.localeCompare(b.ts));
 
   // Unique tags for filter
   const allTags = [...new Set(entries.map((e) => e.tag))].sort();
@@ -109,57 +112,9 @@ export default function LogsPage() {
   };
 
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1 flex flex-col h-[calc(100vh-3rem)]">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6 shrink-0">
-        <div className="flex items-center gap-3">
-          <ScrollText className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Live Logs</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Real-time system and agent activity logs
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="text-xs tabular-nums mr-2">
-            {filtered.length} entries
-          </Badge>
-
-          {/* Tag filter */}
-          <div className="flex items-center gap-1">
-            <Filter className="size-3.5 text-muted-foreground" />
-            <select
-              className="bg-transparent text-xs border rounded px-1.5 py-0.5 text-muted-foreground"
-              value={filterTag || ""}
-              onChange={(e) =>
-                setFilterTag(e.target.value || null)
-              }
-            >
-              <option value="">All tags</option>
-              {allTags.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Level filter */}
-          <select
-            className="bg-transparent text-xs border rounded px-1.5 py-0.5 text-muted-foreground"
-            value={filterLevel || ""}
-            onChange={(e) =>
-              setFilterLevel(e.target.value || null)
-            }
-          >
-            <option value="">All levels</option>
-            <option value="info">Info</option>
-            <option value="warn">Warn</option>
-            <option value="error">Error</option>
-          </select>
-
+    <StandardPage width="full" className="standard-page--logs" title="Activity logs" description="Real-time system and agent activity logs.">
+        <ListToolbar className="rounded-xl border bg-card" searchLabel="Search activity logs" searchPlaceholder="Search logs" searchValue={search} onSearchChange={setSearch} filters={[{label:"Log source",value:filterTag||"all",onValueChange:(value)=>setFilterTag(value==="all"?null:value),options:[{value:"all",label:"All sources"},...allTags.map((tag)=>({value:tag,label:tag}))]},{label:"Log level",value:filterLevel||"all",onValueChange:(value)=>setFilterLevel(value==="all"?null:value),options:[{value:"all",label:"All levels"},{value:"info",label:"Info"},{value:"warn",label:"Warnings"},{value:"error",label:"Errors"}]}]} sort={{label:"Sort logs",value:sort,onValueChange:setSort,options:[{value:"oldest",label:"Oldest first"},{value:"newest",label:"Newest first"}]}} resultLabel={`${filtered.length} of ${entries.length} entries`} active={!!search||!!filterTag||!!filterLevel||sort!=="oldest"} onReset={()=>{setSearch("");setFilterTag(null);setFilterLevel(null);setSort("oldest");}} />
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
           {/* Pause */}
           <button
             onClick={() => setPaused(!paused)}
@@ -185,7 +140,6 @@ export default function LogsPage() {
             <Trash2 className="size-4 text-muted-foreground" />
           </button>
         </div>
-      </div>
 
       {/* Log output */}
       <div
@@ -252,6 +206,6 @@ export default function LogsPage() {
           Paused — new entries won&apos;t appear until you resume
         </div>
       )}
-    </div>
+    </StandardPage>
   );
 }

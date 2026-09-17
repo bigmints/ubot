@@ -8,31 +8,38 @@ import { Trash2, Save, RefreshCw, Check, ChevronRight } from "lucide-react";
 // ── Core Route Names ────────────────────────────────────
 
 const coreRouteNames: Record<string, string> = {
-  "/": "Dashboard",
-  "/chat": "Command Center",
+  "/": "Overview",
+  "/setup": "Setup guide",
+  "/help": "Help",
+  "/connections": "Connections",
+  "/chat": "Conversations",
+  "/concierge": "Agent profile",
+  "/concierge/collections": "Collections",
+  "/conversations": "Conversations",
   "/skills": "Skills",
   "/whatsapp": "WhatsApp",
   "/telegram": "Telegram",
-  "/safety": "Safety Rules",
-  "/scheduler": "Scheduler",
+  "/safety": "Permissions",
+  "/scheduler": "Automations",
   "/settings": "Settings",
-  "/llms": "Models",
+  "/settings/ai-providers": "AI providers",
+  "/llms": "AI providers",
   "/web-search": "Web Search",
   "/cli": "CLI Agents",
   "/google": "Google Apps",
-  "/mcp-servers": "MCP Servers",
-  "/tools": "Tools Health",
-  "/logs": "Logs",
-  "/vault": "Vault",
+  "/mcp-servers": "Tool connections",
+  "/tools": "System status",
+  "/logs": "Activity logs",
+  "/vault": "Secure storage",
   "/agents": "Agents",
-  "/personas": "Personas",
+  "/personas": "Profile documents",
   "/contacts": "Contacts",
   "/agent-defaults": "Agent Defaults",
   "/approvals": "Approvals",
-  "/webchat": "Web Chat",
+  "/webchat": "Website chat",
   "/apple": "Apple Services",
-  "/profile": "Profile",
-  "/integrations": "Integrations",
+  "/profile": "User profile",
+  "/integrations": "Apps & services",
 };
 
 // ── Extension Points ────────────────────────────────────
@@ -102,7 +109,7 @@ function useTopBarActions(): TopBarActions {
 // ── Detail Name ─────────────────────────────────────────
 
 let _detailName = "";
-let _detailListeners: (() => void)[] = [];
+const _detailListeners: (() => void)[] = [];
 
 export function setTopBarDetailName(name: string) {
   _detailName = name;
@@ -121,6 +128,17 @@ export function clearTopBarDetailName() {
 export function PageBreadcrumb() {
   const pathname = usePathname();
   const actions = useTopBarActions();
+  const [detailName, setDetailName] = useState(_detailName);
+
+  useEffect(() => {
+    const updateDetailName = () => setDetailName(_detailName);
+    _detailListeners.push(updateDetailName);
+    updateDetailName();
+    return () => {
+      const index = _detailListeners.indexOf(updateDetailName);
+      if (index >= 0) _detailListeners.splice(index, 1);
+    };
+  }, []);
 
   const handleClearChat = () => {
     window.dispatchEvent(new CustomEvent("youbot:clear-chat"));
@@ -137,7 +155,7 @@ export function PageBreadcrumb() {
     pathname !== `${featureRoute.listHref}/new`;
 
   // Build breadcrumb segments
-  let breadcrumb: { label: string; href?: string }[] = [];
+  const breadcrumb: { label: string; href?: string }[] = [];
 
   if (featureRoute) {
     breadcrumb.push({ label: featureRoute.label, href: featureRoute.listHref });
@@ -151,9 +169,17 @@ export function PageBreadcrumb() {
 
   const staticName = routeNames[pathname || ""];
 
+  if (!featureRoute && staticName) {
+    if (pathname?.startsWith("/settings/")) {
+      breadcrumb.push({ label: "Settings", href: "/settings" });
+    }
+    breadcrumb.push({ label: staticName, href: detailName ? pathname || undefined : undefined });
+    if (detailName) breadcrumb.push({ label: detailName });
+  }
+
   return (
-    <div className="flex items-center justify-between flex-1">
-      <div className="flex items-center gap-1.5">
+    <div className="flex items-center justify-between flex-1 min-w-0">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5">
         {breadcrumb.length > 0 ? (
           breadcrumb.map((seg, i) => (
             <span key={i} className="flex items-center gap-1.5">
@@ -167,17 +193,19 @@ export function PageBreadcrumb() {
                 >
                   {seg.label}
                 </a>
+              ) : i === breadcrumb.length - 1 ? (
+                <h1 className="truncate text-sm font-semibold">{seg.label}</h1>
               ) : (
                 <span className="font-medium text-sm">{seg.label}</span>
               )}
             </span>
           ))
         ) : (
-          <span className="font-medium text-sm">
+          <h1 className="truncate text-sm font-semibold">
             {staticName || "Youbot"}
-          </span>
+          </h1>
         )}
-      </div>
+      </nav>
 
       <div className="flex items-center gap-1.5">
         {/* Extension widgets (e.g., app switcher) */}
@@ -220,7 +248,7 @@ export function PageBreadcrumb() {
         )}
 
         {/* Chat-specific clear button */}
-        {pathname === "/chat" && (
+        {pathname === "/legacy-chat" && (
           <Button
             variant="ghost"
             size="icon"

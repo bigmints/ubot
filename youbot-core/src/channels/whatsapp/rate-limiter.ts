@@ -113,7 +113,7 @@ export class WhatsAppRateLimiter {
 
     // 3. Random human-like delay
     const delay = this._randomDelay();
-    console.log(`[RateLimiter] ⏳ Delaying ${delay}ms before sending to ${jid.slice(0, 15)}…`);
+    console.log(`[RateLimiter] Delaying outbound message by ${delay}ms`);
     await sleep(delay);
 
     // 4. Simulate typing
@@ -144,7 +144,7 @@ export class WhatsAppRateLimiter {
     const windowSummary = this.config.windows
       .map((w) => `${w.label}: ${this._countInWindow(w)}/${w.maxMessages}`)
       .join(', ');
-    console.log(`[RateLimiter] ✅ Sent to ${jid.slice(0, 15)} (${windowSummary})`);
+    console.log(`[RateLimiter] Sent outbound message (${windowSummary})`);
     return result;
   }
 
@@ -197,7 +197,7 @@ export class WhatsAppRateLimiter {
     const elapsed = Date.now() - lastSend;
     const remaining = this.config.perContactCooldownMs - elapsed;
     if (remaining > 0) {
-      console.log(`[RateLimiter] 🕐 Per-contact cooldown for ${jid.slice(0, 15)}: waiting ${remaining}ms`);
+      console.log(`[RateLimiter] Per-contact cooldown: waiting ${remaining}ms`);
       await sleep(remaining);
     }
   }

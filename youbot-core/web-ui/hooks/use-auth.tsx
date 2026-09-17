@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback, createContext, useContext } from 'rea
 interface AuthState {
   authenticated: boolean;
   authRequired: boolean;
+  authMode: 'local' | 'sso';
+  authUrl?: string;
   loading: boolean;
 }
 
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     authenticated: false,
     authRequired: true,
+    authMode: 'local',
     loading: true,
   });
 
@@ -36,6 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState({
         authenticated: data.authenticated,
         authRequired: data.authRequired,
+        authMode: data.authMode === 'sso' ? 'sso' : 'local',
+        authUrl: typeof data.authUrl === 'string' ? data.authUrl : undefined,
         loading: false,
       });
     } catch {

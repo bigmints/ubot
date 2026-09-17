@@ -53,8 +53,8 @@ if (resolvedAuth.mode === 'local' && !resolvedAuth.password) {
   console.log('');
   console.log('┌─────────────────────────────────────────────────┐');
   console.log('│  🔐 Auth credentials auto-generated             │');
-  console.log(`│  Username: ${resolvedAuth.username.padEnd(37)}│`);
-  console.log(`│  Password: ${generated.padEnd(37)}│`);
+  console.log('│  Username: saved in protected config.json.         │');
+  console.log('│  Password: saved in protected config.json.         │');
   console.log('│  Saved to config.json — change anytime.         │');
   console.log('└─────────────────────────────────────────────────┘');
   console.log('');
@@ -64,6 +64,12 @@ if (resolvedAuth.mode === 'local' && !resolvedAuth.password) {
 
 const envPort = process.env.PORT ? parseInt(process.env.PORT, 10) : undefined;
 const PORT = envPort || youbotConfig.server?.port || 11490;
+
+function resolveServerHost(configuredHost?: string, environment = process.env): string {
+  return environment.YOUBOT_HOST || configuredHost || '127.0.0.1';
+}
+
+const HOST = resolveServerHost(youbotConfig.server?.host);
 
 // In-memory application state
 interface AppState {
@@ -209,14 +215,118 @@ function serveStatic(filePath: string): Promise<{ content: Buffer; contentType: 
   });
 }
 
+function failResponse(res: http.ServerResponse, statusCode: number, body: string, error?: Error): void {
+  if (res.writableEnded || res.destroyed) return;
+
+  if (res.headersSent) {
+    res.destroy(error);
+    return;
+  }
+
+  res.writeHead(statusCode, { 'Content-Type': 'text/plain' });
+  res.end(body);
+}
+
 // ─── Session store for access gate ────────────────────────────────────────────
 const activeSessions = new Map<string, { createdAt: number }>();
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SESSION_COOKIE_NAME = 'youbot_session';
+const MAX_ACTIVE_SESSIONS = 1000;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 5;
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function applySecurityHeaders(req: http.IncomingMessage, res: http.ServerResponse): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " +
+    "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*"
+  );
+  if (isSecureRequest(req)) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+}
+
+function isSecureRequest(req: http.IncomingMessage): boolean {
+  const headers = req.headers || {};
+  const forwardedProto = String(headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  return (req.socket as { encrypted?: boolean } | undefined)?.encrypted === true
+    || forwardedProto === 'https'
+    || process.env.YOUBOT_COOKIE_SECURE === 'true';
+}
+
+function secureEquals(actual: unknown, expected: string | undefined): boolean {
+  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+  const actualDigest = crypto.createHash('sha256').update(actual).digest();
+  const expectedDigest = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(actualDigest, expectedDigest);
+}
+
+function loginClientId(req: http.IncomingMessage): string {
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function loginRetryAfter(req: http.IncomingMessage): number {
+  const key = loginClientId(req);
+  const now = Date.now();
+  const entry = loginAttempts.get(key);
+  if (!entry || entry.resetAt <= now) {
+    loginAttempts.delete(key);
+    return 0;
+  }
+  return entry.count >= MAX_LOGIN_ATTEMPTS ? Math.ceil((entry.resetAt - now) / 1000) : 0;
+}
+
+function recordLoginFailure(req: http.IncomingMessage): void {
+  const key = loginClientId(req);
+  const now = Date.now();
+  const current = loginAttempts.get(key);
+  loginAttempts.set(key, !current || current.resetAt <= now
+    ? { count: 1, resetAt: now + LOGIN_WINDOW_MS }
+    : { ...current, count: current.count + 1 });
+}
+
+function readRequestBody(req: http.IncomingMessage, maxBytes = 64 * 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let size = 0;
+    let settled = false;
+    req.on('data', (chunk: Buffer | string) => {
+      if (settled) return;
+      size += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.byteLength;
+      if (size > maxBytes) {
+        settled = true;
+        reject(Object.assign(new Error('Payload too large'), { statusCode: 413 }));
+        return;
+      }
+      body += chunk;
+    });
+    req.on('end', () => {
+      if (!settled) resolve(body);
+    });
+    req.on('error', (error) => {
+      if (!settled) reject(error);
+    });
+  });
+}
 
 function createSession(): string {
+  const now = Date.now();
+  for (const [token, session] of activeSessions) {
+    if (now - session.createdAt > SESSION_MAX_AGE_MS) activeSessions.delete(token);
+  }
+  while (activeSessions.size >= MAX_ACTIVE_SESSIONS) {
+    const oldest = activeSessions.keys().next().value;
+    if (!oldest) break;
+    activeSessions.delete(oldest);
+  }
   const token = crypto.randomBytes(32).toString('hex');
-  activeSessions.set(token, { createdAt: Date.now() });
+  activeSessions.set(token, { createdAt: now });
   return token;
 }
 
@@ -236,13 +346,82 @@ function getSessionFromCookie(req: http.IncomingMessage): string | null {
   return match ? match.split('=')[1] : null;
 }
 
-function setSessionCookie(res: http.ServerResponse, token: string): void {
+function setSessionCookie(req: http.IncomingMessage, res: http.ServerResponse, token: string): void {
   const maxAge = SESSION_MAX_AGE_MS / 1000;
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`);
+  const secure = isSecureRequest(req);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure ? '; Secure' : ''}`);
 }
 
 function clearSessionCookie(res: http.ServerResponse): void {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+
+function safeExternalAuthUrl(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function authenticateSsoRequest(req: http.IncomingMessage): Promise<boolean> {
+  const authHook = getHooks().auth;
+  if (!authHook) return false;
+  try {
+    const result = await authHook.authenticate(req);
+    return result?.authenticated === true;
+  } catch (error: any) {
+    log.warn('Auth', `SSO validation failed: ${error?.message || 'unknown error'}`);
+    return false;
+  }
+}
+
+async function getReadinessReport(): Promise<{
+  status: 'ok' | 'unhealthy';
+  version: string;
+  checks: { database: boolean; dashboard: boolean };
+  timestamp: string;
+}> {
+  let database = false;
+  try {
+    const result = await db.get<{ ok: number }>('SELECT 1 AS ok');
+    database = result?.ok === 1;
+  } catch {
+    database = false;
+  }
+
+  let dashboard = true;
+  if (IS_PRODUCTION) {
+    try {
+      dashboard = Boolean(await serveStatic('/index.html'));
+    } catch {
+      dashboard = false;
+    }
+  }
+
+  return {
+    status: database && dashboard ? 'ok' : 'unhealthy',
+    version: appState.version,
+    checks: { database, dashboard },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function shouldApplyServerAccessGate(
+  mode: 'local' | 'sso',
+  password: string | undefined,
+  method: string,
+  url: string,
+): boolean {
+  if (method === 'OPTIONS' || !url.startsWith('/api/')) return false;
+  const isPublic = url === '/api/health'
+    || url.startsWith('/api/webchat/')
+    || url === '/api/auth/status'
+    || url === '/api/auth/login';
+  if (isPublic) return false;
+  return mode === 'sso' || Boolean(password);
 }
 
 // Wire session validation into API auth middleware so dashboard cookie auth works
@@ -252,6 +431,7 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   const fullUrl = req.url || '/';
   const url = fullUrl.split('?')[0];
   const method = req.method || 'GET';
+  applySecurityHeaders(req, res);
 
   // Security: prevent directory traversal
   if (url.includes('..')) {
@@ -269,19 +449,21 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   }
 
   // ── Server-level access gate ──────────────────────────────
-  // In 'local' mode, require password for API requests.
-  // In 'sso' mode, the extension hook handles auth (not the local gate).
-  if (resolvedAuth.mode === 'local' && resolvedAuth.password && method !== 'OPTIONS') {
+  // Protect API endpoints before any direct route handler executes. The API
+  // router also authorizes its routes; this outer gate covers profile,
+  // password and shutdown routes implemented in this file.
+  if (method !== 'OPTIONS' && process.env.NODE_ENV !== 'test') {
     // Only gate API endpoints — frontend pages/assets must always load
     // so the AuthGate component can render the login form
-    const isApiRoute = url.startsWith('/api/');
-    const isPublicApi = url === '/api/health' 
-      || url.startsWith('/api/webchat/')
-      || url.startsWith('/api/auth/')
-      || url.startsWith('/api/integrations/');
-    
-    if (isApiRoute && !isPublicApi) {
-      const authHeader = req.headers['authorization'] || '';
+    const shouldGate = shouldApplyServerAccessGate(
+      resolvedAuth.mode,
+      resolvedAuth.password,
+      method,
+      url,
+    );
+
+    if (shouldGate) {
+      const authHeader = req.headers?.['authorization'] || '';
       let authorized = false;
       
       // Check 1: Valid session cookie
@@ -298,6 +480,12 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
           authorized = true;
         }
       }
+
+      // SSO auth is fail-closed when the plugin is absent, rejects the
+      // session, or encounters an error.
+      if (!authorized && resolvedAuth.mode === 'sso') {
+        authorized = await authenticateSsoRequest(req);
+      }
       
       if (!authorized) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -310,13 +498,15 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   // ── Auth endpoints (login / logout / status) ──────────────
   if (url === '/api/auth/status' && method === 'GET') {
     if (resolvedAuth.mode === 'sso') {
-      // SSO mode — auth is handled by middleware/extension, not local login
+      const authHook = getHooks().auth;
+      const authenticated = await authenticateSsoRequest(req);
+      const authUrl = safeExternalAuthUrl(authHook?.getLoginUrl?.(fullUrl) || resolvedAuth.auth_url);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        authenticated: true,  // SSO validates at middleware level
-        authRequired: false,  // No local login screen needed
+        authenticated,
+        authRequired: true,
         authMode: 'sso',
-        auth_url: resolvedAuth.auth_url,
+        authUrl,
       }));
       return;
     }
@@ -336,32 +526,43 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
   }
 
   if (url === '/api/auth/login' && method === 'POST') {
-    if (resolvedAuth.mode === 'sso' || !resolvedAuth.password) {
+    if (resolvedAuth.mode === 'sso') {
+      const authHook = getHooks().auth;
+      const authUrl = safeExternalAuthUrl(authHook?.getLoginUrl?.('/') || resolvedAuth.auth_url);
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Local login is disabled in SSO mode', authUrl }));
+      return;
+    }
+    if (!resolvedAuth.password) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, message: 'No local auth required' }));
       return;
     }
     
-    const body = await new Promise<string>((resolve) => {
-      let data = '';
-      req.on('data', chunk => { data += chunk; });
-      req.on('end', () => resolve(data));
-    });
-    
     try {
+      const retryAfter = loginRetryAfter(req);
+      if (retryAfter > 0) {
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
+        res.end(JSON.stringify({ success: false, error: 'Too many login attempts. Try again later.' }));
+        return;
+      }
+      const body = await readRequestBody(req);
       const { username, password } = JSON.parse(body);
-      if (username === resolvedAuth.username && password === resolvedAuth.password) {
+      if (secureEquals(username, resolvedAuth.username) && secureEquals(password, resolvedAuth.password)) {
+        loginAttempts.delete(loginClientId(req));
         const token = createSession();
-        setSessionCookie(res, token);
+        setSessionCookie(req, res, token);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
       } else {
+        recordLoginFailure(req);
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Invalid username or password' }));
       }
-    } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Invalid request body' }));
+    } catch (error: any) {
+      const status = error?.statusCode === 413 ? 413 : 400;
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: status === 413 ? 'Payload too large' : 'Invalid request body' }));
     }
     return;
   }
@@ -393,13 +594,8 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       return;
     }
 
-    const body = await new Promise<string>((resolve) => {
-      let data = '';
-      req.on('data', chunk => { data += chunk; });
-      req.on('end', () => resolve(data));
-    });
-
     try {
+      const body = await readRequestBody(req);
       const { currentPassword, newPassword } = JSON.parse(body);
 
       if (!currentPassword || !newPassword) {
@@ -408,15 +604,15 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         return;
       }
 
-      if (currentPassword !== resolvedAuth.password) {
+      if (!secureEquals(currentPassword, resolvedAuth.password)) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Current password is incorrect' }));
         return;
       }
 
-      if (newPassword.length < 6) {
+      if (typeof newPassword !== 'string' || newPassword.length < 12) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'New password must be at least 6 characters' }));
+        res.end(JSON.stringify({ success: false, error: 'New password must be at least 12 characters' }));
         return;
       }
 
@@ -427,19 +623,26 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       youbotConfig.server.auth.password = newPassword;
       saveYoubotConfig(youbotConfig);
 
+      // Revoke every existing session and issue a fresh one to the caller.
+      activeSessions.clear();
+      const token = createSession();
+      setSessionCookie(req, res, token);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
-    } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Invalid request body' }));
+    } catch (error: any) {
+      const status = error?.statusCode === 413 ? 413 : 400;
+      res.writeHead(status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: status === 413 ? 'Payload too large' : 'Invalid request body' }));
     }
     return;
   }
   
   // Health check endpoint
   if (url === '/health' && method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    const report = await getReadinessReport();
+    res.writeHead(report.status === 'ok' ? 200 : 503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(report));
     return;
   }
 
@@ -530,9 +733,13 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         proxyRes.pipe(res, { end: true });
       }
     );
-    proxyReq.on('error', () => {
-      res.writeHead(502, { 'Content-Type': 'text/plain' });
-      res.end(`Frontend dev server not ready (port ${DEV_FRONTEND_PORT}). Run: cd web-ui && npm run dev`);
+    proxyReq.on('error', (error) => {
+      failResponse(
+        res,
+        502,
+        `Frontend dev server not ready (port ${DEV_FRONTEND_PORT}). Run: cd web-ui && npm run dev`,
+        error instanceof Error ? error : undefined
+      );
     });
     req.pipe(proxyReq, { end: true });
     return;
@@ -575,8 +782,7 @@ function createServer(): http.Server {
   const server = http.createServer((req, res) => {
     handleRequest(req, res).catch((error) => {
       console.error('Request handler error:', error);
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Internal Server Error');
+      failResponse(res, 500, 'Internal Server Error', error instanceof Error ? error : undefined);
     });
   });
 
@@ -617,6 +823,8 @@ function getAppState(): AppState {
 function resetState(): void {
   appState.requestCount = 0;
   appState.startedAt = new Date();
+  activeSessions.clear();
+  loginAttempts.clear();
 }
 
 // Load extensions if available
@@ -661,10 +869,11 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   // Load extensions first, then start
   loadExtensions().then(() => {
     const server = createServer();
-    server.listen(PORT, () => {
-      console.log(`🚀 ${appState.name} v${appState.version} running at http://localhost:${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`📈 State API: http://localhost:${PORT}/api/state`);
+    server.listen(PORT, HOST, () => {
+      const displayHost = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+      console.log(`🚀 ${appState.name} v${appState.version} running at http://${displayHost}:${PORT}`);
+      console.log(`📊 Health check: http://${displayHost}:${PORT}/health`);
+      console.log(`📈 State API: http://${displayHost}:${PORT}/api/state`);
       console.log(`[YOUBOT] Mode: ${MODE.toUpperCase()} | Features: WA=${FEATURES.whatsapp} TG=${FEATURES.telegram} CLI=${FEATURES.cli}`);
       
       // Resume active plans in the background
@@ -699,5 +908,16 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   });
 }
 
-export { createServer, getAppState, AppState, handleRequest, resetState };
+export {
+  createServer,
+  getAppState,
+  AppState,
+  handleRequest,
+  resetState,
+  resolveServerHost,
+  applySecurityHeaders,
+  readRequestBody,
+  safeExternalAuthUrl,
+  shouldApplyServerAccessGate,
+};
 // trigger restart

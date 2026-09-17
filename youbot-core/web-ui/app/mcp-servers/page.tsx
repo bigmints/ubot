@@ -32,6 +32,8 @@ import {
   Search,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 
 import { toast } from "sonner";
 
@@ -62,6 +64,9 @@ export default function McpServersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("name");
 
   // Add dialog state
   const [addOpen, setAddOpen] = useState(false);
@@ -390,25 +395,17 @@ export default function McpServersPage() {
         ? "Error"
         : "Disconnected";
 
+  const visibleServers = servers
+    .filter((server) => {
+      const matchesSearch = `${server.name} ${server.command} ${server.discoveredTools.map((tool) => tool.name).join(" ")}`.toLowerCase().includes(search.toLowerCase());
+      return matchesSearch && (statusFilter === "all" || server.status === statusFilter);
+    })
+    .sort((a, b) => sort === "tools" ? b.registeredToolCount - a.registeredToolCount : a.name.localeCompare(b.name));
+
   // ── Render ──────────────────────────────────────────────
 
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-6 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20">
-            <Plug className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">MCP Servers</h1>
-            <p className="text-sm text-muted-foreground">
-              Connect Model Context Protocol servers to extend the agent with
-              external tools
-            </p>
-          </div>
-        </div>
-
+    <StandardPage title="Tool connections" description="Connect external tool servers and manage what they make available." actions={
         <Dialog
           open={addOpen}
           onOpenChange={(open) => {
@@ -685,7 +682,9 @@ export default function McpServersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      }>
+
+      <ListToolbar className="rounded-xl border bg-card" searchLabel="Search tool connections" searchPlaceholder="Search tool connections" searchValue={search} onSearchChange={setSearch} filters={[{label:"Connection status",value:statusFilter,onValueChange:setStatusFilter,options:[{value:"all",label:"All connections"},{value:"connected",label:"Connected"},{value:"disconnected",label:"Disconnected"},{value:"error",label:"Errors"}]}]} sort={{label:"Sort connections",value:sort,onValueChange:setSort,options:[{value:"name",label:"Name A–Z"},{value:"tools",label:"Most tools"}]}} resultLabel={`${visibleServers.length} of ${servers.length} connections`} active={!!search||statusFilter!=="all"||sort!=="name"} onReset={()=>{setSearch("");setStatusFilter("all");setSort("name");}} />
 
       {/* Alerts */}
       {error && (
@@ -712,7 +711,7 @@ export default function McpServersPage() {
       {!loading && servers.length === 0 && (
         <EmptyState
           icon={<Plug className="size-8" />}
-          title="No MCP Servers"
+          title="No Tool connections"
           description="Add an MCP server to extend the agent with external tools. Popular options include filesystem, GitHub, databases, and more."
           action={
             <Button onClick={() => setAddOpen(true)}>
@@ -723,8 +722,12 @@ export default function McpServersPage() {
         />
       )}
 
+      {!loading && servers.length > 0 && visibleServers.length === 0 && (
+        <EmptyState icon={<Search className="size-8" />} title="No matching tool connections" description="Try a different search or filter." />
+      )}
+
       {/* Server Cards */}
-      {servers.map((server) => (
+      {visibleServers.map((server) => (
         <Card key={server.id}>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -843,6 +846,6 @@ export default function McpServersPage() {
           </CardContent>
         </Card>
       ))}
-    </div>
+    </StandardPage>
   );
 }

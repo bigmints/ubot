@@ -16,6 +16,7 @@
  */
 
 import type { ToolModule, ToolRegistry, ToolContext, ToolDefinition } from '../../tools/types.js';
+import { resolveRoutedHttpModel } from '../../integrations/model-routing.js';
 
 export const TTS_TOOLS: ToolDefinition[] = [
   {
@@ -114,10 +115,9 @@ async function synthesize(
   // ── 1. Provider TTS (model-based) ──────────────────────
   const agent = ctx.getAgent();
   const config = agent?.getConfig?.() as any;
-  const providerList: any[] = Array.isArray(config?.llmProviders) ? config.llmProviders : [];
-  const routing: Record<string, string> = config?.modelRouting || {};
-  const ttsProviderId = routing['tts'] ? routing['tts'].split('/')[0] : config?.defaultLlmProviderId;
-  const provider = providerList.find((p: any) => p.id === ttsProviderId) || providerList.find((p: any) => p.isDefault) || providerList[0];
+  const provider = config
+    ? await resolveRoutedHttpModel(config, 'tts', 'tts-1')
+    : undefined;
 
   if (provider?.baseUrl) {
     try {
@@ -128,17 +128,18 @@ async function synthesize(
       // IPv6 localhost fix
       if (baseUrl.includes('://localhost:')) baseUrl = baseUrl.replace('://localhost:', '://127.0.0.1:');
 
-      const ttsModelId = routing['tts'] ? routing['tts'].split('/').slice(1).join('/') || 'tts-1' : 'tts-1';
-
       const ttsUrl = `${baseUrl}/audio/speech`;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(provider.headers ?? {}),
+      };
       if (provider.apiKey) headers['Authorization'] = `Bearer ${provider.apiKey}`;
 
       const ttsRes = await fetch(ttsUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: ttsModelId,
+          model: provider.modelId,
           input: text,
           voice,
           speed,
@@ -150,8 +151,8 @@ async function synthesize(
         return Buffer.from(await ttsRes.arrayBuffer());
       }
 
-      const errBody = await ttsRes.text().catch(() => '');
-      console.warn(`[TTS] Provider ${ttsRes.status}: ${errBody.slice(0, 200)} — falling back to system TTS`);
+      await ttsRes.body?.cancel().catch(() => undefined);
+      console.warn(`[TTS] Provider request failed with status ${ttsRes.status}; falling back to system TTS`);
     } catch (err: any) {
       console.warn(`[TTS] Provider error: ${err.message} — falling back to system TTS`);
     }

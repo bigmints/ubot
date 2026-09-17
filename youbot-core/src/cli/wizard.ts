@@ -1,4 +1,5 @@
 import * as readline from 'readline/promises';
+import { Writable } from 'node:stream';
 import { loadYoubotConfig, saveYoubotConfig } from '../data/config.js';
 import postgres from 'postgres';
 import fs from 'fs';
@@ -33,7 +34,7 @@ const wizardModules: WizardModule[] = [
       config.server.auth = config.server.auth || {};
       const finalVal = val || crypto.randomBytes(8).toString('hex');
       config.server.auth.password = finalVal;
-      console.log(`\n🔑 Dashboard Password set to: ${finalVal}`);
+      console.log('\n🔑 Dashboard password saved.');
     }
   },
   {
@@ -126,10 +127,33 @@ This wizard will securely collect your credentials
 and prepare your environment instantly. (Press Enter to use defaults)
 `);
 
+  class SecretAwareOutput extends Writable {
+    muted = false;
+
+    _write(chunk: Buffer | string, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+      if (!this.muted) process.stdout.write(chunk, encoding);
+      callback();
+    }
+  }
+
+  const output = new SecretAwareOutput();
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output,
+    terminal: Boolean(process.stdin.isTTY),
   });
+
+  const ask = async (prompt: string, secret = false): Promise<string> => {
+    if (!secret || !process.stdin.isTTY) return rl.question(prompt);
+    process.stdout.write(prompt);
+    output.muted = true;
+    try {
+      return await rl.question('');
+    } finally {
+      output.muted = false;
+      process.stdout.write('\n');
+    }
+  };
 
   const config = loadYoubotConfig();
 
@@ -138,7 +162,7 @@ and prepare your environment instantly. (Press Enter to use defaults)
       ? `\n${module.question} [${module.defaultVal}]: `
       : `\n${module.question} `;
       
-    let answer = await rl.question(promptStr);
+    let answer = await ask(promptStr, module.isPassword === true);
     answer = answer.trim();
     
     if (!answer && module.defaultVal) {
@@ -160,11 +184,11 @@ and prepare your environment instantly. (Press Enter to use defaults)
   const wantsMigration = migrateAnswer.trim().toLowerCase() !== 'n';
   
   if (wantsMigration) {
-    const connStr = await rl.question(`\nEnter your Supabase Postgres Connection String (e.g. postgresql://postgres.xyz:pwd@aws...): `);
+    const connStr = await ask(`\nEnter your Supabase Postgres Connection String (e.g. postgresql://postgres.xyz:pwd@aws...): `, true);
     
     if (connStr.trim()) {
       const YOUBOT_HOME = process.env.YOUBOT_HOME || '';
-      const migrationsDir = path.join(YOUBOT_HOME, 'migrations');
+  const migrationsDir = path.join(process.env.YOUBOT_APP_HOME || YOUBOT_HOME, 'migrations');
       await runAutoMigration(connStr.trim(), migrationsDir);
     } else {
       console.log(`⚠️ Skipped: No connection string provided.`);

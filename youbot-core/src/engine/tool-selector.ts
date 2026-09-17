@@ -306,7 +306,7 @@ export async function selectToolsForMessage(
         );
       }
     } catch {
-      log.warn('ToolSelector', `Failed to parse: ${response.slice(0, 200)} — using all tools`);
+      log.warn('ToolSelector', 'Failed to parse router response; using all tools');
       return {
         tools: allTools,
         selectedModules: allModules,

@@ -11,6 +11,7 @@
 import type { ToolModule, ToolRegistry, ToolContext } from '../../tools/types.js';
 import { toolResult, safeExecutor } from '../../tools/types.js';
 import { transcribeAudio } from './service.js';
+import { resolveRoutedHttpModel } from '../../integrations/model-routing.js';
 
 const transcriptionToolModule: ToolModule = {
   name: 'transcription',
@@ -53,16 +54,16 @@ const transcriptionToolModule: ToolModule = {
         const agent = ctx.getAgent();
         const config = agent?.getConfig?.() as any;
         
-        // Find correct provider based on routing, exactly like api/index.ts
-        const providerList: any[] = Array.isArray(config?.llmProviders) ? config.llmProviders : [];
-        const routing: Record<string, string> = config?.defaults || {};
-        const transcriptionProviderId = routing['transcription'] ? routing['transcription'].split('/')[0] : config?.defaultLlmProviderId;
-        const provider = providerList.find((p: any) => p.id === transcriptionProviderId) || providerList.find((p: any) => p.isDefault) || providerList[0];
+        const provider = config
+          ? await resolveRoutedHttpModel(config, 'transcription', 'whisper-1')
+          : undefined;
 
         const result = await transcribeAudio(filePath, {
           language,
           providerBaseUrl: provider?.baseUrl,
           providerApiKey: provider?.apiKey,
+          providerModelId: provider?.modelId,
+          providerHeaders: provider?.headers,
         });
 
         return JSON.stringify({

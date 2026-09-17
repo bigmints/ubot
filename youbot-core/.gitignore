@@ -35,6 +35,7 @@ workspace/skills/
 
 # Credentials
 creds/
+provider-access/
 
 # IDE
 .idea/

@@ -464,7 +464,7 @@ const messagingToolModule: ToolModule = {
         }
 
         // Send as plain text — WhatsApp bots accept text replies for menu selections
-        console.log(`[wa_respond_to_bot] Sending "${response}" to ${to}`);
+      console.log('[wa_respond_to_bot] Sending response');
         await waConn.sendMessage(to, { text: response });
         console.log(`[wa_respond_to_bot] ✅ Message sent successfully`);
         return { toolName: 'wa_respond_to_bot', success: true, result: `Sent "${response}" to bot ${to}`, duration: 0 };

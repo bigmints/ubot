@@ -8,7 +8,7 @@ import http from 'http';
 import { v4 as uuidv4 } from 'uuid';
 import { parseBody, json, error, type ApiContext } from '../context.js';
 import { handleIncomingMessage, type UnifiedMessage, type UnifiedDeps } from '../../engine/handler.js';
-import { loadYoubotConfig, saveYoubotConfig } from '../../data/config.js';
+import { loadYoubotConfig, saveYoubotConfig, type YoubotConfig } from '../../data/config.js';
 
 // ─── Token Validation ────────────────────────────────────
 
@@ -182,19 +182,26 @@ export async function handleWebchatRoutes(
  * Ensures a webchat connection_token exists in config.
  * Called during server initialization.
  */
-export function ensureWebchatToken(): string {
-  const cfg = loadYoubotConfig();
+export function ensureWebchatToken(options: {
+  loadConfig?: () => YoubotConfig;
+  saveConfig?: (config: YoubotConfig) => void;
+  createToken?: () => string;
+} = {}): string {
+  const load = options.loadConfig || loadYoubotConfig;
+  const save = options.saveConfig || saveYoubotConfig;
+  const cfg = load();
+  if (cfg.channels?.webchat?.enabled === false) return '';
   if (!cfg.channels) cfg.channels = {};
   if (!cfg.channels.webchat) cfg.channels.webchat = {};
 
   if (!cfg.channels.webchat.connection_token) {
-    const token = uuidv4();
+    const token = options.createToken?.() || uuidv4();
     cfg.channels.webchat.connection_token = token;
     // Default to enabled with auto-reply on
     if (cfg.channels.webchat.enabled === undefined) cfg.channels.webchat.enabled = true;
     if (cfg.channels.webchat.auto_reply === undefined) cfg.channels.webchat.auto_reply = true;
-    saveYoubotConfig(cfg);
-    console.log(`[Webchat] 🔑 Generated connection token: ${token}`);
+    save(cfg);
+    console.log('[Webchat] Generated a new connection token');
     return token;
   }
 

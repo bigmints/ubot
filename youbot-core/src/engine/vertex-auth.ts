@@ -96,7 +96,7 @@ export async function getVertexAccessToken(): Promise<string | null> {
     });
     return token.access_token;
   } catch (err) {
-    console.error('[Vertex] Failed to get access token:', err);
+    console.error('[Vertex] Failed to get access token');
     return null;
   }
 }

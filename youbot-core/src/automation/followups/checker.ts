@@ -1,3 +1,4 @@
+import { parseVisitorReply, VISITOR_REPLY_CONTRACT } from '../../engine/visitor-reply.js';
 /**
  * Follow-Up Checker
  *
@@ -11,6 +12,8 @@ import type { ApprovalStore } from '../approvals/service.js';
 
 interface FollowUpCheckerDeps {
   followUpStore: FollowUpStore;
+  /** Capture recipient and ownership before model generation. Null leaves it for the owner. */
+  prepare?: (followUp: FollowUp) => Promise<((channel:string, contactId:string, message:string)=>Promise<boolean>) | null>;
   /** Approval store — used to check approval status for approval-related follow-ups */
   approvalStore?: ApprovalStore;
   /** The orchestrator's chat function */
@@ -21,6 +24,12 @@ interface FollowUpCheckerDeps {
 
 let checkInterval: ReturnType<typeof setInterval> | null = null;
 const CHECK_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
+/** Compatibility for older webchat approvals stored under the owner-UI channel. */
+export function visitorFollowUpChannel(followUp: Pick<FollowUp, 'channel' | 'contactId'>): string {
+  return followUp.channel === 'web' && followUp.contactId.startsWith('webchat:')
+    ? 'webchat' : followUp.channel;
+}
 
 /**
  * Start the periodic follow-up checker.
@@ -61,7 +70,9 @@ async function processFollowUps(deps: FollowUpCheckerDeps): Promise<void> {
   // Process in priority order (getDue already returns sorted by priority DESC, date ASC)
   for (const followUp of dueFollowUps) {
     try {
-      await processOneFollowUp(followUp, deps);
+      const send = deps.prepare ? await deps.prepare(followUp) : deps.sendMessage;
+      if (!send) continue;
+      await processOneFollowUp(followUp, { ...deps, sendMessage: send });
     } catch (err: any) {
       console.error(`[FollowUpChecker] Failed to process follow-up ${followUp.id}:`, err.message);
       // Reschedule for 30 minutes later after failure
@@ -75,7 +86,7 @@ async function processFollowUps(deps: FollowUpCheckerDeps): Promise<void> {
  * Process a single follow-up by spawning an agent session.
  */
 async function processOneFollowUp(followUp: FollowUp, deps: FollowUpCheckerDeps): Promise<void> {
-  console.log(`[FollowUpChecker] Processing follow-up ${followUp.id}: "${followUp.reason}" for ${followUp.contactId}`);
+  console.log(`[FollowUpChecker] Processing follow-up ${followUp.id}`);
 
   // Safety: auto-expire stale follow-ups to prevent infinite loops
   const ageMs = Date.now() - new Date(followUp.createdAt).getTime();
@@ -93,7 +104,7 @@ async function processOneFollowUp(followUp: FollowUp, deps: FollowUpCheckerDeps)
   }
 
   // Build the agent prompt with full context
-  const prompt = buildFollowUpPrompt(followUp);
+  const prompt = buildFollowUpPrompt(followUp) + '\n\n' + VISITOR_REPLY_CONTRACT + '\nFor scheduler controls only, return exactly [NO_ACTION_NEEDED] or [RESCHEDULE], with no explanation. Otherwise use the reply JSON object.';
   const sessionId = `followup-${followUp.id}-${Date.now()}`;
 
   try {
@@ -102,37 +113,25 @@ async function processOneFollowUp(followUp: FollowUp, deps: FollowUpCheckerDeps)
     const response = result.content || '';
 
     // Check if the agent determined the follow-up should be sent
-    if (response.toLowerCase().includes('[no_action_needed]')) {
+    if (response.trim().toLowerCase() === '[no_action_needed]') {
       // Agent decided no follow-up is needed — mark as completed
       await deps.followUpStore.complete(followUp.id, 'Agent determined no follow-up needed: ' + response.slice(0, 200));
       console.log(`[FollowUpChecker] Follow-up ${followUp.id} — no action needed`);
-    } else if (response.toLowerCase().includes('[reschedule]')) {
+    } else if (response.trim().toLowerCase() === '[reschedule]') {
       // Agent wants to reschedule — push back by an hour
       const nextAt = new Date(Date.now() + 60 * 60 * 1000);
       await deps.followUpStore.recordAttempt(followUp.id, nextAt);
       console.log(`[FollowUpChecker] Follow-up ${followUp.id} rescheduled to ${nextAt.toISOString()}`);
     } else {
       // Agent produced a follow-up message — extract and send it
-      const messageText = extractMessageFromResponse(response);
-
-      if (!messageText || messageText.trim().length === 0) {
-        // Empty after stripping — respond with [NO_ACTION_NEEDED] and log why
-        await deps.followUpStore.complete(followUp.id, `Agent response was empty after stripping metadata (raw: ${response.slice(0, 200)})`);
-        console.log(`[FollowUpChecker] Follow-up ${followUp.id} — no actionable message after stripping, treating as [NO_ACTION_NEEDED]`);
-        return;
-      }
-
-      // Send the message via the appropriate channel
-      const sent = await deps.sendMessage(followUp.channel, followUp.contactId, messageText);
-
-      if (sent) {
-        await deps.followUpStore.complete(followUp.id, `Sent follow-up message: ${messageText.slice(0, 200)}`);
-        console.log(`[FollowUpChecker] Follow-up ${followUp.id} — message sent and completed`);
+      const messageText = parseVisitorReply(response);
+      if (!messageText) {
+        await deps.followUpStore.recordAttempt(followUp.id, new Date(Date.now() + 30 * 60 * 1000));
+        console.warn(`[FollowUpChecker] Follow-up ${followUp.id} held: visitor reply validation failed`);
       } else {
-        // Send failed — reschedule with higher priority
-        const nextAt = new Date(Date.now() + 30 * 60 * 1000);
-        await deps.followUpStore.recordAttempt(followUp.id, nextAt);
-        console.log(`[FollowUpChecker] Follow-up ${followUp.id} — send failed, rescheduled`);
+        const sent = await deps.sendMessage(followUp.channel, followUp.contactId, messageText);
+        if (sent) await deps.followUpStore.complete(followUp.id, `Sent follow-up: ${messageText.slice(0, 200)}`);
+        else await deps.followUpStore.recordAttempt(followUp.id, new Date(Date.now() + 30 * 60 * 1000));
       }
     }
   } catch (err: any) {
@@ -170,7 +169,7 @@ async function processApprovalFollowUp(followUp: FollowUp, deps: FollowUpChecker
 
   if (approval.status === 'resolved' && approval.ownerResponse) {
     // Owner already responded — relay the response to the requester
-    console.log(`[FollowUpChecker] Approval ${approvalId} already resolved — relaying to ${followUp.contactId}`);
+    console.log(`[FollowUpChecker] Approval ${approvalId} already resolved; preparing relay`);
 
     // Use the agent to compose a natural relay message
     const sessionId = `followup-${followUp.id}-${Date.now()}`;
@@ -184,11 +183,11 @@ async function processApprovalFollowUp(followUp: FollowUp, deps: FollowUpChecker
 ## Instructions
 Compose a natural, friendly reply to send to the requester. Incorporate the owner's response. Do NOT mention "approval", "system", or internal processes.
 
-Respond with ONLY the message text — no metadata tags, no reasoning.`;
+Return the finished visitor reply in the required JSON object, without reasoning.`;
 
     try {
-      const result = await deps.chat(sessionId, prompt, 'web', 'follow-up-agent', true);
-      const messageText = (result.content || approval.ownerResponse).trim();
+      const result = await deps.chat(sessionId, prompt + '\n\n' + VISITOR_REPLY_CONTRACT, 'web', 'follow-up-agent', true);
+      const messageText = parseVisitorReply(result.content || '');
 
       if (messageText && messageText.length > 0) {
         const sent = await deps.sendMessage(followUp.channel, followUp.contactId, messageText);
@@ -200,18 +199,13 @@ Respond with ONLY the message text — no metadata tags, no reasoning.`;
           console.log(`[FollowUpChecker] Approval follow-up ${followUp.id} — send failed, rescheduled`);
         }
       } else {
-        await deps.followUpStore.complete(followUp.id, `Owner response relayed: ${approval.ownerResponse.slice(0, 200)}`);
-        console.log(`[FollowUpChecker] Approval follow-up ${followUp.id} — completed (empty response, using raw)`);
+        await deps.followUpStore.recordAttempt(followUp.id, new Date(Date.now() + 30 * 60 * 1000));
+        console.warn(`[FollowUpChecker] Approval follow-up ${followUp.id} held: visitor reply validation failed`);
       }
     } catch (err: any) {
-      console.error(`[FollowUpChecker] Approval follow-up ${followUp.id} — agent error: ${err.message}`);
-      // Fallback: send raw owner response
-      const sent = await deps.sendMessage(followUp.channel, followUp.contactId, approval.ownerResponse);
-      if (sent) {
-        await deps.followUpStore.complete(followUp.id, `Owner response relayed (fallback): ${approval.ownerResponse.slice(0, 200)}`);
-      } else {
-        await deps.followUpStore.recordAttempt(followUp.id);
-      }
+      console.error(`[FollowUpChecker] Approval follow-up ${followUp.id} failed:`, err.message);
+      // Never substitute raw owner context or model working text on generation failure.
+      await deps.followUpStore.recordAttempt(followUp.id, new Date(Date.now() + 30 * 60 * 1000));
     }
     return;
   }
@@ -302,10 +296,10 @@ ${followUp.context}
 
 ## Instructions
 1. Review the context and determine the best course of action.
-2. If the issue has already been resolved (check recent messages using search_messages), respond with [NO_ACTION_NEEDED] and explain why.
-3. If you need more time (e.g., owner still hasn't responded to the original ask_owner), respond with [RESCHEDULE] and explain why.
-4. Otherwise, compose and send an appropriate follow-up message to the contact via ${followUp.channel} using the send_message tool.
-5. After sending, use complete_followup with follow-up ID "${followUp.id}" to mark it as done.
+2. If the issue has already been resolved (check recent messages using search_messages), respond with exactly [NO_ACTION_NEEDED], without an explanation.
+3. If you need more time (e.g., owner still hasn't responded to the original ask_owner), respond with exactly [RESCHEDULE], without an explanation.
+4. Otherwise, return only the visitor-facing message. The host sends it after checking conversation ownership.
+5. Do not call tools or claim the message was sent; the host records delivery.
 6. DO NOT call schedule_followup. This session is restricted.
 
 ## Follow-Up Message Guidelines
@@ -314,50 +308,6 @@ ${followUp.context}
 - If checking on a pending request: "Hi! Just following up on your earlier question about..."
 - If delivering information: "Great news! I have an update regarding..."
 - Keep it brief and actionable`;
-}
-
-/**
- * Extract the actual follow-up message from the agent's response.
- * Strips metadata tags, tool call markers, and verbose reasoning.
- * Returns just the message portion, or empty string if nothing actionable.
- */
-function extractMessageFromResponse(response: string): string {
-  if (!response || response.trim().length === 0) return '';
-
-  let text = response;
-
-  // Strip tool call markers: [complete_followup(...)]
-  text = text.replace(/\[complete_followup\([^)]*\)\]/gi, '').trim();
-
-  // Strip [NO_ACTION_NEEDED] — remove everything up to and including that tag
-  const noActionMatch = text.match(/\[no_action_needed\]/i);
-  if (noActionMatch) {
-    text = text.slice(noActionMatch.index! + noActionMatch[0].length).trim();
-  }
-
-  // Strip [RESCHEDULE] — remove everything up to and including that tag
-  const rescheduleMatch = text.match(/\[reschedule\]/i);
-  if (rescheduleMatch) {
-    text = text.slice(rescheduleMatch.index! + rescheduleMatch[0].length).trim();
-  }
-
-  // Strip other meta-tags: [done], [complete], etc.
-  text = text.replace(/\[(no_action_needed|reschedule|done|complete)\]/gi, '').trim();
-
-  // Remove surrounding markdown code blocks if the agent wrapped the message
-  text = text.replace(/^```(?:text|markdown)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-
-  // Extract the last paragraph that looks like a message
-  // Split by double newlines and take the last non-empty paragraph
-  const paragraphs = text.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
-  if (paragraphs.length > 0) {
-    text = paragraphs[paragraphs.length - 1];
-  }
-
-  // Clean up whitespace
-  text = text.replace(/^\s+|\s+$/g, '').replace(/\n{3,}/g, '\n\n').trim();
-
-  return text;
 }
 
 /**

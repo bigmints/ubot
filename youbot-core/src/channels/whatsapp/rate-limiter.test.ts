@@ -55,7 +55,7 @@ describe('WhatsAppRateLimiter', () => {
       const promise = limiter.sendMessage(socket, '123@s.whatsapp.net', content);
       await vi.advanceTimersByTimeAsync(0);
       await promise;
-      expect(socket.sendMessage).toHaveBeenCalledWith('123@s.whatsapp.net', content);
+      expect(socket.sendMessage).toHaveBeenCalledWith('123@s.whatsapp.net', content, undefined);
       expect(socket.sendPresenceUpdate).not.toHaveBeenCalled();
     });
   });
@@ -70,7 +70,7 @@ describe('WhatsAppRateLimiter', () => {
       await vi.advanceTimersByTimeAsync(100);
       await promise;
 
-      expect(socket.sendMessage).toHaveBeenCalledWith('123@s.whatsapp.net', content);
+      expect(socket.sendMessage).toHaveBeenCalledWith('123@s.whatsapp.net', content, undefined);
     });
 
     it('should send typing indicators when simulateTyping is true', async () => {

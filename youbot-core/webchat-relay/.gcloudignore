@@ -1,0 +1,14 @@
+*
+!Dockerfile
+!.dockerignore
+!.gcloudignore
+!package.json
+!package-lock.json
+!server.js
+!persistence.js
+!telemetry.js
+!install.sh
+!public/
+!public/**
+!website/
+!website/**

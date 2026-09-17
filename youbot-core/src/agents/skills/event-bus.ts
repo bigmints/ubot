@@ -23,7 +23,7 @@ export function createEventBus(): EventBus {
   return {
     emit(event: SkillEvent) {
       const key = `${event.source}:${event.type}`;
-      console.log(`[EventBus] Event: ${key} from=${event.from || '?'} body="${(event.body || '').slice(0, 50)}"`);
+      console.log(`[EventBus] Dispatching ${key}`);
       for (const handler of handlers) {
         try {
           const result = handler(event);

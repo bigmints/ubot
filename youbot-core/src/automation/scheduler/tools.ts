@@ -121,10 +121,10 @@ const schedulerToolModule: ToolModule = {
         return async (_ctx: any, d: any) => {
           const orchestrator = ctx.getAgent() as any;
           if (!orchestrator?.chat) throw new Error('Agent orchestrator not available');
-          console.log(`[Scheduler] Running agent task: ${d.prompt?.slice(0, 100)}`);
+      console.log('[Scheduler] Running agent task');
           const sessionId = `sched-${Date.now()}`;
           const result = await orchestrator.chat(sessionId, d.prompt, 'web', 'scheduler', true);
-          console.log(`[Scheduler] Agent task completed: ${result.content?.slice(0, 100)}`);
+      console.log('[Scheduler] Agent task completed');
           return { success: true, content: result.content, tools: result.toolCalls?.length || 0 };
         };
       });
@@ -158,7 +158,7 @@ const schedulerToolModule: ToolModule = {
           handler: async (_ctx: any, data: { to: string; body: string; channel: string }) => {
             const provider = mr.resolveProvider(data.channel || undefined);
             await provider.sendMessage(data.to, data.body);
-            console.log(`[Scheduler] Sent scheduled message to ${data.to}`);
+          console.log('[Scheduler] Sent scheduled message');
             return { sent: true, to: data.to };
           },
         });
@@ -333,11 +333,11 @@ const schedulerToolModule: ToolModule = {
           tags: ['agent_task'],
           metadata: { createdBy: 'chat', task, channel },
           handler: async (_ctx: any, data: { prompt: string; channel?: string }) => {
-            console.log(`[Scheduler] Running agent task: ${data.prompt.slice(0, 100)}`);
+          console.log('[Scheduler] Running agent task');
             const sessionId = `sched-${Date.now()}`;
             try {
               const result = await orchestrator.chat(sessionId, data.prompt, 'web', 'scheduler', true);
-              console.log(`[Scheduler] Agent task completed: ${result.content?.slice(0, 100)}`);
+          console.log('[Scheduler] Agent task completed');
               return { success: true, content: result.content, tools: result.toolCalls?.length || 0 };
             } catch (err: any) {
               console.error(`[Scheduler] Agent task failed: ${err.message}`);

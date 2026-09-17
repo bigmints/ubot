@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -14,18 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Shield, Plus, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -42,14 +32,19 @@ interface SafetyRule {
 export default function SafetyPage() {
   const [rules, setRules] = useState<SafetyRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("name");
 
   const loadRules = async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const data = await api<{ rules: SafetyRule[] }>("/api/safety/rules");
       setRules(data.rules || []);
-    } catch {
-      /* ignore */
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Permissions could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -74,48 +69,43 @@ export default function SafetyPage() {
     }
   };
 
-  return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      <div className="flex items-center justify-between border-b pb-6 mb-6">
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Safety Rules</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Content filtering and safety guardrails
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={loadRules}>
-          <RefreshCw className="size-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+  const visibleRules = rules
+    .filter((rule) => {
+      const matchesSearch = `${rule.name} ${rule.description} ${rule.action}`.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || (statusFilter === "enabled" ? rule.enabled : !rule.enabled);
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => sort === "action" ? a.action.localeCompare(b.action) : a.name.localeCompare(b.name));
 
+  return (
+    <StandardPage title="Permissions" description="Set safety rules and review the actions your agent is allowed to perform." actions={<Button variant="outline" onClick={loadRules}><RefreshCw className="size-4"/>Refresh</Button>}>
+
+      {loadError && <p role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm text-destructive">{loadError} Use Refresh to try again.</p>}
+      <ListToolbar className="rounded-xl border bg-card" searchLabel="Search permissions" searchPlaceholder="Search permissions" searchValue={search} onSearchChange={setSearch} filters={[{label:"Permission status",value:statusFilter,onValueChange:setStatusFilter,options:[{value:"all",label:"All permissions"},{value:"enabled",label:"Enabled"},{value:"disabled",label:"Disabled"}]}]} sort={{label:"Sort permissions",value:sort,onValueChange:setSort,options:[{value:"name",label:"Name A–Z"},{value:"action",label:"Action A–Z"}]}} resultLabel={`${visibleRules.length} of ${rules.length} permissions`} active={!!search||statusFilter!=="all"||sort!=="name"} onReset={()=>{setSearch("");setStatusFilter("all");setSort("name");}} />
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Rule</TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead className="hidden sm:table-cell">Action</TableHead>
                 <TableHead>Enabled</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rules.length === 0 ? (
+              {loadError ? <TableRow><TableCell colSpan={3} className="p-6 text-center text-muted-foreground">Rules are unavailable.</TableCell></TableRow> : visibleRules.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}
                     className="text-center text-muted-foreground py-8"
                   >
-                    {loading ? "Loading rules..." : "No safety rules configured"}
+                    {loading ? "Loading rules..." : rules.length ? "No permissions match your search or filter." : "No safety rules configured"}
                   </TableCell>
                 </TableRow>
               ) : (
-                rules.map((rule) => (
+                visibleRules.map((rule) => (
                   <TableRow key={rule.id}>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <div>
                         <p className="font-medium">{rule.name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -145,6 +135,6 @@ export default function SafetyPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+    </StandardPage>
   );
 }

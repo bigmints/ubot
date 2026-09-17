@@ -449,7 +449,7 @@ Answer:`;
   return {
     async processEvent(event: SkillEvent): Promise<SkillRunResult[]> {
       const eventKey = `${event.source}:${event.type}`;
-      console.log(`[SkillEngine] Processing event: ${eventKey} from=${event.from} participant=${(event.data?.participant as string) || 'none'}`);
+      console.log(`[SkillEngine] Processing event: ${eventKey}`);
 
       // Phase 1: Fast filter
       const candidates = this.getMatchingSkills(event);
@@ -480,7 +480,7 @@ Answer:`;
       for (const skill of matched) {
         console.log(`[SkillEngine] Executing "${skill.name}"...`);
         const result = await executeSkill(skill, event);
-        console.log(`[SkillEngine] "${skill.name}" ${result.success ? 'succeeded' : 'failed'}: ${result.error || result.response.slice(0, 100)}`);
+      console.log(`[SkillEngine] Skill execution ${result.success ? 'succeeded' : 'failed'}`);
         results.push(result);
       }
 

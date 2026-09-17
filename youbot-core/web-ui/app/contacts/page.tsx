@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bot, User, Users, Save, RefreshCw, Brain, Trash2, Check, Plus, Database, Eye, Pencil } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
+import { WorkspacePage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -797,6 +798,9 @@ function ContactsTable() {
   const [memoriesByContact, setMemoriesByContact] = useState<Record<string, MemoryEntry[]>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [sort, setSort] = useState("recent");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -863,136 +867,119 @@ function ContactsTable() {
     }
   };
 
+  const visiblePersonas = personas
+    .filter((persona) => {
+      const phone = getPhone(persona);
+      const company = getField(persona.id, "company") || getField(persona.id, "organization") || "";
+      if (filter === "phone" && phone === "—") return false;
+      if (filter === "organization" && !company) return false;
+      const query = search.trim().toLocaleLowerCase();
+      if (!query) return true;
+      return [getDisplayName(persona), phone, company, persona.id]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(query);
+    })
+    .sort((left, right) => {
+      if (sort === "name") return getDisplayName(left).localeCompare(getDisplayName(right), undefined, { sensitivity: "base" });
+      if (sort === "name-desc") return getDisplayName(right).localeCompare(getDisplayName(left), undefined, { sensitivity: "base" });
+      const difference = Date.parse(right.updatedAt || "") - Date.parse(left.updatedAt || "");
+      return Number.isNaN(difference) ? 0 : difference;
+    });
+
   if (loading) {
     return <div className="text-center text-muted-foreground py-8">Loading...</div>;
   }
 
-  if (personas.length === 0 && !selected) {
-    return (
-      <div className="text-center text-muted-foreground py-12 border rounded-lg border-dashed">
-        <User className="size-10 mx-auto mb-3 opacity-40" />
-        <p className="font-medium">No contact profiles yet</p>
-        <p className="text-sm mt-1">Contact profiles are automatically created and updated from conversations.</p>
-      </div>
-    );
-  }
-
-  if (selected) {
-    const persona = personas.find((p) => p.id === selected);
-    return (
-      <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
-          ← Back to list
-        </Button>
-        <DocumentEditor
-          personaId={selected}
-          label={`${getDisplayName(persona!) || selected} — Persona`}
-          description="Personality traits, communication style, and relationship context"
-        />
-        <ProfileDetails
-          contactId={selected}
-          title={`${getDisplayName(persona!) || selected} — Details`}
-        />
-      </div>
-    );
-  }
-
+  const selectedPersona = personas.find((p) => p.id === selected);
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {personas.length} contact{personas.length !== 1 ? "s" : ""} found
-        </p>
-        <Button variant="outline" size="sm" onClick={load}>
-          <RefreshCw className="size-4 mr-1" />
-          Refresh
-        </Button>
-      </div>
-
-      {personas.length === 0 && !loading ? (
-        <EmptyState
-          icon={<Users className="size-8" />}
-          title="No contacts found"
-          description="Contacts will automatically appear here as users interact with the bot."
+    <div className="workspace-columns contact-workspace">
+      <aside aria-label="Contact list" className={`${selected ? "hidden lg:flex" : "flex"} workspace-rail`}>
+        <div className="flex h-14 items-center justify-between border-b px-4">
+          <p className="text-sm font-medium">{personas.length} contact{personas.length !== 1 ? "s" : ""}</p>
+          <Button variant="ghost" size="icon" onClick={load} aria-label="Refresh contacts">
+            <RefreshCw className="size-4" />
+          </Button>
+        </div>
+        <ListToolbar
+          searchLabel="Search contacts"
+          searchPlaceholder="Search contacts"
+          searchValue={search}
+          onSearchChange={setSearch}
+          filters={[{
+            label: "Contact filter",
+            value: filter,
+            onValueChange: setFilter,
+            options: [
+              { value: "all", label: "All contacts" },
+              { value: "phone", label: "With phone" },
+              { value: "organization", label: "With organization" },
+            ],
+          }]}
+          sort={{
+            label: "Sort contacts",
+            value: sort,
+            onValueChange: setSort,
+            options: [
+              { value: "recent", label: "Recently updated" },
+              { value: "name", label: "Name A–Z" },
+              { value: "name-desc", label: "Name Z–A" },
+            ],
+          }}
+          resultLabel={`${visiblePersonas.length} of ${personas.length} contacts`}
+          active={!!search || filter !== "all" || sort !== "recent"}
+          onReset={() => { setSearch(""); setFilter("all"); setSort("recent"); }}
         />
-      ) : (
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {personas.map((p) => {
-                const displayName = getDisplayName(p);
-                const phone = getPhone(p);
-                const email = getField(p.id, "email") || "—";
-                const company = getField(p.id, "company") || getField(p.id, "organization") || "—";
-                const location = getField(p.id, "location") || getField(p.id, "city") || getField(p.id, "country") || "—";
-
-                return (
-                  <TableRow
-                    key={p.id}
-                    className="cursor-pointer group"
-                    onClick={() => setSelected(p.id)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="bg-muted rounded-full size-8 flex items-center justify-center shrink-0">
-                          <User className="size-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="font-medium truncate block">{displayName}</span>
-                          {displayName !== p.label && (
-                            <span className="text-xs text-muted-foreground truncate block">{p.label}</span>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-xs">
-                      {phone}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {email}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {company}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {location}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(p.id);
-                        }}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      )}
+        <div className="flex-1 overflow-y-auto">
+          {visiblePersonas.length === 0 ? (
+            <div className="space-y-2 p-6 text-sm text-muted-foreground">
+              <User className="size-6" />
+              <p className="font-medium text-foreground">{personas.length ? "No matching contacts" : "No contact profiles yet"}</p>
+              <p>{personas.length ? "Try another search or filter." : "Contact profiles are created from conversations."}</p>
+            </div>
+          ) : visiblePersonas.map((p) => {
+            const displayName = getDisplayName(p);
+            const phone = getPhone(p);
+            const company = getField(p.id, "company") || getField(p.id, "organization");
+            return (
+              <button
+                key={p.id}
+                aria-current={selected === p.id ? "true" : undefined}
+                onClick={() => setSelected(p.id)}
+                className="group flex w-full gap-3 border-b p-4 text-left transition-colors hover:bg-muted/60 aria-[current=true]:border-l-2 aria-[current=true]:border-l-primary aria-[current=true]:bg-card"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted"><User className="size-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{displayName}</span>
+                  <span className="mt-1 block truncate text-xs text-muted-foreground">{company || phone}</span>
+                  <span className="mt-2 block text-[11px] text-muted-foreground">Updated {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : "—"}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+      <section aria-label="Contact details" className={`${selected ? "flex" : "hidden lg:flex"} workspace-canvas flex-col`}>
+        {!selected || !selectedPersona ? (
+          <div className="m-auto max-w-sm p-8 text-center">
+            <Users className="mx-auto size-8 text-muted-foreground" />
+            <h2 className="mt-4 text-lg font-semibold">Select a contact</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">Review their profile and the details your concierge has gathered.</p>
+          </div>
+        ) : (
+          <>
+            <header className="flex min-h-14 items-center gap-3 border-b px-4">
+              <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSelected(null)}>← Contacts</Button>
+              <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-semibold">{getDisplayName(selectedPersona)}</h2><p className="truncate text-xs text-muted-foreground">{getPhone(selectedPersona)}</p></div>
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete contact" onClick={() => void handleDelete(selectedPersona.id)}><Trash2 className="size-4" /></Button>
+            </header>
+            <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
+              <DocumentEditor personaId={selected} label={`${getDisplayName(selectedPersona)} — Persona`} description="Personality traits, communication style, and relationship context" />
+              <ProfileDetails contactId={selected} title={`${getDisplayName(selectedPersona)} — Details`} />
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -1004,19 +991,8 @@ function ContactsTable() {
 
 export default function ContactsPage() {
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      <div className="flex items-center gap-3 border-b pb-6 mb-6">
-        <Users className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contacts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your contact knowledge base.
-            Profiles are automatically updated from conversations.
-          </p>
-        </div>
-      </div>
-
+    <WorkspacePage className="signature-contacts" title="Contacts" description="Manage visitor identities, contact details and information gathered from conversations.">
       <ContactsTable />
-    </div>
+    </WorkspacePage>
   );
 }

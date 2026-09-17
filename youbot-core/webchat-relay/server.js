@@ -1,117 +1,239 @@
 /**
- * YOUBOT Webchat Relay Server
- * 
- * A public cloud relay that sits between website visitors and a local YOUBOT instance.
- * 
- * Architecture:
- *   Visitor → Relay (this server, public) ← YOUBOT (local, polls outbound)
- * 
- * Visitor-facing:
- *   GET  /               — Standalone chat page (PWA-enabled)
- *   GET  /widget.js      — Embeddable widget script
- *   GET  /manifest.json  — PWA manifest
- *   GET  /sw.js          — Service worker
- *   GET  /api/config     — Widget config (title, color, welcome message)
- *   POST /api/message    — Send message (holds response until YOUBOT replies, 45s timeout)
- *   GET  /api/history    — Conversation history for a session
- * 
- * Bot-facing (authenticated with bot_secret):
- *   GET  /api/bot/poll   — Long-poll for pending visitor messages (25s timeout)
- *   POST /api/bot/reply  — Send response for a pending message
- *   POST /api/bot/config — Push widget config from YOUBOT
+ * Youbot multi-tenant webchat relay.
+ *
+ * Every local Youbot installation receives an opaque, stable tenant URL and a
+ * tenant-scoped bot credential. Tenant identity is stateless; configuration
+ * and visitor history are durable when Firestore storage is enabled. Active
+ * requests remain on one Cloud Run instance until the bot replies.
  */
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { serveWebsite, RESERVED_PATH_SEGMENTS } = require('./website/serve.cjs');
+const { createPersistence } = require('./persistence.js');
+const { createRelayTelemetry } = require('./telemetry.js');
 
-const VERSION = '1.2.0'; // Extended timeout + typing indicators
-const crypto = require('crypto');
-
-const PORT = process.env.PORT || 8080;
-
-// ── In-Memory State ──────────────────────────────────────
-
-/** Widget config (pushed by YOUBOT) */
-let widgetConfig = {
-  title: 'Chat with us',
-  color: '#6366f1',
-  welcomeMessage: 'Hi there! How can I help you today?',
-  avatarUrl: '',
-};
-
-/** Bot secret for authenticating YOUBOT connections */
-const BOT_SECRET = process.env.BOT_SECRET || '';
-
-/**
- * Pending messages waiting for YOUBOT to process.
- * Map<messageId, { session, name, message, ownerKey, resolve, reject, timer }>
- */
-const pendingMessages = new Map();
-
-/**
- * Conversation history per session.
- * Map<sessionId, Array<{ role, content, timestamp }>>
- */
-const conversationHistory = new Map();
+const VERSION = '2.3.0';
+const PORT = Number(process.env.PORT || 8080);
+const SIGNING_SECRET = process.env.RELAY_SIGNING_SECRET
+  || (process.env.NODE_ENV === 'production' ? '' : 'local-development-secret-32-chars');
+const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+const POLL_TIMEOUT_MS = Number(process.env.POLL_TIMEOUT_MS || 25_000);
+const MESSAGE_TIMEOUT_MS = Number(process.env.MESSAGE_TIMEOUT_MS || 180_000);
+const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES
+  || (process.env.RELAY_STORAGE === 'firestore' ? 700 * 1024 : 3 * 1024 * 1024));
+const MAX_ACTIVE_TENANTS = Number(process.env.MAX_ACTIVE_TENANTS || 5_000);
+const MAX_PENDING_PER_TENANT = Number(process.env.MAX_PENDING_PER_TENANT || 50);
+const MAX_SESSIONS_PER_TENANT = Number(process.env.MAX_SESSIONS_PER_TENANT || 1_000);
 const MAX_HISTORY = 100;
+const relayTelemetry = createRelayTelemetry({ salt: SIGNING_SECRET });
+const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,38}[a-z0-9]$/;
+const RESERVED_SLUGS = new Set([
+  ...RESERVED_PATH_SEGMENTS,
+  'api', 'health', 'widget', 'manifest', 'admin', 'account', 'auth', 'login',
+  'signup', 'support', 'status', 'www', 'mail', 'static', 'public', 'relay', 'telemetry',
+]);
 
-/**
- * Poll waiters — YOUBOT long-poll connections waiting for messages.
- * Set<{ resolve, timer }>
- */
-const pollWaiters = new Set();
+const DEFAULT_WIDGET_CONFIG = Object.freeze({
+  title: 'Chat with us',
+  color: '#274e3d',
+  welcomeMessage: 'Hello. How can I help?',
+  avatarUrl: '',
+});
 
-// ── Helpers ──────────────────────────────────────────────
+const persistence = createPersistence(DEFAULT_WIDGET_CONFIG);
+
+const tenants = new Map();
+const rateLimits = new Map();
+const slugCache = new Map();
+
+function sign(value) {
+  return crypto.createHmac('sha256', SIGNING_SECRET).update(value).digest('base64url');
+}
+
+function safeEqual(actual, expected) {
+  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+  const a = crypto.createHash('sha256').update(actual).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function tenantIdFor(installationId) {
+  const payload = sign(`installation:${installationId}`).slice(0, 18);
+  const signature = sign(`tenant:${payload}`).slice(0, 10);
+  return `${payload}.${signature}`;
+}
+
+function isValidTenantId(tenantId) {
+  if (!/^[A-Za-z0-9_-]{18}\.[A-Za-z0-9_-]{10}$/.test(tenantId || '')) return false;
+  const payload = tenantId.slice(0, 18);
+  return safeEqual(tenantId.slice(19), sign(`tenant:${payload}`).slice(0, 10));
+}
+
+function botSecretFor(tenantId) {
+  return sign(`bot:${tenantId}`);
+}
+
+function ownerKeyFor(tenantId) {
+  return sign(`owner:${tenantId}`).slice(0, 32);
+}
+
+function normalizeSlug(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function validateSlug(value) {
+  const slug = normalizeSlug(value);
+  if (!SLUG_PATTERN.test(slug)) {
+    return { valid: false, slug, reason: 'Use 3–40 lowercase letters, numbers, or single hyphens.' };
+  }
+  if (RESERVED_SLUGS.has(slug)) {
+    return { valid: false, slug, reason: 'This address is reserved by Youbot.' };
+  }
+  return { valid: true, slug, reason: '' };
+}
+
+function clientAddress(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket.remoteAddress || 'unknown';
+}
+
+function takeRateLimit(key, limit, windowMs) {
+  const now = Date.now();
+  const current = rateLimits.get(key);
+  if (!current || current.resetAt <= now) {
+    rateLimits.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (current.count >= limit) return false;
+  current.count += 1;
+  return true;
+}
+
+function cleanupRateLimits() {
+  const now = Date.now();
+  for (const [key, value] of rateLimits) {
+    if (value.resetAt <= now) rateLimits.delete(key);
+  }
+}
+
+function cacheSlug(slug, tenantId) {
+  if (slugCache.size >= 10_000) slugCache.delete(slugCache.keys().next().value);
+  slugCache.set(slug, { tenantId, expiresAt: Date.now() + 5 * 60_000 });
+}
+
+async function resolveSlug(slug) {
+  const cached = slugCache.get(slug);
+  if (cached && cached.expiresAt > Date.now()) return cached.tenantId;
+  const tenantId = await persistence.getSlugOwner(slug);
+  cacheSlug(slug, tenantId);
+  return tenantId;
+}
+
+function createTenantState() {
+  const tenant = {
+    config: { ...DEFAULT_WIDGET_CONFIG },
+    pending: new Map(),
+    history: new Map(),
+    pollWaiters: new Set(),
+    lastActiveAt: Date.now(),
+  };
+  return tenant;
+}
+
+function evictInactiveTenant() {
+  let candidate;
+  for (const entry of tenants) {
+    const tenant = entry[1];
+    if (tenant.pending.size || tenant.pollWaiters.size) continue;
+    if (!candidate || tenant.lastActiveAt < candidate[1].lastActiveAt) candidate = entry;
+  }
+  if (candidate) tenants.delete(candidate[0]);
+}
+
+function getTenant(tenantId, create = true) {
+  if (!isValidTenantId(tenantId)) return null;
+  let tenant = tenants.get(tenantId);
+  if (!tenant && create) {
+    if (tenants.size >= MAX_ACTIVE_TENANTS) evictInactiveTenant();
+    if (tenants.size >= MAX_ACTIVE_TENANTS) return null;
+    tenant = createTenantState();
+    tenant.id = tenantId;
+    tenant.ready = persistence.ensureTenant(tenantId).then(async () => {
+      tenant.config = await persistence.getConfig(tenantId);
+    });
+    tenants.set(tenantId, tenant);
+  }
+  if (tenant) tenant.lastActiveAt = Date.now();
+  return tenant || null;
+}
 
 function parseBody(req) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
-    req.on('end', () => {
-      try { resolve(body ? JSON.parse(body) : {}); }
-      catch { resolve({}); }
+    let bytes = 0;
+    let settled = false;
+    req.on('data', (chunk) => {
+      if (settled) return;
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > MAX_BODY_BYTES) {
+        settled = true;
+        reject(Object.assign(new Error('Request body is too large'), { statusCode: 413 }));
+        return;
+      }
+      body += chunk;
     });
-    req.on('error', () => resolve({}));
+    req.on('end', () => {
+      if (settled) return;
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch {
+        reject(Object.assign(new Error('Invalid JSON'), { statusCode: 400 }));
+      }
+    });
+    req.on('error', (error) => {
+      if (!settled) reject(error);
+    });
   });
 }
 
-function jsonResponse(res, data, status = 200) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
+function commonHeaders() {
+  return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, X-Bot-Secret',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+  };
+}
+
+function jsonResponse(res, data, status = 200, extraHeaders = {}) {
+  if (res.writableEnded || res.destroyed) return;
+  res.writeHead(status, {
+    ...commonHeaders(),
+    ...extraHeaders,
+    'Content-Type': 'application/json; charset=utf-8',
   });
   res.end(JSON.stringify(data));
 }
 
-function addToHistory(sessionId, role, content) {
-  if (!conversationHistory.has(sessionId)) {
-    conversationHistory.set(sessionId, []);
-  }
-  const history = conversationHistory.get(sessionId);
-  history.push({ role, content, timestamp: new Date().toISOString() });
-  if (history.length > MAX_HISTORY) {
-    history.splice(0, history.length - MAX_HISTORY);
-  }
+function textResponse(res, body, status = 200, contentType = 'text/plain; charset=utf-8') {
+  if (res.writableEnded || res.destroyed) return;
+  res.writeHead(status, { ...commonHeaders(), 'Content-Type': contentType });
+  res.end(body);
 }
 
-function validateBotSecret(req) {
-  if (!BOT_SECRET) return true; // No secret configured = dev mode
-  const header = req.headers['x-bot-secret'];
-  const url = new URL(req.url, 'http://localhost');
-  const param = url.searchParams.get('secret');
-  return header === BOT_SECRET || param === BOT_SECRET;
-}
-
-function servePublicFile(res, filename, contentType) {
+function servePublicFile(res, filename, contentType, cache = false) {
   try {
     const content = fs.readFileSync(path.join(__dirname, 'public', filename));
     res.writeHead(200, {
+      ...commonHeaders(),
       'Content-Type': contentType,
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': contentType.includes('javascript') ? 'public, max-age=300' : 'no-cache',
+      'Cache-Control': cache ? 'public, max-age=300' : 'no-cache',
     });
     res.end(content);
     return true;
@@ -120,325 +242,479 @@ function servePublicFile(res, filename, contentType) {
   }
 }
 
-// ── Notify poll waiters ──────────────────────────────────
-
-function notifyPollWaiters(message) {
-  for (const waiter of pollWaiters) {
-    clearTimeout(waiter.timer);
-    waiter.resolve(message);
-    pollWaiters.delete(waiter);
-    break; // Only notify one waiter
+async function addToHistory(tenantId, tenant, sessionId, role, content) {
+  if (!tenant.history.has(sessionId)) {
+    if (tenant.history.size >= MAX_SESSIONS_PER_TENANT) {
+      tenant.history.delete(tenant.history.keys().next().value);
+    }
+    tenant.history.set(sessionId, []);
   }
+  const history = tenant.history.get(sessionId);
+  const event = { role, content, timestamp: new Date().toISOString() };
+  history.push(event);
+  if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
+  await persistence.appendHistory(tenantId, sessionId, event);
 }
 
-// ── Request Handler ──────────────────────────────────────
+function publicMessage(message) {
+  return {
+    id: message.id,
+    session: message.session,
+    name: message.name,
+    message: message.message,
+    ownerKey: message.ownerKey || '',
+    audio: message.audio || '',
+    image: message.image || '',
+  };
+}
 
-async function handleRequest(req, res) {
+function claimNextMessage(tenant) {
+  const now = Date.now();
+  for (const message of tenant.pending.values()) {
+    if (!message.claimedUntil || message.claimedUntil <= now) {
+      message.claimedUntil = now + 60_000;
+      return publicMessage(message);
+    }
+  }
+  return null;
+}
+
+function notifyPollWaiter(tenant, message) {
+  const waiter = tenant.pollWaiters.values().next().value;
+  if (!waiter) return;
+  clearTimeout(waiter.timer);
+  tenant.pollWaiters.delete(waiter);
+  message.claimedUntil = Date.now() + 60_000;
+  waiter.resolve(publicMessage(message));
+}
+
+function validateBot(req, tenantId) {
+  const header = req.headers['x-bot-secret'];
   const url = new URL(req.url, 'http://localhost');
-  const pathname = url.pathname;
-  const method = req.method;
+  const provided = typeof header === 'string' ? header : url.searchParams.get('secret');
+  return safeEqual(provided, botSecretFor(tenantId));
+}
 
-  // CORS preflight
-  if (method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-Bot-Secret',
-      'Access-Control-Max-Age': '86400',
-    });
-    res.end();
+function tenantBaseUrl(req, publicId) {
+  if (PUBLIC_BASE_URL) return `${PUBLIC_BASE_URL}/${encodeURIComponent(publicId)}`;
+  const proto = String(req.headers['x-forwarded-proto'] || 'http').split(',')[0].trim();
+  return `${proto}://${req.headers.host}/${encodeURIComponent(publicId)}`;
+}
+
+async function parseTenantPath(pathname, req) {
+  const parts = pathname.split('/').filter(Boolean);
+  if (!parts.length) return null;
+  if (isValidTenantId(parts[0])) {
+    return { tenantId: parts[0], publicId: parts[0], route: `/${parts.slice(1).join('/')}` };
+  }
+  const candidate = validateSlug(parts[0]);
+  if (!candidate.valid) return null;
+  if (!takeRateLimit(`slug-route:${clientAddress(req)}`, 240, 60_000)) return null;
+  const tenantId = await resolveSlug(candidate.slug);
+  if (!tenantId || !isValidTenantId(tenantId)) return null;
+  return { tenantId, publicId: candidate.slug, route: `/${parts.slice(1).join('/')}` };
+}
+
+async function handleTenantRequest(req, res, tenantId, publicId, route, url) {
+  const method = req.method || 'GET';
+  const tenant = getTenant(tenantId);
+  if (!tenant) {
+    jsonResponse(res, { error: 'Relay URL is unavailable' }, 404);
     return;
   }
+  await tenant.ready;
 
-  // ── Static Files ───────────────────────────────────────
+  if ((route === '/' || route.startsWith('/k/')) && method === 'GET') {
+    if (servePublicFile(res, 'index.html', 'text/html; charset=utf-8')) return;
+  }
 
-  if ((pathname === '/' || pathname.startsWith('/k/')) && method === 'GET') {
-    if (servePublicFile(res, 'index.html', 'text/html')) return;
+  if (route === '/widget.js' && method === 'GET') {
+    if (servePublicFile(res, 'widget.js', 'application/javascript; charset=utf-8', true)) return;
   }
-  if (pathname === '/widget.js' && method === 'GET') {
-    if (servePublicFile(res, 'widget.js', 'application/javascript')) return;
-  }
-  // Dynamic manifest — embeds owner key in start_url for PWA installs
-  if (pathname === '/manifest.json' && method === 'GET') {
-    const urlObj = new URL(req.url, `http://${req.headers.host}`);
-    const key = urlObj.searchParams.get('key') || '';
-    // Use path-based start_url so iOS preserves it on Add to Home Screen
-    const startUrl = key ? `/k/${encodeURIComponent(key)}` : '/';
-    const title = widgetConfig.title || 'YOUBOT Chat';
-    const manifest = {
+
+  if (route === '/manifest.json' && method === 'GET') {
+    const key = url.searchParams.get('key') || '';
+    const startUrl = key
+      ? `/${encodeURIComponent(publicId)}/k/${encodeURIComponent(key)}`
+      : `/${encodeURIComponent(publicId)}`;
+    const title = tenant.config.title || 'Youbot Chat';
+    jsonResponse(res, {
       name: title,
-      short_name: title.length > 12 ? title.slice(0, 12) : title,
-      description: `Chat — ${title}`,
+      short_name: title.slice(0, 12),
+      description: `Chat with ${title}`,
       start_url: startUrl,
-      scope: '/',
+      scope: `/${encodeURIComponent(publicId)}/`,
       display: 'standalone',
-      background_color: '#09090b',
-      theme_color: '#09090b',
+      background_color: '#f6f4ee',
+      theme_color: '#274e3d',
       orientation: 'portrait',
       icons: [
         { src: '/icon-192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
         { src: '/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
       ],
-    };
-    jsonResponse(res, manifest);
-    return;
-  }
-  if (pathname === '/sw.js' && method === 'GET') {
-    if (servePublicFile(res, 'sw.js', 'application/javascript')) return;
-  }
-  if (pathname === '/icon-192.svg' && method === 'GET') {
-    if (servePublicFile(res, 'icon-192.svg', 'image/svg+xml')) return;
-  }
-  if (pathname === '/icon-512.svg' && method === 'GET') {
-    if (servePublicFile(res, 'icon-512.svg', 'image/svg+xml')) return;
-  }
-
-  // ── Visitor API ────────────────────────────────────────
-
-  // Widget config
-  if (pathname === '/api/config' && method === 'GET') {
-    jsonResponse(res, widgetConfig);
-    return;
-  }
-
-  // Send message (blocks until YOUBOT responds or timeout)
-  if (pathname === '/api/message' && method === 'POST') {
-    const body = await parseBody(req);
-    const message = body.message || '';
-    const session = body.session || '';
-    const name = body.name || 'Website Visitor';
-    const ownerKey = body.ownerKey || '';
-    const audio = body.audio || '';    // base64 data URL for voice
-    const image = body.image || '';    // base64 data URL for image
-
-    if (!message.trim() && !audio && !image) {
-      jsonResponse(res, { error: 'Message, audio, or image is required' }, 400);
-      return;
-    }
-
-    if (!session) {
-      jsonResponse(res, { error: 'Session is required' }, 400);
-      return;
-    }
-
-    // Store in history
-    addToHistory(session, 'user', message);
-
-    // Create a pending message and wait for YOUBOT response
-    const messageId = crypto.randomUUID();
-
-    const responsePromise = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        pendingMessages.delete(messageId);
-        resolve({ response: "I'm taking a bit longer than usual. Please try again in a moment.", timeout: true });
-      }, 180000); // 180s timeout — agentic tasks (Playwright, web browsing) can take 2+ min
-
-      pendingMessages.set(messageId, {
-        id: messageId,
-        session,
-        name,
-        message,
-        ownerKey,
-        audio,
-        image,
-        resolve,
-        reject,
-        timer,
-        createdAt: Date.now(),
-      });
     });
+    return;
+  }
 
-    // Notify any waiting YOUBOT poll
-    notifyPollWaiters({
+  if (route === '/health' && method === 'GET') {
+    const connected = Date.now() - (tenant.lastBotPollAt || 0) < Math.max(60_000, POLL_TIMEOUT_MS * 2);
+    jsonResponse(res, {
+      status: 'ok', version: VERSION, tenant: tenantId, connected,
+      capabilities: { sessionReplies: true },
+      ...(publicId !== tenantId ? { slug: publicId } : {}),
+    });
+    return;
+  }
+
+  if (route === '/api/config' && method === 'GET') {
+    jsonResponse(res, tenant.config);
+    return;
+  }
+
+  if (route === '/api/history' && method === 'GET') {
+    const session = String(url.searchParams.get('session') || '').slice(0, 160);
+    if (!session) {
+      jsonResponse(res, { error: 'session parameter is required' }, 400);
+      return;
+    }
+    const messages = await persistence.getHistory(tenantId, session);
+    jsonResponse(res, { messages, sessionId: session });
+    return;
+  }
+
+  if (route === '/api/message' && method === 'POST') {
+    const rateKey = `message:${tenantId}:${clientAddress(req)}`;
+    if (!takeRateLimit(rateKey, 30, 60_000)) {
+      jsonResponse(res, { error: 'Too many messages. Please wait a moment.' }, 429, { 'Retry-After': '60' });
+      return;
+    }
+    if (await persistence.countPending(tenantId, MAX_PENDING_PER_TENANT) >= MAX_PENDING_PER_TENANT) {
+      jsonResponse(res, { error: 'This concierge is busy. Please try again shortly.' }, 503, { 'Retry-After': '15' });
+      return;
+    }
+    const body = await parseBody(req);
+    const message = typeof body.message === 'string' ? body.message.trim().slice(0, 20_000) : '';
+    const session = typeof body.session === 'string' ? body.session.slice(0, 160) : '';
+    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 160) : 'Website Visitor';
+    const ownerKey = typeof body.ownerKey === 'string' ? body.ownerKey.slice(0, 256) : '';
+    const audio = typeof body.audio === 'string' ? body.audio : '';
+    const image = typeof body.image === 'string' ? body.image : '';
+    if (!message && !audio && !image) {
+      jsonResponse(res, { error: 'A message, voice note, or image is required' }, 400);
+      return;
+    }
+    if (!session) {
+      jsonResponse(res, { error: 'session is required' }, 400);
+      return;
+    }
+
+    const mediaKind = audio ? 'voice' : image ? (message ? 'image_with_text' : 'image') : 'text';
+    relayTelemetry.emit('relay_message', {
+      surface: 'relay_server', route: '/:relay/api/message', outcome: 'accepted', media_kind: mediaKind,
+    }, `${tenantId}:${session}`);
+
+    await addToHistory(tenantId, tenant, session, 'user', message || (audio ? '[Voice message]' : '[Image]'));
+    const messageId = crypto.randomUUID();
+    await persistence.createPending(tenantId, {
       id: messageId,
       session,
-      name,
+      name: name || 'Website Visitor',
       message,
       ownerKey,
       audio,
       image,
     });
-
-    // Wait for response
-    const result = await responsePromise;
-
-    // Store bot response in history
-    if (result.response) {
-      addToHistory(session, 'assistant', result.response);
-    }
-
-    jsonResponse(res, {
-      response: result.response || '',
-      sessionId: session,
-    });
+    const result = await persistence.waitForReply(tenantId, messageId, MESSAGE_TIMEOUT_MS);
+    if (result.response) await addToHistory(tenantId, tenant, session, 'assistant', result.response);
+    relayTelemetry.emit('relay_message', {
+      surface: 'relay_server', route: '/:relay/api/message',
+      outcome: result.timeout ? 'timeout' : 'replied', media_kind: mediaKind,
+    }, `${tenantId}:${session}`);
+    jsonResponse(res, { response: result.response || '', sessionId: session, timeout: Boolean(result.timeout) });
     return;
   }
 
-  // Conversation history
-  if (pathname === '/api/history' && method === 'GET') {
-    const session = url.searchParams.get('session');
-    if (!session) {
-      jsonResponse(res, { error: 'session parameter is required' }, 400);
+  if (route === '/api/bot/poll' && method === 'GET') {
+    if (!validateBot(req, tenantId)) {
+      jsonResponse(res, { error: 'Invalid bot credential' }, 401);
       return;
     }
-
-    const history = conversationHistory.get(session) || [];
-    jsonResponse(res, { messages: history, sessionId: session });
+    tenant.lastBotPollAt = Date.now();
+    const pending = await persistence.pollNext(tenantId, POLL_TIMEOUT_MS);
+    relayTelemetry.emit('relay_bot_poll', {
+      surface: 'relay_server', route: '/:relay/api/bot/poll', outcome: pending ? 'message' : 'empty',
+    }, tenantId);
+    jsonResponse(res, { messages: pending ? [publicMessage(pending)] : [], capabilities: { sessionReplies: true } });
     return;
   }
 
-  // ── Bot API (YOUBOT-facing) ─────────────────────────────
-
-  // Long-poll for pending messages
-  if (pathname === '/api/bot/poll' && method === 'GET') {
-    if (!validateBotSecret(req)) {
-      jsonResponse(res, { error: 'Invalid bot secret' }, 401);
+  if (route === '/api/bot/typing' && method === 'POST') {
+    if (!validateBot(req, tenantId)) {
+      jsonResponse(res, { error: 'Invalid bot credential' }, 401);
       return;
     }
-
-    // Check if there are already pending messages
-    if (pendingMessages.size > 0) {
-      const [, msg] = pendingMessages.entries().next().value;
-      jsonResponse(res, {
-        messages: [{
-          id: msg.id,
-          session: msg.session,
-          name: msg.name,
-          message: msg.message,
-          ownerKey: msg.ownerKey || '',
-          audio: msg.audio || '',
-          image: msg.image || '',
-        }],
-      });
-      return;
-    }
-
-    // No pending messages — long-poll (wait up to 25s)
-    const pollResult = await new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        pollWaiters.delete(waiter);
-        resolve(null);
-      }, 25000);
-
-      const waiter = { resolve, timer };
-      pollWaiters.add(waiter);
-    });
-
-    if (pollResult) {
-      jsonResponse(res, { messages: [pollResult] });
-    } else {
-      jsonResponse(res, { messages: [] });
-    }
-    return;
-  }
-
-  // YOUBOT sends a typing indicator to reset the pending message timer
-  // and keep the visitor connection alive during long agentic tasks.
-  if (pathname === '/api/bot/typing' && method === 'POST') {
-    if (!validateBotSecret(req)) {
-      jsonResponse(res, { error: 'Invalid bot secret' }, 401);
-      return;
-    }
-
     const body = await parseBody(req);
-    const messageId = body.messageId;
-
-    if (!messageId) {
-      jsonResponse(res, { error: 'messageId is required' }, 400);
-      return;
-    }
-
-    const pending = pendingMessages.get(messageId);
-    if (!pending) {
-      // Already replied or timed out — not an error
+    const touched = await persistence.touchPending(tenantId, body.messageId);
+    if (!touched) {
       jsonResponse(res, { ok: true, status: 'already_resolved' });
       return;
     }
-
-    // Reset the timeout to give another 120s for complex tasks
-    clearTimeout(pending.timer);
-    pending.timer = setTimeout(() => {
-      pendingMessages.delete(messageId);
-      pending.resolve({ response: "I'm still working on this. Please check back in a moment.", timeout: true });
-    }, 120000);
-
     jsonResponse(res, { ok: true });
     return;
   }
 
-  // YOUBOT sends response for a pending message
-  if (pathname === '/api/bot/reply' && method === 'POST') {
-    if (!validateBotSecret(req)) {
-      jsonResponse(res, { error: 'Invalid bot secret' }, 401);
+  if (route === '/api/bot/send' && method === 'POST') {
+    if (!validateBot(req, tenantId)) {
+      jsonResponse(res, { error: 'Invalid bot credential' }, 401);
       return;
     }
-
     const body = await parseBody(req);
-    const messageId = body.messageId;
-    const response = body.response || '';
-
-    if (!messageId) {
-      jsonResponse(res, { error: 'messageId is required' }, 400);
+    const { session, response, requestId } = body;
+    if (typeof session !== 'string' || !session.trim() || session.length > 160 ||
+        typeof response !== 'string' || !response.trim() || response.length > 50_000 ||
+        typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{16,100}$/.test(requestId)) {
+      jsonResponse(res, { error: 'A session, reply and valid requestId are required' }, 400);
       return;
     }
-
-    const pending = pendingMessages.get(messageId);
-    if (!pending) {
-      jsonResponse(res, { error: 'Message not found or already replied' }, 404);
+    const status = await persistence.sendToSession(tenantId, session, response, requestId);
+    if (status === 'not_found' || status === 'conflict') {
+      jsonResponse(res, { error: status === 'not_found' ? 'Visitor session was not found' : 'Request ID already used for a different reply' }, status === 'not_found' ? 404 : 409);
       return;
     }
+    jsonResponse(res, { ok: true, requestId, status });
+    return;
+  }
 
-    clearTimeout(pending.timer);
-    pending.resolve({ response });
-    pendingMessages.delete(messageId);
-
+  if (route === '/api/bot/reply' && method === 'POST') {
+    if (!validateBot(req, tenantId)) {
+      jsonResponse(res, { error: 'Invalid bot credential' }, 401);
+      return;
+    }
+    const body = await parseBody(req);
+    const response = typeof body.response === 'string' ? body.response.slice(0, 50_000) : '';
+    const resolved = await persistence.resolvePending(tenantId, body.messageId, response);
+    if (!resolved) {
+      relayTelemetry.emit('relay_bot_reply', {
+        surface: 'relay_server', route: '/:relay/api/bot/reply', outcome: 'not_found',
+      }, tenantId);
+      jsonResponse(res, { error: 'Message was not found or was already answered' }, 404);
+      return;
+    }
+    relayTelemetry.emit('relay_bot_reply', {
+      surface: 'relay_server', route: '/:relay/api/bot/reply', outcome: 'replied',
+    }, tenantId);
     jsonResponse(res, { ok: true });
     return;
   }
 
-  // YOUBOT pushes widget config
-  if (pathname === '/api/bot/config' && method === 'POST') {
-    if (!validateBotSecret(req)) {
-      jsonResponse(res, { error: 'Invalid bot secret' }, 401);
+  if (route === '/api/bot/config' && method === 'POST') {
+    if (!validateBot(req, tenantId)) {
+      jsonResponse(res, { error: 'Invalid bot credential' }, 401);
       return;
     }
-
     const body = await parseBody(req);
-    if (body.title) widgetConfig.title = body.title;
-    if (body.color) widgetConfig.color = body.color;
-    if (body.welcomeMessage) widgetConfig.welcomeMessage = body.welcomeMessage;
-    if (body.avatarUrl) widgetConfig.avatarUrl = body.avatarUrl;
-
-    jsonResponse(res, { ok: true, config: widgetConfig });
+    if (typeof body.title === 'string' && body.title.trim()) tenant.config.title = body.title.trim().slice(0, 100);
+    if (typeof body.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(body.color)) tenant.config.color = body.color;
+    if (typeof body.welcomeMessage === 'string') tenant.config.welcomeMessage = body.welcomeMessage.slice(0, 1_000);
+    if (typeof body.avatarUrl === 'string') tenant.config.avatarUrl = body.avatarUrl.slice(0, 2_000);
+    await persistence.updateConfig(tenantId, tenant.config);
+    relayTelemetry.emit('relay_config_update', {
+      surface: 'relay_server', route: '/:relay/api/bot/config', outcome: 'updated',
+    }, tenantId);
+    jsonResponse(res, { ok: true, config: tenant.config });
     return;
   }
 
-  // Health check
-  if (pathname === '/health') {
+  jsonResponse(res, { error: 'Not found' }, 404);
+}
+
+async function handleRequest(req, res) {
+  const url = new URL(req.url || '/', 'http://localhost');
+  const pathname = url.pathname.replace(/\/{2,}/g, '/');
+  const method = req.method || 'GET';
+
+  if (serveWebsite(req, res, pathname)) return;
+
+  if (pathname === '/telemetry/config' && method === 'GET') {
+    const measurementId = /^G-[A-Z0-9]+$/.test(process.env.GA_MEASUREMENT_ID || '')
+      ? process.env.GA_MEASUREMENT_ID
+      : '';
+    jsonResponse(res, { measurementId });
+    return;
+  }
+
+  if (method === 'OPTIONS') {
+    res.writeHead(204, { ...commonHeaders(), 'Access-Control-Max-Age': '86400' });
+    res.end();
+    return;
+  }
+
+  if (pathname === '/health' && method === 'GET') {
+    try {
+      await persistence.health();
+      const stats = await persistence.stats();
+      jsonResponse(res, {
+        status: 'ok',
+        version: VERSION,
+        storage: process.env.RELAY_STORAGE || 'memory',
+        activeTenants: stats.activeTenants,
+        pending: stats.pending,
+      });
+    } catch {
+      jsonResponse(res, {
+        status: 'unhealthy',
+        version: VERSION,
+        storage: process.env.RELAY_STORAGE || 'memory',
+      }, 503);
+    }
+    return;
+  }
+
+  if (pathname === '/api/slugs/availability' && method === 'GET') {
+    const rateKey = `slug-check:${clientAddress(req)}`;
+    if (!takeRateLimit(rateKey, 120, 60 * 60_000)) {
+      relayTelemetry.emit('relay_slug_check', {
+        surface: 'relay_server', route: '/api/slugs/availability', outcome: 'rate_limited',
+      });
+      jsonResponse(res, { error: 'Too many availability checks. Please try again later.' }, 429, { 'Retry-After': '3600' });
+      return;
+    }
+    const validation = validateSlug(url.searchParams.get('slug') || '');
+    if (!validation.valid) {
+      relayTelemetry.emit('relay_slug_check', {
+        surface: 'relay_server', route: '/api/slugs/availability', outcome: 'invalid',
+      });
+      jsonResponse(res, { slug: validation.slug, available: false, reason: validation.reason });
+      return;
+    }
+    const owner = await persistence.getSlugOwner(validation.slug);
+    relayTelemetry.emit('relay_slug_check', {
+      surface: 'relay_server', route: '/api/slugs/availability', outcome: owner ? 'taken' : 'available',
+    });
     jsonResponse(res, {
-      status: 'ok',
-      version: VERSION,
-      pending: pendingMessages.size,
-      sessions: conversationHistory.size,
+      slug: validation.slug,
+      available: !owner,
+      reason: owner ? 'This address is already in use.' : '',
     });
     return;
   }
 
-  res.writeHead(404);
-  res.end('Not found');
+  if (pathname === '/api/tenants/register' && method === 'POST') {
+    const rateKey = `register:${clientAddress(req)}`;
+    if (!takeRateLimit(rateKey, 20, 60 * 60_000)) {
+      relayTelemetry.emit('relay_registration', {
+        surface: 'relay_server', route: '/api/tenants/register', outcome: 'rate_limited',
+      });
+      jsonResponse(res, { error: 'Too many relay registrations. Please try again later.' }, 429, { 'Retry-After': '3600' });
+      return;
+    }
+    const body = await parseBody(req);
+    const installationId = typeof body.installationId === 'string' ? body.installationId.trim() : '';
+    if (!/^[A-Za-z0-9._:-]{16,200}$/.test(installationId)) {
+      relayTelemetry.emit('relay_registration', {
+        surface: 'relay_server', route: '/api/tenants/register', outcome: 'invalid',
+      });
+      jsonResponse(res, { error: 'A valid installation ID is required' }, 400);
+      return;
+    }
+    const tenantId = tenantIdFor(installationId);
+    const tenant = getTenant(tenantId);
+    await tenant.ready;
+    let slug = await persistence.getSlugForTenant(tenantId);
+    if (body.requestedSlug !== undefined) {
+      const validation = validateSlug(body.requestedSlug);
+      if (!validation.valid) {
+        jsonResponse(res, { error: validation.reason, slug: validation.slug }, 400);
+        return;
+      }
+      const claim = await persistence.claimSlug(tenantId, validation.slug);
+      if (claim.status === 'taken') {
+        jsonResponse(res, { error: 'This relay address is already in use.', slug: validation.slug }, 409);
+        return;
+      }
+      if (claim.status === 'tenant_has_slug') {
+        jsonResponse(res, {
+          error: `This installation already uses youbot.live/${claim.slug}.`,
+          slug: claim.slug,
+        }, 409);
+        return;
+      }
+      slug = validation.slug;
+      cacheSlug(slug, tenantId);
+    }
+    relayTelemetry.emit('relay_registration', {
+      surface: 'relay_server', route: '/api/tenants/register', outcome: 'accepted',
+    }, tenantId);
+    jsonResponse(res, {
+      status: 'ready',
+      tenantId,
+      slug: slug || '',
+      relayUrl: tenantBaseUrl(req, slug || tenantId),
+      tenantRelayUrl: tenantBaseUrl(req, tenantId),
+      botSecret: botSecretFor(tenantId),
+      ownerKey: ownerKeyFor(tenantId),
+    }, 201);
+    return;
+  }
+
+  if (pathname === '/widget.js' && method === 'GET') {
+    if (servePublicFile(res, 'widget.js', 'application/javascript; charset=utf-8', true)) return;
+  }
+  if (pathname === '/telemetry.js' && method === 'GET') {
+    if (servePublicFile(res, 'telemetry.js', 'application/javascript; charset=utf-8', true)) return;
+  }
+  if (pathname === '/sw.js' && method === 'GET') {
+    if (servePublicFile(res, 'sw.js', 'application/javascript; charset=utf-8')) return;
+  }
+  if (pathname === '/icon-192.svg' && method === 'GET') {
+    if (servePublicFile(res, 'icon-192.svg', 'image/svg+xml', true)) return;
+  }
+  if (pathname === '/icon-512.svg' && method === 'GET') {
+    if (servePublicFile(res, 'icon-512.svg', 'image/svg+xml', true)) return;
+  }
+
+  const tenantPath = await parseTenantPath(pathname, req);
+  if (tenantPath) {
+    await handleTenantRequest(req, res, tenantPath.tenantId, tenantPath.publicId, tenantPath.route, url);
+    return;
+  }
+
+  jsonResponse(res, { error: 'Not found' }, 404);
 }
 
-// ── Start Server ─────────────────────────────────────────
-
-const server = http.createServer((req, res) => {
-  handleRequest(req, res).catch((err) => {
-    console.error('Request error:', err);
-    res.writeHead(500);
-    res.end('Internal Server Error');
+function createServer() {
+  if (!SIGNING_SECRET || SIGNING_SECRET.length < 32) {
+    throw new Error('RELAY_SIGNING_SECRET must be at least 32 characters');
+  }
+  return http.createServer((req, res) => {
+    const startedAt = process.hrtime.bigint();
+    res.once('finish', () => {
+      const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      relayTelemetry.request(req.method, req.url, res.statusCode, elapsedMs);
+    });
+    handleRequest(req, res).catch((error) => {
+      console.error('Relay request failed:', error instanceof Error ? error.message : 'unknown error');
+      const status = error && Number(error.statusCode) >= 400 ? Number(error.statusCode) : 500;
+      jsonResponse(res, { error: status === 500 ? 'Internal server error' : error.message }, status);
+    });
   });
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`🌐 Webchat Relay running on port ${PORT}`);
-  console.log(`   Bot secret: ${BOT_SECRET ? '••••' + BOT_SECRET.slice(-4) : '(none - dev mode)'}`);
-});
+if (require.main === module) {
+  const server = createServer();
+  server.listen(PORT, () => {
+    console.log(`Youbot multi-tenant relay v${VERSION} listening on ${PORT}`);
+  });
+  const cleanup = setInterval(cleanupRateLimits, 10 * 60_000);
+  cleanup.unref();
+}
+
+module.exports = {
+  VERSION,
+  createServer,
+  tenantIdFor,
+  isValidTenantId,
+  botSecretFor,
+  ownerKeyFor,
+  validateSlug,
+};

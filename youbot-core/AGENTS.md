@@ -1,5 +1,7 @@
 # Youbot Core — Agent Instructions
 
+Current product/planning guidance (2026-09-14): Youbot is an owner-configured concierge serving visitors. Root `AGENTS.md` defines Factory authority and Spacecrew integration. Read `../docs/collections/README.md` for the conversational collections proposal and assigned work; it is not yet implemented. Preserve the visitor inbox and do not restore a general owner-chat dashboard as part of content authoring.
+
 > Personal AI assistant platform — manages messaging, automation, and contacts
 > across WhatsApp, Telegram, iMessage, and web.
 > Last updated: 2026-04-04

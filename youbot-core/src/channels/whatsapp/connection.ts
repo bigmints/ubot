@@ -281,7 +281,7 @@ export class WhatsAppConnection {
     const sessionDir = join(this.config.sessionPath, this.config.sessionName);
     try {
       await rm(sessionDir, { recursive: true, force: true });
-      console.log('[WhatsApp] 🗑️  Cleared stale session directory:', sessionDir);
+      console.log('[WhatsApp] Cleared stale session data');
     } catch (err: any) {
       console.error('[WhatsApp] Failed to clear session:', err.message);
     }
@@ -336,7 +336,7 @@ export class WhatsAppConnection {
         join(sessionDir, `lid-mapping-${phoneClean}.json`),
         JSON.stringify(lidClean),
       );
-      console.log(`[WhatsApp] 💾 Saved LID mapping: ${lidClean}@lid ↔ ${phoneClean}@s.whatsapp.net`);
+      console.log('[WhatsApp] Saved contact address mapping');
     } catch (err: any) {
       console.error('[WhatsApp] Failed to save LID mapping:', err.message);
     }
@@ -370,7 +370,7 @@ export class WhatsAppConnection {
         const isLoggedOut = statusCode === DisconnectReason.loggedOut;
         const isReplaced = statusCode === 440;
 
-        console.log('[WhatsApp] Disconnect reason:', (lastDisconnect?.error as any)?.message, 'code:', statusCode);
+      console.log('[WhatsApp] Disconnected with status code:', statusCode ?? 'unknown');
 
         if (this.isManualDisconnect) {
           console.log('[WhatsApp] ⏹️  Manual disconnect — stopping auto-reconnect.');
@@ -458,7 +458,7 @@ export class WhatsAppConnection {
           if (lidJid && !this.lidToPhone.has(lidJid)) {
             this.lidToPhone.set(lidJid, id);
             this.phoneToLid.set(id, lidJid);
-            console.log(`[WhatsApp] 📇 Captured LID mapping: ${lidJid} → ${id}`);
+            console.log('[WhatsApp] Learned contact address mapping');
             this.saveLIDMapping(lidJid, id).catch(() => {});
           }
         }
@@ -467,7 +467,7 @@ export class WhatsAppConnection {
           // Check if we can find a phone from Baileys' internal resolution
           const verifiedName = contact.verifiedName || contact.notify || contact.name;
           if (verifiedName) {
-            console.log(`[WhatsApp] 📇 Contact update for LID ${id}: name=${verifiedName}`);
+            console.log('[WhatsApp] Received contact address update');
           }
         }
       }
@@ -491,7 +491,7 @@ export class WhatsAppConnection {
             if (!this.lidToPhone.has(lidJid)) {
               this.lidToPhone.set(lidJid, c.id);
               this.phoneToLid.set(c.id, lidJid);
-              console.log(`[WhatsApp] 📇 History LID mapping: ${lidJid} → ${c.id}`);
+            console.log('[WhatsApp] Learned contact address mapping from history');
               this.saveLIDMapping(lidJid, c.id).catch(() => {});
             }
           }
@@ -513,7 +513,7 @@ export class WhatsAppConnection {
         // Skip empty-body non-notify events (contact syncs, phone lookups, receipts etc.)
         if (!body && !hasMedia && !hasInteractive) continue;
 
-        console.log(`[WhatsApp] 📩 type=${type} fromMe=${msg.key.fromMe} jid=${msg.key.remoteJid} hasMedia=${hasMedia} hasInteractive=${hasInteractive} body="${body.slice(0, 60)}"`);
+        console.log(`[WhatsApp] Received type=${type} fromMe=${msg.key.fromMe} media=${hasMedia} interactive=${hasInteractive} chars=${body.length}`);
 
         // Store raw message for media download AND interactive response lookup
         if (msg.key.id) {
@@ -736,23 +736,23 @@ export class WhatsAppConnection {
         if (!this.lidToPhone.has(rawJid) && msg.key.participant.endsWith('@s.whatsapp.net')) {
           this.lidToPhone.set(rawJid, msg.key.participant);
           this.phoneToLid.set(msg.key.participant, rawJid);
-          console.log(`[WhatsApp] 📇 Learned LID mapping from group: ${rawJid} → ${msg.key.participant}`);
+        console.log('[WhatsApp] Learned a group LID mapping');
           this.saveLIDMapping(rawJid, msg.key.participant).catch(() => {});
         }
       } else {
         const resolved = this.lidToPhone.get(from);
         if (resolved) {
-          console.log(`[WhatsApp] LID resolved: ${from} → ${resolved}`);
+        console.log('[WhatsApp] Resolved contact address');
           from = resolved;
         } else {
-          console.log(`[WhatsApp] LID unresolved: ${from} (pushName=${pushName || '?'})`);
+        console.log('[WhatsApp] Contact address remains unresolved');
           // Keep rawJid as `from` — the reply will still work via LID
           // But log the pushName so the skill engine can use it for better context
         }
       }
     }
 
-    console.log(`[WhatsApp] ✅ Parsed: from=${from} rawJid=${rawJid} participant=${msg.key.participant || 'none'} pushName=${pushName || '?'} body="${body.slice(0, 60)}"`);
+    console.log(`[WhatsApp] Parsed inbound message (${body.length} chars)`);
     return {
       id: msg.key.id,
       from,

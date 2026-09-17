@@ -10,6 +10,7 @@
  */
 
 import http from 'http';
+import crypto from 'node:crypto';
 import { activeConfigPath, loadYoubotConfig } from '../../data/config.js';
 
 export interface ApiKey {
@@ -66,6 +67,15 @@ export function invalidateApiKeyCache(): void {
   cacheTimestamp = 0;
 }
 
+/** Replace the cache for isolated unit tests without touching a real config file. */
+export function setApiKeysForTesting(keys: ApiKey[]): void {
+  if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+    throw new Error('setApiKeysForTesting is only available in test mode');
+  }
+  cachedKeys = keys;
+  cacheTimestamp = Date.now();
+}
+
 /**
  * Check if a request requires authentication.
  */
@@ -99,7 +109,12 @@ export function authenticate(req: http.IncomingMessage): AuthResult {
     }
 
     const token = parts[1];
-    const matched = keys.find(k => k.key === token);
+    const tokenDigest = crypto.createHash('sha256').update(token).digest();
+    const matched = keys.find((candidate) => {
+      if (typeof candidate.key !== 'string') return false;
+      const candidateDigest = crypto.createHash('sha256').update(candidate.key).digest();
+      return crypto.timingSafeEqual(tokenDigest, candidateDigest);
+    });
     if (!matched) {
       return { authenticated: false, error: 'Invalid API key' };
     }
@@ -146,7 +161,6 @@ export function sendUnauthorized(res: http.ServerResponse, message: string): voi
   res.writeHead(401, {
     'Content-Type': 'application/json',
     'WWW-Authenticate': 'Bearer',
-    'Access-Control-Allow-Origin': '*',
   });
   res.end(JSON.stringify({ error: message }));
 }

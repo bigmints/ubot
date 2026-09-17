@@ -1,8 +1,9 @@
 'use client';
 
+import { BrandMark } from '@/components/brand';
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { Bot, Lock, User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 
 export function LoginScreen() {
   const { login } = useAuth();
@@ -25,33 +26,27 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      {/* Background decoration */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[40%] -left-[20%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-[30%] -right-[20%] w-[50%] h-[50%] rounded-full bg-primary/3 blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md">
+    <div className="signature-login"><aside className="login-brand-panel"><div className="login-wordmark"><BrandMark/>youbot<span>.</span></div><div><p className="signature-eyebrow">Your concierge workspace</p><h2>Be there.<br/>Even when<br/><em>you’re not.</em></h2><p>A thoughtful welcome for the people reaching out. A clear workspace for you.</p></div><span className="login-colophon">Made for human connections.</span></aside>
+      <div className="login-form-panel relative w-full max-w-md">
         {/* Logo / Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <Bot className="w-8 h-8 text-primary" />
+        <div className="mb-8">
+          <div className="mb-6 inline-flex items-center justify-center text-primary lg:hidden">
+            <BrandMark className="size-12"/>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-            YOUBOT Dashboard
+          <h1 className="login-heading">
+            Sign in to Youbot
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Sign in to access the command center
+            Your concierge workspace.
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-card border border-border rounded-xl p-6 ">
+        <div className="login-fields">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Error Banner */}
             {error && (
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+              <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -99,7 +94,7 @@ export function LoginScreen() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -122,6 +117,7 @@ export function LoginScreen() {
               )}
             </button>
           </form>
+          <p className="mt-5 text-xs leading-relaxed text-muted-foreground">Use the username and password chosen when Youbot was installed. For a cloud installation, these are the login details entered during deployment.</p>
         </div>
       </div>
     </div>

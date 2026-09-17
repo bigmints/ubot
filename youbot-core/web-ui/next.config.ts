@@ -26,11 +26,11 @@ const nextConfig: NextConfig = {
           return [
             {
               source: "/api/:path*",
-              destination: "http://localhost:5081/api/:path*",
+              destination: `${process.env.YOUBOT_API_URL || "http://localhost:5081"}/api/:path*`,
             },
             {
               source: "/health",
-              destination: "http://localhost:5081/health",
+              destination: `${process.env.YOUBOT_API_URL || "http://localhost:5081"}/health`,
             },
           ];
         },

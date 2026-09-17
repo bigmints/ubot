@@ -1,274 +1,38 @@
-"use client";
-
-import { useEffect, useState, type FormEvent } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  User,
-  Lock,
-  Eye,
-  EyeOff,
-  Save,
-  RefreshCw,
-  LogOut,
-  Shield,
-  KeyRound,
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { useAuth } from "@/hooks/use-auth";
-import { toast } from "sonner";
-
-interface UserProfile {
-  username: string;
-  authMode: "local" | "sso";
-}
-
-export default function ProfilePage() {
-  const { authRequired, logout } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Password change state
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    api<UserProfile>("/api/auth/profile")
-      .then(setProfile)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handlePasswordChange(e: FormEvent) {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match");
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const result = await api<{ success: boolean; error?: string }>(
-        "/api/auth/password",
-        {
-          method: "PUT",
-          body: { currentPassword, newPassword },
-        }
-      );
-      if (result.success) {
-        toast.success("Password updated successfully");
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      } else {
-        toast.error(result.error || "Failed to update password");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update password");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-48" />
-          <div className="h-4 bg-muted rounded w-72" />
-          <div className="h-48 bg-muted rounded" />
-        </div>
-      </div>
-    );
-  }
-
-  const isLocal = profile?.authMode === "local";
-
-  return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b pb-6 mb-6">
-        <User className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your account settings and security
-          </p>
-        </div>
-      </div>
-
-      {/* User Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Shield className="size-4" />
-            Account Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            {/* Avatar */}
-            <div className="flex items-center justify-center size-16 rounded-full bg-primary/10 border-2 border-primary/20 shrink-0">
-              <span className="text-2xl font-bold text-primary uppercase">
-                {profile?.username?.charAt(0) || "U"}
-              </span>
-            </div>
-            <div className="space-y-1">
-              <p className="text-lg font-semibold">{profile?.username || "—"}</p>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">
-                  {isLocal ? "Local Auth" : "SSO"}
-                </Badge>
-                {authRequired && (
-                  <Badge variant="outline" className="text-xs text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-                    Authenticated
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Password Change Card — only for local auth */}
-      {isLocal && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <KeyRound className="size-4" />
-              Change Password
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              {/* Current Password */}
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-current-password">Current Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="profile-current-password"
-                    type={showCurrent ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrent(!showCurrent)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* New Password */}
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-new-password">New Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="profile-new-password"
-                    type={showNew ? "text" : "password"}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password (min 6 characters)"
-                    className="pl-10 pr-10"
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNew(!showNew)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password */}
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-confirm-password">Confirm New Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="profile-confirm-password"
-                    type={showNew ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                    className="pl-10 pr-10"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                {confirmPassword && newPassword !== confirmPassword && (
-                  <p className="text-xs text-destructive">Passwords do not match</p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                disabled={saving || !currentPassword || !newPassword || newPassword !== confirmPassword}
-              >
-                {saving ? (
-                  <>
-                    <RefreshCw className="size-4 mr-2 animate-spin" />
-                    Updating…
-                  </>
-                ) : (
-                  <>
-                    <Save className="size-4 mr-2" />
-                    Update Password
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Sign Out */}
-      {authRequired && (
-        <Card className="border-destructive/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Sign Out</p>
-                <p className="text-xs text-muted-foreground">
-                  End your current session
-                </p>
-              </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => logout()}
-              >
-                <LogOut className="size-4 mr-2" />
-                Sign Out
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+'use client';
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {UserRound,ShieldCheck,Bell,Save,ArrowUpRight} from 'lucide-react';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Textarea} from '@/components/ui/textarea';
+import {ListToolbar} from '@/components/list-toolbar';
+import {FormSection,FormFeedback} from '@/components/page-header';
+import {WorkspacePage} from '@/components/workspace-frame';
+import {AccountSecurity} from '@/components/account-security';
+import {conciergeApi} from '@/lib/concierge';
+type Owner = Record<'name'|'role'|'organization'|'location'|'timezone'|'about'|'preferences',string>;
+interface OwnerData {profile:Owner;additionalContext:string;revision:string}
+interface Notifications {ownerPhone:string;ownerTelegramId:string;ownerTelegramUsername:string;primaryEscalationChannel:'both'|'telegram'|'whatsapp'}
+interface NotificationData {settings:Notifications;revision:string}
+const tabs=[{id:'details',label:'Personal details',icon:UserRound},{id:'notifications',label:'Contact & notifications',icon:Bell},{id:'security',label:'Account & security',icon:ShieldCheck}];
+export default function UserProfile(){
+ const [hydrated,setHydrated]=useState(false);
+ const [tab,setTab]=useState('details'),[sectionSearch,setSectionSearch]=useState(''),[data,setData]=useState<OwnerData|null>(null),[notifications,setNotifications]=useState<NotificationData|null>(null),[dirty,setDirty]=useState(false),[notificationDirty,setNotificationDirty]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ async function load(){setError('');try{const [owner,contact]=await Promise.all([conciergeApi<OwnerData>('/owner-profile'),conciergeApi<NotificationData>('/owner-settings')]);setData(owner);setNotifications(contact);setDirty(false);setNotificationDirty(false);const draft=sessionStorage.getItem('youbot-user-profile-draft');if(draft)try{const restored=JSON.parse(draft);if(restored.data){setData(restored.data);setDirty(true);}if(restored.notifications){setNotifications(restored.notifications);setNotificationDirty(true);}setNotice('Unsaved profile changes restored.');}catch{sessionStorage.removeItem('youbot-user-profile-draft');}setHydrated(true);}catch(e){setError((e as Error).message);}}
+ useEffect(()=>{void load();const requested=new URLSearchParams(location.search).get('tab');if(tabs.some(t=>t.id===requested))setTab(requested!);},[]);
+ useEffect(()=>{if(!hydrated)return;if(dirty||notificationDirty)sessionStorage.setItem('youbot-user-profile-draft',JSON.stringify({data:dirty?data:null,notifications:notificationDirty?notifications:null}));else sessionStorage.removeItem('youbot-user-profile-draft');},[data,notifications,dirty,notificationDirty,hydrated]);
+ useEffect(()=>{const h=(e:BeforeUnloadEvent)=>{if(dirty||notificationDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',h);return()=>window.removeEventListener('beforeunload',h);},[dirty,notificationDirty]);
+ function update(key:keyof Owner,value:string){if(!data)return;setData({...data,profile:{...data.profile,[key]:value}});setDirty(true);setNotice('');}
+ function contact(key:keyof Notifications,value:string){if(!notifications)return;setNotifications({...notifications,settings:{...notifications.settings,[key]:value}});setNotificationDirty(true);setNotice('');}
+ async function save(){if(busy)return;setBusy(true);setError('');setNotice('');try{if(tab==='notifications'&&notifications){const saved=await conciergeApi<NotificationData>('/owner-settings',notifications,'PUT');setNotifications(saved);setNotificationDirty(false);setNotice('Contact and notification settings saved.');}else if(data){const saved=await conciergeApi<OwnerData>('/owner-profile',data,'PUT');setData(saved);setDirty(false);setNotice('User profile saved. Your concierge will use the updated context.');}}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ function field(key:keyof Owner,label:string,placeholder:string,hint?:string,multiline=false){return <label className={`block space-y-2 ${multiline?'sm:col-span-2':''}`}><span className="text-sm font-medium">{label}</span>{multiline?<Textarea value={data!.profile[key]} onChange={e=>update(key,e.target.value)} disabled={busy} maxLength={3000} placeholder={placeholder} className="min-h-28"/>:<Input value={data!.profile[key]} onChange={e=>update(key,e.target.value)} disabled={busy} maxLength={160} placeholder={placeholder} list={key==='timezone'?'profile-timezones':undefined}/>}{key==='timezone'&&<datalist id="profile-timezones">{Intl.supportedValuesOf('timeZone').map(zone=><option key={zone} value={zone}/>)}</datalist>} {hint&&<span className="block text-xs leading-5 text-muted-foreground">{hint}</span>}</label>;}
+ const currentDirty=tab==='notifications'?notificationDirty:dirty;
+ const visibleTabs=tabs.filter(({label})=>label.toLowerCase().includes(sectionSearch.trim().toLowerCase()));
+ return <WorkspacePage className="signature-profile" title="User profile" description="The person your concierge represents. Manage your details, notification preferences and account access." actions={tab!=='security'&&<Button disabled={busy||!data||!currentDirty} onClick={()=>void save()}><Save className="size-4"/>{busy?'Saving…':'Save changes'}</Button>}><div className="workspace-columns">
+ <nav aria-label="User profile sections" className="workspace-rail hidden flex-col lg:flex"><ListToolbar searchLabel="Search user profile sections" searchPlaceholder="Search sections" searchValue={sectionSearch} onSearchChange={setSectionSearch} resultLabel={`${visibleTabs.length} of ${tabs.length} sections`} active={!!sectionSearch} onReset={()=>setSectionSearch('')}/><div className="profile-section-list flex flex-col gap-1 p-3">{visibleTabs.length===0?<p className="p-3 text-sm text-muted-foreground">No matching sections.</p>:visibleTabs.map(t=><button key={t.id} onClick={()=>{setTab(t.id);setNotice('');}} aria-current={tab===t.id?'page':undefined} className={`flex shrink-0 items-center gap-3 rounded-lg px-3 py-3 text-left text-sm ${tab===t.id?'bg-primary/10 font-medium text-foreground':'text-muted-foreground hover:bg-muted hover:text-foreground'}`}><t.icon className="size-4"/>{t.label}</button>)}</div></nav><section className="workspace-canvas space-y-6 p-5 sm:p-7"><label className="block space-y-2 lg:hidden"><span className="text-xs font-medium text-muted-foreground">Profile section</span><select aria-label="Profile section" className="h-11 w-full rounded-lg border bg-card px-3 text-sm" value={tab} onChange={e=>{setTab(e.target.value);setNotice('');}}>{tabs.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select></label><FormFeedback error={error} notice={notice}/>
+ {error&&<Button variant="outline" onClick={()=>{if(!dirty&&!notificationDirty||window.confirm('Reload the saved profile and discard unsaved changes?')){sessionStorage.removeItem('youbot-user-profile-draft');void load();}}}>Reload saved profile</Button>}
+ {tab==='security'?<div className="max-w-3xl"><AccountSecurity/></div>:!data||!notifications?!error&&<p role="status" className="text-sm text-muted-foreground">Loading profile…</p>:<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"><div className="min-w-0 space-y-6">
+ {tab==='details'?<><FormSection title="Personal details" description="Help your concierge understand who you are and the work you do."><div className="grid gap-5 sm:grid-cols-2">{field('name','Display name','Your name')}{field('role','Role or title','Your role')}{field('organization','Organization','Company or project name')}{field('location','Location','City, country')}{field('timezone','Time zone','Select or enter a time zone','Start typing a city, such as Dubai or London.')}</div></FormSection><FormSection title="Context & preferences" description="This information is included in your concierge’s context when responding to visitors.">{field('about','About you','Describe your work, services or areas of responsibility.',undefined,true)}{field('preferences','Communication preferences','For example: use clear, professional language and ask before making commitments.',undefined,true)}</FormSection><details className="rounded-xl border bg-card p-5"><summary className="cursor-pointer text-sm font-medium">Additional profile context</summary><p className="mb-3 mt-3 text-xs leading-5 text-muted-foreground">Your existing profile content is preserved here. Review information collected from earlier conversations and remove anything that should no longer be used.</p><Textarea aria-label="Additional profile context" value={data.additionalContext} onChange={e=>{setData({...data,additionalContext:e.target.value});setDirty(true);}} disabled={busy} className="min-h-56 font-mono text-xs" maxLength={50000}/></details></>:<><FormSection title="Owner identity" description="These details identify you on messaging channels and route approval requests to you."><label className="block space-y-2"><span className="text-sm font-medium">WhatsApp number</span><Input autoComplete="tel" value={notifications.settings.ownerPhone} onChange={e=>contact('ownerPhone',e.target.value)} disabled={busy} placeholder="Include the country code"/><span className="block text-xs text-muted-foreground">Use the number you own, including its country code.</span></label><div className="grid gap-5 sm:grid-cols-2"><label className="block space-y-2"><span className="text-sm font-medium">Telegram username</span><Input value={notifications.settings.ownerTelegramUsername} onChange={e=>contact('ownerTelegramUsername',e.target.value)} disabled={busy} placeholder="Username"/></label><label className="block space-y-2"><span className="text-sm font-medium">Telegram chat ID</span><Input value={notifications.settings.ownerTelegramId} onChange={e=>contact('ownerTelegramId',e.target.value)} disabled={busy} placeholder="Numeric chat ID" inputMode="numeric"/></label></div></FormSection><FormSection title="Approval notifications" description="Choose where your concierge should contact you when a decision is required."><label className="block space-y-2"><span className="text-sm font-medium">Notification channel</span><select className="h-10 w-full rounded-md border bg-card px-3 text-sm" disabled={busy} value={notifications.settings.primaryEscalationChannel} onChange={e=>contact('primaryEscalationChannel',e.target.value)}><option value="both">WhatsApp and Telegram</option><option value="whatsapp">WhatsApp</option><option value="telegram">Telegram</option></select></label><p className="text-xs leading-5 text-muted-foreground">The selected channel must be connected. Saving a destination does not send a test notification.</p><Link href="/connections" className="inline-flex items-center gap-1 text-sm font-medium text-primary">Manage connections<ArrowUpRight className="size-3.5"/></Link></FormSection></>}
+ <div className="flex items-center justify-between gap-3 border-t pt-5"><p className="text-xs text-muted-foreground">{currentDirty?'Unsaved changes':'All changes saved'}</p><Button disabled={!currentDirty||busy} onClick={()=>void save()}>{busy?'Saving…':'Save changes'}</Button></div></div><aside className="identity-card lg:sticky lg:top-6"><p className="signature-eyebrow">The person behind it</p><div className="identity-monogram">{data.profile.name.trim().charAt(0).toUpperCase()||<UserRound className="size-5"/>}</div><h2 className="identity-name">{data.profile.name||'Your profile'}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{[data.profile.role,data.profile.organization].filter(Boolean).join(' · ')||'Add your role and organization.'}</p><div className="mt-5 space-y-3 border-t pt-4 text-xs leading-5 text-muted-foreground"><p>Your profile describes who the concierge represents. The agent profile controls how it communicates and acts.</p><Link href="/concierge" className="inline-flex items-center gap-1 font-medium text-primary">View agent profile<ArrowUpRight className="size-3.5"/></Link></div></aside></div>}
+ </section></div></WorkspacePage>;
 }

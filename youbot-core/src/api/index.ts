@@ -1,3 +1,7 @@
+import { isVisitorFacingReply } from '../engine/visitor-reply.js';
+import { parseConciergeProfile } from "../concierge/profile.js";
+import { getConciergeStore } from "../concierge/store.js";
+import { handleConciergeRoutes, sendVisitorReply, replyAvailability } from "./routes/concierge.js";
 /**
  * API Router for Youbot Core
  * Handles all /api/* routes with JSON request/response
@@ -17,6 +21,7 @@ import { WhatsAppConnection } from '../channels/whatsapp/connection.js';
 import { WhatsAppMessagingProvider } from '../channels/whatsapp/messaging-provider.js';
 import { TelegramConnection } from '../channels/telegram/connection.js';
 import { WebchatConnection } from '../channels/webchat/connection.js';
+import { autoProvisionManagedWebchatRelay, DEFAULT_MANAGED_RELAY_ORIGIN, ensureManagedWebchatRelay } from '../channels/webchat/provisioning.js';
 import { TelegramMessagingProvider } from '../channels/telegram/messaging-provider.js';
 
 import { MessagingRegistry } from '../channels/registry.js';
@@ -38,6 +43,7 @@ import { handleIncomingMessage, type UnifiedMessage, type UnifiedDeps } from '..
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { transcribeAudio } from '../capabilities/transcription/service.js';
+import { resolveRoutedHttpModel } from '../integrations/model-routing.js';
 
 import { FEATURES, MODE } from '../lib/features.js';
 
@@ -54,7 +60,9 @@ import { handleVaultRoutes } from './routes/vault.js';
 import { handleMemoryRoutes } from './routes/memory.js';
 import { handleIntegrationRoutes } from './routes/integrations.js';
 import { handleIntegrationProviderRoutes } from './routes/integrations-providers.js';
+import { handleProviderAccessRoutes } from './routes/provider-access.js';
 import { handleIntegrationsGoogleRoutes } from './routes/integrations-google.js';
+import { handleIntegrationConnectorRoutes } from './routes/integration-connectors.js';
 import { handleToolsRoutes } from './routes/tools.js';
 import { handleWebchatRoutes, ensureWebchatToken } from './routes/webchat.js';
 import { handleModulesRoutes } from './routes/modules.js';
@@ -81,8 +89,17 @@ function getAllowedOrigins(): string[] {
     const origins = (config as any).api?.cors_origins;
     if (Array.isArray(origins) && origins.length > 0) return origins;
   } catch {}
-  // Default: allow localhost dev servers
-  return ['http://localhost:4080', 'http://localhost:4081', 'http://localhost:3000'];
+  // Default: same-machine development and production dashboards only.
+  return [
+    'http://localhost:3000',
+    'http://localhost:4080',
+    'http://localhost:4081',
+    'http://localhost:5080',
+    'http://localhost:5081',
+    'http://localhost:11490',
+    'http://127.0.0.1:5080',
+    'http://127.0.0.1:11490',
+  ];
 }
 
 function getCorsOrigin(req: http.IncomingMessage): string {
@@ -92,8 +109,8 @@ function getCorsOrigin(req: http.IncomingMessage): string {
   if (allowed.includes('*')) return '*';
   // Check if request origin is in the allowlist
   if (allowed.includes(origin)) return origin;
-  // Default deny — return first allowed origin
-  return allowed[0] || '';
+  // Default deny.
+  return '';
 }
 
 // ─── In-memory State ─────────────────────────────────────
@@ -120,6 +137,7 @@ const MAX_WA_MESSAGES = 100;
 
 import { crewRegistry } from '../engine/crew-registry.js';
 let scheduler: TaskSchedulerService | null = null;
+let stopFollowUpChecker: (() => void) | null = null;
 let agentOrchestrator: AgentOrchestrator | null = null;
 
 // MCP server manager
@@ -211,48 +229,11 @@ function saveConfigValue(key: string, value: string): void {
 // ─── Approval Relay ──────────────────────────────────────
 
 async function relayApprovalResponse(requesterJid: string, message: string): Promise<boolean> {
-  if (requesterJid.startsWith('telegram:')) {
-    const chatId = Number(requesterJid.replace('telegram:', ''));
-    if (tgConnection && !isNaN(chatId)) {
-      try {
-        await tgConnection.sendMessage(chatId, message);
-        console.log(`[Approvals] Relayed response to Telegram chat ${chatId}`);
-        tgMessages.push({ from: 'bot', to: String(chatId), body: message, timestamp: new Date().toISOString(), isFromMe: true });
-        return true;
-      } catch (err: any) {
-        console.error('[Approvals] Failed to relay to Telegram:', err.message);
-      }
-    }
-    return false;
-  }
-
-  if (waConnection?.isConnected) {
-    try {
-      const jid = requesterJid.includes('@')
-        ? requesterJid
-        : `${requesterJid.replace(/\D/g, '')}@s.whatsapp.net`;
-      await waConnection.sendMessage(jid, { text: message });
-      console.log(`[Approvals] Relayed response to WhatsApp ${jid}`);
-      waMessages.push({ from: 'me', to: jid, body: message, timestamp: new Date().toISOString(), isFromMe: true });
-      return true;
-    } catch (err: any) {
-      console.error('[Approvals] Failed to relay to WhatsApp:', err.message);
-    }
-  }
-
-  if (tgConnection && /^\d+$/.test(requesterJid)) {
-    try {
-      const chatId = Number(requesterJid);
-      await tgConnection.sendMessage(chatId, message);
-      console.log(`[Approvals] Relayed response to Telegram (fallback) chat ${chatId}`);
-      tgMessages.push({ from: 'bot', to: requesterJid, body: message, timestamp: new Date().toISOString(), isFromMe: true });
-      return true;
-    } catch (err: any) {
-      console.error('[Approvals] Failed to relay to Telegram (fallback):', err.message);
-    }
-  }
-
-  return false;
+  if (!coreDb) return false;
+  const store = getConciergeStore(coreDb);
+  const thread = await store.get(requesterJid) || await store.findTarget(requesterJid.startsWith('telegram:') ? 'telegram' : 'whatsapp', requesterJid.replace(/^telegram:/, ''));
+  if (!thread || thread.paused || thread.lastError || replyAvailability(getApiContext(), thread)) return false;
+  return store.automatedReply(thread.id, thread.revision, message, () => sendVisitorReply(getApiContext(), thread, message));
 }
 
 // ─── WhatsApp Event Handlers ─────────────────────────────
@@ -343,19 +324,19 @@ function setupWhatsAppHandlers(conn: WhatsAppConnection): void {
             try {
               log.info('WhatsApp', `🎤 Transcribing audio (${media.mimeType})...`);
               const cfg = agentOrchestrator?.getConfig?.() as any;
-              // llmProviders is LLMProviderConfig[] — find the transcription-routed provider
-              const providerList: any[] = Array.isArray(cfg?.llmProviders) ? cfg.llmProviders : [];
-              const routing: Record<string, string> = cfg?.modelRouting || {};
-              const transcriptionProviderId = routing['transcription'] ? routing['transcription'].split('/')[0] : cfg?.defaultLlmProviderId;
-              const llmProvider = providerList.find((p: any) => p.id === transcriptionProviderId) || providerList.find((p: any) => p.isDefault) || providerList[0];
+              const llmProvider = cfg
+                ? await resolveRoutedHttpModel(cfg, 'transcription', 'whisper-1')
+                : undefined;
               const transcription = await transcribeAudio(filePath, {
                 language: 'auto',
                 providerBaseUrl: llmProvider?.baseUrl,
                 providerApiKey: llmProvider?.apiKey,
+                providerModelId: llmProvider?.modelId,
+                providerHeaders: llmProvider?.headers,
               });
               attachment.textContent = transcription.text;
               msg.body = `[Voice message transcription]: ${transcription.text}`;
-              log.info('WhatsApp', `🎤 Transcription: "${transcription.text.slice(0, 80)}"`);
+              log.info('WhatsApp', 'Transcription completed');
             } catch (err: any) {
               log.warn('WhatsApp', `Transcription unavailable: ${err.message}`);
             }
@@ -371,20 +352,21 @@ function setupWhatsAppHandlers(conn: WhatsAppConnection): void {
 
     const unified: UnifiedMessage = {
       channel: 'whatsapp',
+      messageId: msg.id,
       senderId: jid,
       senderName,
       body: msg.body || '[Media message]',
       timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(),
       replyFn: async (text: string) => {
-        log.info('WhatsApp', `Sending reply to rawJid=${replyJid} (resolved=${jid})`);
+        log.info('WhatsApp', 'Sending reply');
         try {
           const rawQuoted = msg.id ? conn.getRawMessage(msg.id) : undefined;
-          log.info('WhatsApp', `Quoting message: ${!!rawQuoted} (msg.id=${msg.id})`);
+          log.info('WhatsApp', `Quoted context available: ${Boolean(rawQuoted)}`);
           const options = undefined; // FORCE NO QUOTING EVER
           await conn.sendMessage(replyJid, { text }, options);
           waMessages.push({ from: 'me', to: jid, body: text, timestamp: new Date().toISOString(), isFromMe: true });
         } catch (err: any) {
-          log.error('WhatsApp', `Failed to send reply to ${replyJid}: ${err.message}`);
+          log.error('WhatsApp', `Failed to send reply: ${err.message}`);
           throw err;
         }
       },
@@ -405,6 +387,7 @@ function setupWhatsAppHandlers(conn: WhatsAppConnection): void {
     };
 
     const deps: UnifiedDeps = {
+      concierge: coreDb ? getConciergeStore(coreDb) : null,
       orchestrator: agentOrchestrator,
       approvalStore,
       followUpStore: followUpStoreInstance,
@@ -415,7 +398,7 @@ function setupWhatsAppHandlers(conn: WhatsAppConnection): void {
     };
 
     const result = await handleIncomingMessage(unified, deps);
-    if (result.response && result.response.trim()) {
+    if (result.response && result.response.trim() && !result.replyDispatched) {
       await unified.replyFn(result.response);
     }
   });
@@ -545,19 +528,19 @@ function setupTelegramHandlers(conn: TelegramConnection): void {
             try {
               log.info('Telegram', `🎤 Transcribing audio (${media.mimeType})...`);
               const cfg = agentOrchestrator?.getConfig?.() as any;
-              // llmProviders is LLMProviderConfig[] — find the transcription-routed provider
-              const providerList: any[] = Array.isArray(cfg?.llmProviders) ? cfg.llmProviders : [];
-              const routing: Record<string, string> = cfg?.defaults || {};
-              const transcriptionProviderId = routing['transcription'] ? routing['transcription'].split('/')[0] : cfg?.defaultLlmProviderId;
-              const llmProvider = providerList.find((p: any) => p.id === transcriptionProviderId) || providerList.find((p: any) => p.isDefault) || providerList[0];
+              const llmProvider = cfg
+                ? await resolveRoutedHttpModel(cfg, 'transcription', 'whisper-1')
+                : undefined;
               const transcription = await transcribeAudio(filePath, {
                 language: 'auto',
                 providerBaseUrl: llmProvider?.baseUrl,
                 providerApiKey: llmProvider?.apiKey,
+                providerModelId: llmProvider?.modelId,
+                providerHeaders: llmProvider?.headers,
               });
               attachment.textContent = transcription.text;
               msg.body = `[Voice message transcription]: ${transcription.text}`;
-              log.info('Telegram', `🎤 Transcription: "${transcription.text.slice(0, 80)}"`);
+              log.info('Telegram', 'Transcription completed');
             } catch (err: any) {
               log.warn('Telegram', `Transcription unavailable: ${err.message}`);
             }
@@ -573,6 +556,7 @@ function setupTelegramHandlers(conn: TelegramConnection): void {
 
     const unified: UnifiedMessage = {
       channel: 'telegram',
+      messageId: String(msg.id),
       senderId: senderChatId,
       senderName: msg.from || '',
       senderUsername: (msg.fromUsername || '').toLowerCase(),
@@ -594,6 +578,7 @@ function setupTelegramHandlers(conn: TelegramConnection): void {
     };
 
     const deps: UnifiedDeps = {
+      concierge: coreDb ? getConciergeStore(coreDb) : null,
       orchestrator: agentOrchestrator,
       approvalStore,
       followUpStore: followUpStoreInstance,
@@ -604,7 +589,7 @@ function setupTelegramHandlers(conn: TelegramConnection): void {
     };
 
     const result = await handleIncomingMessage(unified, deps);
-    if (result.response && result.response.trim()) {
+    if (result.response && result.response.trim() && !result.replyDispatched) {
       await unified.replyFn(result.response);
     }
   });
@@ -695,6 +680,7 @@ function setupWebchatHandlers(conn: WebchatConnection): void {
 
     const unified: UnifiedMessage = {
       channel: 'webchat',
+      messageId: msg.id,
       senderId: msg.session,
       senderName: msg.name || 'Website Visitor',
       body: msg.message || (msg.audio ? '[Voice message]' : '') || (msg.image ? '[Image]' : ''),
@@ -710,6 +696,7 @@ function setupWebchatHandlers(conn: WebchatConnection): void {
     };
 
     const deps: UnifiedDeps = {
+      concierge: coreDb ? getConciergeStore(coreDb) : null,
       orchestrator: agentOrchestrator,
       approvalStore,
       followUpStore: followUpStoreInstance,
@@ -721,9 +708,12 @@ function setupWebchatHandlers(conn: WebchatConnection): void {
 
     try {
       const result = await handleIncomingMessage(unified, deps);
-      if (result.response && result.response.trim()) {
+      if (result.response && result.response.trim() && !result.replyDispatched) {
         await unified.replyFn(result.response);
       }
+      // A paused or held turn has no automatic reply. Release the visitor request;
+      // later owner replies arrive through the persisted session history.
+      if (!replied) await conn.respond(msg.id, '');
     } finally {
       replied = true;
       clearInterval(typingInterval);
@@ -738,8 +728,24 @@ function setupWebchatHandlers(conn: WebchatConnection): void {
 }
 
 async function autoConnectWebchat(): Promise<void> {
-  const cfg = loadYoubotConfig();
-  const wc = cfg.channels?.webchat;
+  let cfg = loadYoubotConfig();
+  let wc = cfg.channels?.webchat;
+  if (wc?.enabled === false) {
+    console.log('[Webchat] Channel disabled — skipping relay provisioning and connection');
+    return;
+  }
+  if (!wc?.relay_url && !wc?.bot_secret) {
+    try {
+      const provisioned = await autoProvisionManagedWebchatRelay();
+      cfg = loadYoubotConfig();
+      wc = cfg.channels?.webchat;
+      if (provisioned.status === 'provisioned') {
+        log.info('Webchat', 'Free relay URL provisioned');
+      }
+    } catch (error: any) {
+      log.warn('Webchat', `Free relay unavailable: ${error.message}`);
+    }
+  }
   if (!wc?.relay_url || wc?.enabled === false) {
     console.log('[Webchat] No relay URL configured or channel disabled — skipping');
     return;
@@ -929,6 +935,12 @@ export function initializeApi(
   if (workspace) workspaceProvider = workspace;
   if (db) {
 
+    if (workspaceProvider) {
+      import('../integrations/runtime.js').then(({ initializeIntegrationService }) =>
+        initializeIntegrationService(db as unknown as DatabaseConnection, workspaceProvider!)
+      ).catch((err: any) => console.error('[Integrations] Initialization failed:', err.message));
+    }
+
     // File-based skills via workspace provider (or legacy path fallback)
     if (workspaceProvider) {
       skillRepo = createFileSkillRepository(workspaceProvider, 'skills');
@@ -945,6 +957,7 @@ export function initializeApi(
     }
     coreDb = db as unknown as DatabaseConnection;
     contactStore = new ContactStore(coreDb);
+    getConciergeStore(coreDb).ready.catch(err => console.error("[Inbox] Initialization failed:", err.message));
     asyncJobStore = createAsyncJobStore(coreDb);
     asyncJobStore.failAllProcessingJobs('Server restarted while job was processing');
     eventBus = createEventBus();
@@ -953,9 +966,14 @@ export function initializeApi(
     if (agent) {
       const cfg = loadYoubotConfig();
       const configUpdates: Record<string, unknown> = {};
+    if (cfg.concierge) {
+      try { configUpdates.concierge = parseConciergeProfile(cfg.concierge); }
+      catch { console.error("[Concierge] Saved profile is invalid; review it in Your concierge."); }
+    }
 
       // Owner identity
-      if (cfg.owner?.phone) configUpdates.ownerPhone = cfg.owner.phone;
+      if (cfg.agent?.primary_escalation_channel) configUpdates.primaryEscalationChannel = cfg.agent.primary_escalation_channel;
+    if (cfg.owner?.phone) configUpdates.ownerPhone = cfg.owner.phone;
       if (cfg.owner?.telegram_id) configUpdates.ownerTelegramId = cfg.owner.telegram_id;
       if (cfg.owner?.telegram_username) configUpdates.ownerTelegramUsername = cfg.owner.telegram_username;
 
@@ -989,6 +1007,8 @@ export function initializeApi(
               model: ((p.model || '') as string).trim(),
               isDefault: key === defaultKey,
               models: p.models as any,
+              credentialSource: p.credentialSource === 'provider-access' ? 'provider-access' as const : undefined,
+              runtimeProviderId: typeof p.runtimeProviderId === 'string' ? p.runtimeProviderId : undefined,
             };
           });
 
@@ -1050,19 +1070,38 @@ export function initializeApi(
 
       eventBus.on(async (event) => {
         if (!skillEngine) return;
-        const results = await skillEngine.processEvent(event);
+        const inboxStore = coreDb ? getConciergeStore(coreDb) : null;
+      const eventAddress = String(event.data?.rawJid || event.from || '').replace(/^telegram:/, '');
+      const inboxThread = inboxStore ? await inboxStore.findTarget(event.source, eventAddress) : null;
+      if (inboxThread?.paused) return;
+      const notifyThreads = new Map<string, import('../concierge/store.js').InboxThread>();
+      if (inboxStore) for (const candidate of skillEngine.getSkills()) {
+        const target = candidate.outcome.target;
+        if (String(candidate.outcome.action) !== 'notify' || !target) continue;
+        const channel = candidate.outcome.channel || (target.startsWith('telegram:') ? 'telegram' : 'whatsapp');
+        const address = channel === 'telegram' ? target.replace(/^telegram:/,'') : target.includes('@') ? target : `${target.replace(/\D/g,'')}@s.whatsapp.net`;
+        const thread = await inboxStore.get(target) || await inboxStore.findTarget(channel,address);
+        if (thread) notifyThreads.set(candidate.id,thread);
+      }
+      const results = await skillEngine.processEvent(event);
         for (const result of results) {
           if (!result.success || !result.response?.trim()) continue;
+        if (!isVisitorFacingReply(result.response)) {
+          if (inboxStore && inboxThread) await inboxStore.failure(inboxThread.id, 'The automated skill reply was held for owner review; nothing was sent.');
+          continue;
+        }
           const skill = skillEngine.getSkill(result.skillId);
           if (!skill) continue;
           const outcome = skill.outcome;
 
-          if (outcome.action === 'reply') {
+          if (outcome.action === 'reply' && inboxThread && inboxStore) {
+            if (!replyAvailability(getApiContext(), inboxThread)) await inboxStore.automatedReply(inboxThread.id, inboxThread.revision, result.response, () => sendVisitorReply(getApiContext(), inboxThread, result.response!));
+          } else if (outcome.action === 'reply') {
             if (event.source === 'telegram') {
               const chatId = Number(event.from);
               if (tgConnection && !isNaN(chatId)) {
                 await tgConnection.sendMessage(chatId, result.response);
-                console.log(`[SkillOutcome] Replied via Telegram to chat ${chatId}`);
+                console.log('[SkillOutcome] Replied via Telegram');
                 tgMessages.push({ from: 'bot', to: String(chatId), body: result.response, timestamp: new Date().toISOString(), isFromMe: true });
               }
             } else {
@@ -1071,7 +1110,7 @@ export function initializeApi(
                 const resolvedJid = event.from?.includes('@') ? event.from : `${event.from}@s.whatsapp.net`;
                 const replyJid = rawJid || resolvedJid;
                 await waConnection.sendMessage(replyJid, { text: result.response });
-                console.log(`[SkillOutcome] Replied via WhatsApp to ${replyJid} (resolved=${resolvedJid})`);
+                console.log('[SkillOutcome] Replied via WhatsApp');
               }
             }
           } else if (outcome.action === 'send' && outcome.target) {
@@ -1079,17 +1118,17 @@ export function initializeApi(
               const chatId = Number(outcome.target.replace('telegram:', ''));
               if (tgConnection && !isNaN(chatId)) {
                 await tgConnection.sendMessage(chatId, result.response);
-                console.log(`[SkillOutcome] Sent via Telegram to chat ${chatId}`);
+                console.log('[SkillOutcome] Sent via Telegram');
               }
             } else {
               if (waConnection?.isConnected) {
                 const jid = outcome.target.includes('@') ? outcome.target : `${outcome.target}@s.whatsapp.net`;
                 await waConnection.sendMessage(jid, { text: result.response });
-                console.log(`[SkillOutcome] Sent via WhatsApp to ${jid}`);
+                console.log('[SkillOutcome] Sent via WhatsApp');
               }
             }
           } else if (outcome.action === 'store') {
-            console.log(`[SkillOutcome] Stored result for skill "${skill.name}":`, result.response.slice(0, 100));
+            console.log(`[SkillOutcome] Stored result for skill "${skill.name}"`);
           }
         }
       });
@@ -1116,7 +1155,7 @@ export function initializeApi(
   if (followUpStore) {
     followUpStoreInstance = followUpStore;
     if (agent) {
-      import('../automation/followups/checker.js').then(({ startFollowUpChecker }) => {
+      import('../automation/followups/checker.js').then(({ startFollowUpChecker, visitorFollowUpChannel }) => {
         // sendMessage: route messages to the correct channel based on the channel parameter
         const sendMessage = async (channel: string, contactId: string, message: string): Promise<boolean> => {
           // Telegram
@@ -1127,10 +1166,10 @@ export function initializeApi(
             if (tgConnection && !isNaN(chatId)) {
               try {
                 await tgConnection.sendMessage(chatId, message);
-                console.log(`[FollowUpChecker] ✅ Sent to Telegram ${chatId}`);
+                console.log('[FollowUpChecker] Sent via Telegram');
                 return true;
               } catch (err: any) {
-                console.error(`[FollowUpChecker] Failed to send to Telegram ${chatId}:`, err.message);
+                console.error('[FollowUpChecker] Failed to send via Telegram:', err.message);
                 return false;
               }
             }
@@ -1144,10 +1183,10 @@ export function initializeApi(
                 ? contactId
                 : `${contactId.replace(/\D/g, '')}@s.whatsapp.net`;
               await waConnection.sendMessage(jid, { text: message });
-              console.log(`[FollowUpChecker] ✅ Sent to WhatsApp ${jid}`);
+              console.log('[FollowUpChecker] Sent via WhatsApp');
               return true;
             } catch (err: any) {
-              console.error(`[FollowUpChecker] Failed to send to WhatsApp ${contactId}:`, err.message);
+              console.error('[FollowUpChecker] Failed to send via WhatsApp:', err.message);
               return false;
             }
           }
@@ -1158,20 +1197,33 @@ export function initializeApi(
               const convStore = agent.getConversationStore();
               convStore.getOrCreateSession(contactId, 'web', contactId);
               convStore.addMessage(contactId, 'assistant', message, { source: 'scheduler' });
-              console.log(`[FollowUpChecker] ✅ Added message to web session ${contactId}`);
+              console.log('[FollowUpChecker] Added message to web session');
               return true;
             } catch (err: any) {
-              console.error(`[FollowUpChecker] Failed to add message to web session ${contactId}:`, err.message);
+              console.error('[FollowUpChecker] Failed to add message to web session:', err.message);
               return false;
             }
           }
 
-          console.warn(`[FollowUpChecker] ⚠️ No channel available to send to ${contactId}`);
+          console.warn('[FollowUpChecker] No channel available for scheduled delivery');
           return false;
         };
 
-        startFollowUpChecker({
+      stopFollowUpChecker = startFollowUpChecker({
           followUpStore,
+          prepare: async (followUp) => {
+            if (!coreDb) return null;
+            const store = getConciergeStore(coreDb);
+            const targetChannel = visitorFollowUpChannel(followUp);
+        const thread = await store.get(followUp.sessionId) || await store.get(followUp.contactId) || await store.findTarget(targetChannel, followUp.contactId.replace(/^telegram:/, ''));
+            if (!thread || thread.channel !== targetChannel || ![thread.id,thread.address,`${thread.channel}:${thread.address}`].includes(followUp.contactId) || thread.paused || thread.lastError || replyAvailability(getApiContext(), thread)) return null;
+            const config = agent.getConfig();
+            if ((thread.channel === 'whatsapp' && config.autoReplyWhatsApp === false) || (thread.channel === 'telegram' && config.autoReplyTelegram === false) || (thread.channel === 'webchat' && config.autoReplyWebchat === false)) return null;
+            return async (channel, contactId, message) => {
+              if (channel !== followUp.channel || contactId !== followUp.contactId) return false;
+              return store.automatedReply(thread.id, thread.revision, message, () => sendVisitorReply(getApiContext(), thread, message));
+            };
+          },
           chat: (sessionId: string, message: string, source: string, contactName?: string, isOwner?: boolean) => {
             return agent.chat(sessionId, message, source as any, contactName, isOwner);
           },
@@ -1191,6 +1243,11 @@ export function initializeApi(
   // that fight each other with WhatsApp code 440 and Telegram 409 conflicts.
   if (!agent) {
     console.log('[Channels] Deferring auto-connect — agent not ready yet (bootstrap pass).');
+    return { skillRepo, skillEngine };
+  }
+
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+    console.log('[Channels] Auto-connect disabled in test mode.');
     return { skillRepo, skillEngine };
   }
 
@@ -1230,6 +1287,7 @@ async function registerAgentTools(agent: AgentOrchestrator): Promise<void> {
   const registry = agent.getToolRegistry();
 
   const toolContext = {
+    relayMessage: relayApprovalResponse,
     getDatabase: () => coreDb,
     getMessagingRegistry: () => messagingRegistry,
     getScheduler: () => scheduler,
@@ -1282,6 +1340,7 @@ function getApiContext(): ApiContext {
     coreDb,
     asyncJobStore,
     contactStore,
+    webchatConnection,
     waConnection,
     waQrCode,
     waStatus,
@@ -1529,6 +1588,41 @@ async function handleChannelRoutes(
     json(res, { status, relayUrl, error: webchatError || '' });
     return true;
   }
+  if (url.startsWith('/api/channels/webchat/relay/availability') && method === 'GET') {
+    try {
+      const slug = new URL(req.url || url, 'http://localhost').searchParams.get('slug') || '';
+      const relayConfig = loadYoubotConfig().channels?.webchat;
+      const origin = relayConfig?.managed_relay_origin || DEFAULT_MANAGED_RELAY_ORIGIN;
+      const response = await fetch(`${origin}/api/slugs/availability?slug=${encodeURIComponent(slug)}`, {
+        signal: AbortSignal.timeout(8_000),
+      });
+      const result = await response.json();
+      json(res, result, response.status);
+    } catch (error: any) {
+      json(res, { error: error.message || 'Relay availability could not be checked' }, 502);
+    }
+    return true;
+  }
+  if (url === '/api/channels/webchat/relay' && method === 'POST') {
+    try {
+      const body = await parseBody(req) as { requestedSlug?: string };
+      const relay = await ensureManagedWebchatRelay({ requestedSlug: body.requestedSlug });
+      await autoConnectWebchat();
+      json(res, {
+        status: webchatConnection?.status || 'connecting',
+        relayUrl: relay.relayUrl,
+        tenantId: relay.tenantId,
+        slug: relay.slug,
+        created: relay.created,
+      });
+    } catch (error: any) {
+      const status = Number(error.statusCode) >= 400 && Number(error.statusCode) < 500
+        ? Number(error.statusCode)
+        : 502;
+      json(res, { error: error.message || 'Free relay could not be provisioned' }, status);
+    }
+    return true;
+  }
 
   if (url === '/api/whatsapp/status' && method === 'GET') {
     const user = waConnection?.getUser?.() ?? null;
@@ -1549,6 +1643,7 @@ async function handleChannelRoutes(
     if (agentOrchestrator) {
       agentOrchestrator.updateConfig({ autoReplyWhatsApp: enabled });
     }
+    if (coreDb) await getConciergeStore(coreDb).invalidateChannel('whatsapp');
     json(res, { autoReply: enabled, saved: true });
     return true;
   }
@@ -1644,6 +1739,8 @@ async function handleChannelRoutes(
     if (!cfg.channels!.telegram) cfg.channels!.telegram = {} as any;
     cfg.channels!.telegram!.auto_reply = !!body?.enabled;
     saveYoubotConfig(cfg);
+    agentOrchestrator?.updateConfig({ autoReplyTelegram: cfg.channels!.telegram!.auto_reply });
+    if (coreDb) await getConciergeStore(coreDb).invalidateChannel('telegram');
     json(res, { autoReply: cfg.channels!.telegram!.auto_reply });
     return true;
   }
@@ -1767,8 +1864,13 @@ export async function handleApiRoute(
 
   // ── CORS preflight ─────────────────────────────────────
   if (method === 'OPTIONS') {
+    if (req.headers.origin && !corsOrigin) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Origin is not allowed' }));
+      return true;
+    }
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': corsOrigin,
+      ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}),
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
@@ -1778,7 +1880,7 @@ export async function handleApiRoute(
   }
 
   // Set CORS header on all responses
-  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  if (corsOrigin) res.setHeader('Access-Control-Allow-Origin', corsOrigin);
 
   // ── Request logging (wrap response to capture status) ──
   wrapResponse(res);
@@ -1791,64 +1893,36 @@ export async function handleApiRoute(
     return true;
   }
 
-  if (url === '/api/config/model-routing' && method === 'PUT') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body);
-        import('../data/config.js').then(({ loadYoubotConfig, saveYoubotConfig }) => {
-          const cfg = loadYoubotConfig();
-          cfg.modelRouting = payload.routing || {};
-          saveYoubotConfig(cfg);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true }));
-        });
-      } catch (e: any) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-      }
-    });
+if (url === '/api/config/model-routing' && method === 'PUT') {
+    const payload = await parseBody(req) as { routing?: unknown; _error?: string };
+    if (payload._error) {
+      json(res, { error: payload._error }, 413);
+      return true;
+    }
+    const cfg = loadYoubotConfig();
+    cfg.modelRouting = payload.routing || {};
+    saveYoubotConfig(cfg);
+    json(res, { success: true });
     return true;
   }
 
   // ── Health check (unauthenticated) ─────────────────────
   if (url === '/api/health' && method === 'GET') {
-    const { getHealthStatus } = await import('../capabilities/mcp/health-monitor.js');
-    const { getAllToolDefinitions } = await import('../tools/registry.js');
-    
-    const cdpHealth = getHealthStatus();
-    const toolDefs = await getAllToolDefinitions().catch(() => []);
-    const mem = process.memoryUsage();
-    
-    const health = {
-      status: 'ok',
-      server: {
-        uptime: Math.floor(process.uptime()),
-        version: '1.0.0',
-        pid: process.pid,
-      },
-      cdp: cdpHealth,
-      mcp: {
-        connected: mcpManager ? mcpManager.getServers().filter(s => s.status === 'connected').length : 0,
-        total: mcpManager ? mcpManager.getServers().length : 0,
-      },
-      memory: {
-        rss: mem.rss,
-        heapUsed: mem.heapUsed,
-        heapTotal: mem.heapTotal,
-      },
-      channels: {
-        whatsapp: waStatus,
-        telegram: tgStatus,
-      },
-      tools: {
-        registered: toolDefs.length,
-      }
-    };
-
-    const isHealthy = !!agentOrchestrator;
-    json(res, health, isHealthy ? 200 : 503);
+    let database = false;
+    try {
+      const result = await coreDb?.get<{ ok: number }>('SELECT 1 AS ok');
+      database = result?.ok === 1;
+    } catch {
+      database = false;
+    }
+    const agent = Boolean(agentOrchestrator);
+    const isHealthy = database && agent;
+    json(res, {
+      status: isHealthy ? 'ok' : 'unhealthy',
+      version: '1.0.0',
+      checks: { database, agent },
+      timestamp: new Date().toISOString(),
+    }, isHealthy ? 200 : 503);
     return true;
   }
 
@@ -1914,19 +1988,13 @@ export async function handleApiRoute(
   // Rate limiting is for external API consumers, not the built-in dashboard.
   // The dashboard can be accessed via localhost or LAN IP, so we check
   // known dashboard ports rather than requiring "localhost" in the origin.
-  const origin = String(req.headers['origin'] || req.headers['referer'] || '');
-  const serverPort = process.env.PORT || '11490';
-  const dashboardPorts = [serverPort, '4080', '4081', '11490', '3000', '5080', '5081'];
-  const isDashboard = dashboardPorts.some(port => origin.includes(`:${port}`)) || req.headers.host?.includes(':5080') || req.headers.host?.includes(':5081');
-  if (!isDashboard) {
-    const rateLimitId = clientName || req.socket.remoteAddress || 'unknown';
-    const rateLimitResult = rateLimiter.check(rateLimitId, url);
-    if (!rateLimitResult.allowed) {
-      sendRateLimited(res, rateLimitResult);
-      return true;
-    }
-    setRateLimitHeaders(res, rateLimitResult);
+  const rateLimitId = clientName || req.socket.remoteAddress || 'unknown';
+  const rateLimitResult = rateLimiter.check(rateLimitId, url);
+  if (!rateLimitResult.allowed) {
+    sendRateLimited(res, rateLimitResult);
+    return true;
   }
+  setRateLimitHeaders(res, rateLimitResult);
 
   // ── Request logging ────────────────────────────────────
   const finishLog = logRequest(req, url, method, clientName);
@@ -1944,12 +2012,15 @@ export async function handleApiRoute(
     res.end(JSON.stringify({ error: 'Forbidden: Owner access required for this endpoint.' }));
     return true;
   }
+  if (await handleConciergeRoutes(req, res, url, method, ctx)) return true;
   if (await handleChannelRoutes(req, res, url, method)) return true;
   if (await handleSkillRoutes(req, res, url, method, ctx)) return true;
   if (await handleSafetyRoutes(req, res, url, method, ctx)) return true;
   if (await handleMemoryRoutes(req, res, url, method, ctx)) return true;
   if (await handleIntegrationRoutes(req, res, url, method, ctx)) return true;
-  if (await handleIntegrationProviderRoutes(req, res, url, method, ctx)) return true;
+    if (await handleIntegrationConnectorRoutes(req, res, url, method, ctx)) return true;
+    if (await handleProviderAccessRoutes(req, res, url, method, ctx)) return true;
+    if (await handleIntegrationProviderRoutes(req, res, url, method, ctx)) return true;
   if (await handleIntegrationsGoogleRoutes(req, res, url, method, ctx)) return true;
   if (await handleToolsRoutes(req, res, url, method, ctx)) return true;
 async function handleExperimentRoutes(req: http.IncomingMessage, res: http.ServerResponse, url: string, method: string): Promise<boolean> {
@@ -2054,6 +2125,29 @@ export async function gracefulShutdown(): Promise<void> {
     } catch (err: any) {
       console.error('[Shutdown] MCP disconnect error:', err.message);
     }
+  }
+
+  if (stopFollowUpChecker) {
+    stopFollowUpChecker();
+    stopFollowUpChecker = null;
+  }
+
+  if (scheduler) {
+    try {
+      await scheduler.stop();
+    } catch (err: any) {
+      console.error('[Shutdown] Scheduler stop error:', err.message);
+    }
+    scheduler = null;
+  }
+
+  if (coreDb) {
+    try {
+      await coreDb.close();
+    } catch (err: any) {
+      console.error('[Shutdown] Database close error:', err.message);
+    }
+    coreDb = null;
   }
 
   console.log('[Shutdown] Graceful shutdown complete.');

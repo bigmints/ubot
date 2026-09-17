@@ -1,28 +1,19 @@
 "use client";
+import { useSidebar } from "@/components/ui/sidebar";
 
 import { useEffect, useState } from "react";
 
 import {
   LayoutDashboard,
-  MessageSquare,
   Puzzle,
-  MessageCircle,
-  Send,
-  ShieldAlert,
   Clock,
   Settings,
-  LayoutTemplate,
   Bot,
-  Brain,
   Globe,
   FolderOpen,
-  ScrollText,
   Plug,
   Terminal,
   Apple,
-  Lock,
-  CheckCircle,
-  Activity,
   Search,
   Calendar,
   Sparkles,
@@ -32,9 +23,12 @@ import {
   User,
   Users,
   ChevronsUpDown,
-  Blocks,
+  HelpCircle,
+  Inbox,
+  LibraryBig,
 } from "lucide-react";
 import Link from "next/link";
+import { BrandMark } from "@/components/brand";
 import { usePathname } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
@@ -127,30 +121,21 @@ export function registerSidebarFooterExtensions(ext: FooterExtension): void {
 
 // ── Core Nav Items ──────────────────────────────────────
 
-const coreItems: NavItem[] = [];
-
-const knowledgeItems: NavItem[] = [
-  { title: "Personas", href: "/personas", icon: User },
+const coreItems: NavItem[] = [
+  { title: "Overview", href: "/", icon: LayoutDashboard },
+  { title: "Conversations", href: "/conversations", icon: Inbox },
   { title: "Contacts", href: "/contacts", icon: Users },
-  { title: "Vault", href: "/vault", icon: Lock },
 ];
-
-const capabilityItems: NavItem[] = [
-  { title: "Models", href: "/llms", icon: Bot },
+const profileItems: NavItem[] = [
+  { title: "Agent profile", href: "/concierge", icon: Bot },
+  { title: "Collections", href: "/concierge/collections", icon: LibraryBig },
+  { title: "User profile", href: "/profile", icon: User },
+];
+const manageItems: NavItem[] = [
+  { title: "Connections", href: "/connections", icon: Plug },
   { title: "Skills", href: "/skills", icon: Puzzle },
-  { title: "Integrations", href: "/integrations", icon: Blocks },
-  { title: "MCP Servers", href: "/mcp-servers", icon: Plug, feature: "mcp" },
-];
-
-const behaviorItems: NavItem[] = [
-  { title: "Safety Rules", href: "/safety", icon: ShieldAlert },
-  { title: "Scheduler", href: "/scheduler", icon: Clock },
-];
-
-const channelItems: NavItem[] = [
-  { title: "WhatsApp", href: "/whatsapp", icon: MessageCircle, feature: "whatsapp" },
-  { title: "Telegram", href: "/telegram", icon: Send, feature: "telegram" },
-  { title: "Web Chat", href: "/webchat", icon: Globe, feature: "webchat" },
+  { title: "Automations", href: "/scheduler", icon: Clock, feature: "scheduler" },
+  { title: "Settings", href: "/settings", icon: Settings },
 ];
 
 /** Merge core items with any injected extension items for a group */
@@ -159,29 +144,25 @@ function getGroupItems(group: ExistingGroup, coreItems: NavItem[]): NavItem[] {
   return [...coreItems, ...injected];
 }
 
-const systemItems: NavItem[] = [
-  { title: "Logs", href: "/logs", icon: ScrollText },
-  { title: "Tools Health", href: "/tools", icon: Activity },
-];
-
 // ── Sidebar Component ───────────────────────────────────
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
+  useEffect(() => { setOpenMobile(false); }, [pathname, setOpenMobile]);
   const { features, isSaaS, isCloud, mode } = useFeatures();
   const { authRequired, logout } = useAuth();
 
   const [appName, setAppName] = useState("Youbot");
-  const [appTagline, setAppTagline] = useState("Agent Core");
   const [username, setUsername] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const displayAppName = appName.trim().toLowerCase() === "youbot" ? "Youbot" : appName;
 
   useEffect(() => {
     fetch('/api/app/theme')
       .then(r => r.json())
       .then(({ theme }) => {
         if (theme?.appName) setAppName(theme.appName);
-        if (theme?.appName && theme.appName !== 'Youbot') setAppTagline('AI Command Center');
         if (theme?.logoUrl) setLogoUrl(theme.logoUrl);
       })
       .catch(() => {});
@@ -230,11 +211,13 @@ export function AppSidebar() {
         isActive={
           item.href === "/"
             ? pathname === "/"
+            : item.href === "/concierge"
+              ? pathname === "/concierge"
             : pathname.startsWith(item.href)
         }
         tooltip={item.title}
       >
-        <Link href={item.href}>
+        <Link href={item.href} onClick={() => setOpenMobile(false)}>
           <item.icon />
           <span>{item.title}</span>
         </Link>
@@ -263,31 +246,25 @@ export function AppSidebar() {
       .filter(e => e.position === position)
       .flatMap(e => e.groups);
 
-  const filteredChannels = filterItems(channelItems);
-  const filteredCapabilities = filterItems(getGroupItems('Capabilities', [...capabilityItems, ...dynamicModules]));
+  const buildAndManageItems = getGroupItems('Capabilities', [...manageItems, ...dynamicModules]);
 
   return (
-    <Sidebar collapsible="icon" variant="inset">
-      <SidebarHeader>
+    <Sidebar collapsible="icon" variant="sidebar" className="signature-sidebar">
+      <SidebarHeader className="signature-brand">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                <div className="bg-primary text-primary-foreground overflow-hidden flex size-8 items-center justify-center rounded-lg">
+                <div className="signature-brand-symbol flex size-9 shrink-0 items-center justify-center">
                   {logoUrl ? (
                     <img src={logoUrl} alt={appName} className="size-5 object-contain" />
                   ) : (
-                    <Bot className="size-5" />
+                    <BrandMark />
                   )}
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-bold">
-                    {appName}
-                  </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {appTagline}
-                  </span>
-                </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="signature-wordmark">{displayAppName}</span>
+              </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -295,88 +272,25 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-
-
-        {/* Extension point: after-core */}
+        {renderGroup({label:'Workspace',items:getGroupItems('Core',coreItems)},'workspace')}
         {getExtensions('after-core').map((g, i) => renderGroup(g, `ext-core-${i}`))}
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Knowledge & Identity</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {knowledgeItems.map(renderItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Extension point: after-agents (kept for backward compatibility) */}
+        {renderGroup({label:'Your concierge',items:profileItems},'profiles')}
         {getExtensions('after-agents').map((g, i) => renderGroup(g, `ext-agents-${i}`))}
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Capabilities</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredCapabilities.map(renderItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Extension point: after-capabilities */}
+        {renderGroup({label:'Build & manage',items:buildAndManageItems},'build-manage')}
         {getExtensions('after-capabilities').map((g, i) => renderGroup(g, `ext-cap-${i}`))}
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Behavior & Rules</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {behaviorItems.map(renderItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Extension point: after-automation (kept for backward compatibility) */}
         {getExtensions('after-automation').map((g, i) => renderGroup(g, `ext-auto-${i}`))}
-
-        {/* Channels — only show if any channel features are enabled */}
-        {filteredChannels.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Channels</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {filteredChannels.map(renderItem)}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* Extension point: after-channels */}
         {getExtensions('after-channels').map((g, i) => renderGroup(g, `ext-chan-${i}`))}
-
-        <SidebarGroup>
-          <SidebarGroupLabel>System Monitor</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {systemItems.map(renderItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
+          {renderItem({ title: "Help & setup", href: "/setup", icon: HelpCircle })}
           {/* Footer extension items */}
           {_footerExtensions
             .filter(e => !e.condition || e.condition({ isCloud, isSaaS }))
             .flatMap(e => e.items)
             .map(renderItem)}
 
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === "/settings"} tooltip="Settings">
-              <Link href="/settings">
-                <Settings />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -393,7 +307,7 @@ export function AppSidebar() {
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">{username || "User"}</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      v1.0.0{isSaaS ? " · SaaS" : mode === "cloud" ? " · Cloud" : ""}
+                      Account settings
                     </span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />

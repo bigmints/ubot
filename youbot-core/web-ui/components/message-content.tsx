@@ -234,7 +234,7 @@ export function MessageContent({ content, role }: MessageContentProps) {
           },
           
           // ── Generative UI Components via custom tags ──
-          // @ts-ignore
+          // @ts-expect-error — custom tag is supported by the markdown renderer at runtime.
           metricscard({ title, value, trend, ...props }: any) {
             const isUp = String(trend).startsWith("+");
             const isDown = String(trend).startsWith("-");

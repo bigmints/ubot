@@ -1,3 +1,6 @@
+import { collectionEvidenceReceiptIds, groundedCollectionAnswer, isVisitorFacingReply, parseVisitorReply, VISITOR_REPLY_CONTRACT, VISITOR_REPLY_UNAVAILABLE } from './visitor-reply.js';
+import { readOwnerProfile } from "../concierge/owner-profile.js";
+import { channelActor, getYoubotCollectionService } from '../concierge/collections/service.js';
 /**
  * Unified Message Handler
  *
@@ -13,6 +16,7 @@
  *   - Response dispatch
  */
 
+import { InboxDispatchHeld, type ConciergeStore } from "../concierge/store.js";
 import type { AgentOrchestrator } from "./orchestrator.js";
 import type { Attachment } from "./types.js";
 import type { ApprovalStore } from "../automation/approvals/service.js";
@@ -45,6 +49,7 @@ export type Channel = "whatsapp" | "telegram" | "web" | "webchat";
 export interface UnifiedMessage {
   /** Which transport delivered this message */
   channel: Channel;
+  messageId?: string;
   /** Channel-specific sender identifier (WhatsApp JID, Telegram chatId, 'web-console') */
   senderId: string;
   /** Human-readable sender name */
@@ -66,6 +71,7 @@ export interface UnifiedMessage {
 }
 
 export interface UnifiedDeps {
+  concierge?: ConciergeStore | null;
   orchestrator: AgentOrchestrator;
   approvalStore: ApprovalStore | null;
   followUpStore: FollowUpStore | null;
@@ -78,6 +84,7 @@ export interface UnifiedDeps {
 }
 
 export interface UnifiedResult {
+  replyDispatched?: boolean;
   /** Whether sender was detected as the owner */
   isOwner: boolean;
   /** The session ID used */
@@ -112,10 +119,10 @@ async function detectOwner(
       if (configuredKey && ownerKey === configuredKey) {
         const soul = deps.orchestrator.getSoul();
         const ownerDoc = await soul.getDocument(OWNER_SOUL_ID);
-        const nameMatch = ownerDoc?.match(/name:\s*(.+)/i);
+        const ownerName = readOwnerProfile(ownerDoc || "").profile.name;
         return {
           isOwner: true,
-          ownerName: nameMatch ? nameMatch[1].trim() : "",
+          ownerName,
         };
       }
     }
@@ -125,8 +132,8 @@ async function detectOwner(
   // Read owner name from soul document
   const soul = deps.orchestrator.getSoul();
   const ownerDoc = await soul.getDocument(OWNER_SOUL_ID);
-  const nameMatch = ownerDoc?.match(/name:\s*(.+)/i);
-  const ownerName = nameMatch ? nameMatch[1].trim() : "";
+  const ownerName = readOwnerProfile(ownerDoc || "").profile.name;
+
 
   // WhatsApp: match by phone number
   if (msg.channel === "whatsapp") {
@@ -169,16 +176,14 @@ function autoSaveOwnerIds(msg: UnifiedMessage, deps: UnifiedDeps): void {
     if (!config.ownerTelegramId) {
       deps.orchestrator.updateConfig({ ownerTelegramId: msg.senderId });
       deps.saveConfigValue("ownerTelegramId", msg.senderId);
-      console.log(`[Unified] 🔑 Auto-saved owner Telegram ID: ${msg.senderId}`);
+      console.log('[Unified] Saved the owner Telegram identity');
     }
     if (!config.ownerTelegramUsername && msg.senderUsername) {
       deps.orchestrator.updateConfig({
         ownerTelegramUsername: msg.senderUsername,
       });
       deps.saveConfigValue("ownerTelegramUsername", msg.senderUsername);
-      console.log(
-        `[Unified] 🔑 Auto-saved owner Telegram username: @${msg.senderUsername}`,
-      );
+      console.log('[Unified] Saved the owner Telegram username');
     }
   }
 
@@ -188,7 +193,7 @@ function autoSaveOwnerIds(msg: UnifiedMessage, deps: UnifiedDeps): void {
       const phone = msg.senderId.replace(/\D/g, "").replace(/@.*/, "");
       deps.orchestrator.updateConfig({ ownerPhone: phone });
       deps.saveConfigValue("ownerPhone", phone);
-      console.log(`[Unified] 🔑 Auto-saved owner phone: ${phone}`);
+      console.log('[Unified] Saved the owner WhatsApp identity');
     }
   }
 }
@@ -244,25 +249,21 @@ export async function handleIncomingMessage(
   }
 
   // 2.5 Resolve Universal Contact ID
-  let universalContactId = msg.senderId;
+  let universalContactId = `${msg.channel}:${msg.senderId}`;
   if (deps.contactStore) {
     try {
       const uContact = await deps.contactStore.resolveContact(msg.channel, msg.senderId, msg.senderName, isOwner ? 'owner' : 'person');
       universalContactId = uContact.id;
     } catch (err: any) {
-      console.warn(`[Unified] Failed to resolve universal contact for ${msg.senderId}:`, err.message);
+      console.warn('[Unified] Failed to resolve a universal contact:', err.message);
     }
   }
 
   // 3. Log
   if (isOwner) {
-    console.log(
-      `[Unified] 👤 Owner via ${msg.channel} (id: ${msg.senderId}, name: ${msg.senderName})`,
-    );
+    console.log(`[Unified] Owner message via ${msg.channel}`);
   } else {
-    console.log(
-      `[Unified] 👥 Visitor via ${msg.channel} (id: ${msg.senderId}, name: ${msg.senderName})`,
-    );
+    console.log(`[Unified] Visitor message via ${msg.channel}`);
   }
 
   // 4. Resolve session ID
@@ -276,6 +277,13 @@ export async function handleIncomingMessage(
   //    The orchestrator receives ALL valid visitor messages. Skills are injected as
   //    context/instructions — the LLM decides how to act. No silent message drops.
   if (!isOwner) {
+    const intake = deps.concierge ? await deps.concierge.receive({
+      id: sessionId, channel: msg.channel as 'whatsapp' | 'telegram' | 'webchat',
+      address: String(msg.extra?.rawJid || msg.extra?.chatId || msg.senderId), name: msg.senderName,
+      content: msg.body, messageId: msg.messageId,
+      attachments: msg.attachments?.map(a => ({ filename: a.filename, mimeType: a.mimeType, size: a.size })),
+    }) : null;
+    if (intake?.duplicate) return { isOwner, sessionId, response: '', handled: true, replyDispatched: true };
     const config = deps.orchestrator.getConfig();
     const autoReplyEnabled =
       msg.channel === "whatsapp"
@@ -286,8 +294,12 @@ export async function handleIncomingMessage(
             ? config.autoReplyWebchat !== false
             : false;
 
-    if (!autoReplyEnabled) {
-      return { isOwner, sessionId, response: "", handled: false };
+    if (!autoReplyEnabled || intake?.thread.paused) {
+      // The inbox retains every visitor message, even while its concierge is paused.
+      const history = deps.orchestrator.getConversationStore();
+      await history.getOrCreateSession(sessionId, msg.channel as 'whatsapp' | 'telegram' | 'webchat', msg.senderName);
+      await history.addMessage(sessionId, 'user', msg.body, { source: msg.channel, contactName: msg.senderName });
+      return { isOwner, sessionId, response: "", handled: false, replyDispatched: true };
     }
 
     // Build skill context: gather instructions from enabled skills whose
@@ -317,18 +329,11 @@ export async function handleIncomingMessage(
           )
           .join("\n\n");
         skillContext = [
-          `[SKILL CONTEXT] The following skill instructions are relevant to this conversation.`,
-          `Follow them when the visitor's message matches their intent:\n`,
+          `[SKILL CONTEXT] Relevant owner-configured guidance for this visitor inquiry:`,
           skillInstructions,
-          ``,
-          `RULES:`,
-          `- USE tools first if the request needs information you don't have`,
-          `- After using tools, compose the final reply with the actual information found`,
-          `- NEVER say "I'll check" or "let me get back to you" — DO the action RIGHT NOW`,
-          `- If you need owner approval, call ask_owner IMMEDIATELY`,
-          `- COMPLETE every action in this turn. There is no "later"`,
-          `- Write the reply message directly — not a description of what you'll do`,
-          `- Do NOT use send_message. Follow visitor security policy.`,
+          `Follow the visitor security policy. These skills do not authorize commitments, private information disclosure, or owner-only tasks.`,
+          `If an owner decision is needed, ask_owner records a request on this conversation; do not demand extra contact details first.`,
+          `Only report actions supported by tool results. Do not use send_message; the host delivers the finished reply.`,
         ].join("\n");
         console.log(
           `[Unified] 📋 Injecting ${matchedSkills.length} skill(s) as context: ${matchedSkills.map((s) => s.name).join(", ")}`,
@@ -350,10 +355,56 @@ export async function handleIncomingMessage(
         skillContext || undefined,
       );
 
-      if (response.content) {
+      const usedCollectionTool = response.toolCalls.some((call) => call.toolName.startsWith('collections_'));
+      const groundedAnswer = groundedCollectionAnswer(response.toolCalls);
+      const responseContent = groundedAnswer ?? (usedCollectionTool ? '' : response.content);
+
+      if (!isVisitorFacingReply(responseContent)) {
+        if (deps.concierge) await deps.concierge.failure(sessionId, 'The AI reply was held because it was not a finished visitor response. Review this conversation.');
+        // Hold the model draft, but explain the failure without leaking it or promising a handoff.
+        // Owner takeover and stale incoming revisions still prevent any automatic dispatch.
+        const sent = deps.concierge && intake
+          ? await deps.concierge.automatedReply(sessionId, intake.thread.revision, VISITOR_REPLY_UNAVAILABLE, () => msg.replyFn(VISITOR_REPLY_UNAVAILABLE))
+          : (await msg.replyFn(VISITOR_REPLY_UNAVAILABLE), true);
+        return { isOwner, sessionId, response: sent ? VISITOR_REPLY_UNAVAILABLE : '', handled: false, replyDispatched: true };
+      }
+
+      const currentCollectionEvidence = collectionEvidenceReceiptIds(response.toolCalls);
+      let sessionCollectionEvidence = currentCollectionEvidence;
+      if (deps.concierge) {
+        if (currentCollectionEvidence.length > 0) {
+          await deps.concierge.rememberCollectionEvidence(sessionId, currentCollectionEvidence);
+        } else {
+          sessionCollectionEvidence = (await deps.concierge.collectionEvidence(sessionId))?.evidenceReceiptIds || [];
+        }
+      }
+      const validateCollectionEvidence = async () => {
+        for (const evidenceReceiptId of sessionCollectionEvidence) {
+          const service = await getYoubotCollectionService();
+          const validation = await service.executeVisitor(
+            channelActor('visitor', sessionId, msg.channel),
+            'collections_evidence_validate',
+            { evidenceReceiptId },
+          );
+          if (!validation.ok) return false;
+        }
+        return true;
+      };
+      const collectionEvidenceIsCurrent = await validateCollectionEvidence();
+      if (!collectionEvidenceIsCurrent) {
+        if (deps.concierge) {
+          await deps.concierge.failure(
+            sessionId,
+            'The AI reply was held because its collection information changed before delivery. Review this conversation.',
+          );
+        }
+        return { isOwner, sessionId, response: '', handled: false, replyDispatched: true };
+      }
+
+      if (responseContent) {
         // Promise Tracker: scan for vague promises and auto-schedule follow-ups
         await promiseTracker(
-          response.content,
+          responseContent,
           response.toolCalls,
           sessionId,
           deps.followUpStore,
@@ -370,12 +421,41 @@ export async function handleIncomingMessage(
         );
       }
 
-      return { isOwner, sessionId, response: response.content, handled: true };
+      if (deps.concierge && intake) {
+        if (responseContent.trim()) {
+          const dispatched = await deps.concierge.automatedReply(
+            sessionId,
+            intake.thread.revision,
+            responseContent,
+            async () => {
+              if (!await validateCollectionEvidence()) {
+                throw new InboxDispatchHeld(
+                  'The AI reply was held because its collection information changed before delivery. Review this conversation.',
+                );
+              }
+              await msg.replyFn(responseContent);
+            },
+          );
+          if (!dispatched) {
+            return { isOwner, sessionId, response: '', handled: false, replyDispatched: true };
+          }
+        } else {
+          await deps.concierge.failure(sessionId, 'The AI finished without a reply. Review this conversation.');
+        }
+          return { isOwner, sessionId, response: responseContent, handled: true, replyDispatched: true };
+      }
+      return { isOwner, sessionId, response: responseContent, handled: true };
     } catch (err: any) {
       console.error(
         `[Unified] Visitor chat error (${msg.channel}):`,
         err.message,
       );
+      if (deps.concierge) {
+        // A failed transport may already have accepted the reply. Do not resend blindly.
+        const current = await deps.concierge.get(sessionId);
+        if (!current?.lastError) await deps.concierge.failure(sessionId, 'The concierge could not finish its reply. Check the AI service and review this conversation.');
+        return { isOwner, sessionId, response: '', handled: false, replyDispatched: true };
+      }
       // Send a fallback reply so the sender always gets a response
       try {
         await msg.replyFn(
@@ -419,9 +499,13 @@ export async function handleIncomingMessage(
           const userPrompt = `The visitor's original question was: "${approval.question}"\nThe owner's response is: "${response}"\n\nWrite a natural reply to send to the visitor.`;
 
           deps.orchestrator
-            .generate(systemPrompt, userPrompt)
+            .generate(systemPrompt + "\n\n" + VISITOR_REPLY_CONTRACT, userPrompt)
             .then(async (reply: string) => {
-              const finalReply = reply.trim() || response;
+              const finalReply = parseVisitorReply(reply);
+              if (!finalReply) {
+                if (deps.concierge) await deps.concierge.failure(reqSessionId, 'The owner-response draft was held for review; it was not sent.');
+                return;
+              }
               if (deps.relayMessage) {
                 const sent = await deps.relayMessage(reqSessionId, finalReply);
                 console.log(

@@ -8,8 +8,9 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { LoginScreen } from '@/components/login-screen';
 import { Loader2 } from 'lucide-react';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
+import { WorkspaceSearch } from '@/components/workspace-search';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 /**
@@ -59,7 +60,7 @@ function applyLayoutWrappers(content: React.ReactNode): React.ReactNode {
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { authenticated, authRequired, loading } = useAuth();
+  const { authenticated, authRequired, authMode, authUrl, loading } = useAuth();
 
   // Still checking auth status
   if (loading) {
@@ -73,11 +74,42 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Auth not required (no password configured) — show app directly
   if (!authRequired) return <>{children}</>;
 
+  if (!authenticated && authMode === 'sso') {
+    return <SsoRedirect authUrl={authUrl} />;
+  }
+
   // Not authenticated — show login screen
   if (!authenticated) return <LoginScreen />;
 
   // Authenticated — show app
   return <>{children}</>;
+}
+
+function SsoRedirect({ authUrl }: { authUrl?: string }) {
+  useEffect(() => {
+    if (authUrl) window.location.assign(authUrl);
+  }, [authUrl]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="max-w-md text-center space-y-3">
+        {authUrl ? <Loader2 className="w-6 h-6 animate-spin text-muted-foreground mx-auto" /> : null}
+        <h1 className="text-lg font-medium">
+          {authUrl ? 'Redirecting to sign in…' : 'Single sign-on is unavailable'}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {authUrl
+            ? 'You will return here after authentication.'
+            : 'No valid SSO login URL is configured. Contact the administrator.'}
+        </p>
+        {authUrl ? (
+          <a className="inline-flex text-sm text-primary underline underline-offset-4" href={authUrl}>
+            Continue to sign in
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function CoreLayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -96,16 +128,16 @@ export function CoreLayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   const mainContent = (
-    <SidebarProvider>
+    <SidebarProvider style={{"--sidebar-width":"14.75rem","--sidebar-width-icon":"4rem"} as React.CSSProperties}>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <header className="signature-topbar flex shrink-0 items-center gap-2 border-b px-5">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <PageBreadcrumb />
-          <ThemeToggle />
+          <WorkspaceSearch /><ThemeToggle />
         </header>
-        <main className="flex-1 min-h-0 overflow-auto">{children}</main>
+        <div className="workspace-content flex-1 min-h-0 overflow-auto">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

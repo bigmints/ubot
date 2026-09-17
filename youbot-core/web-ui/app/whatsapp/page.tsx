@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   MessageCircle,
@@ -24,6 +23,7 @@ import {
 import { api } from "@/lib/api";
 import QRCode from "qrcode";
 import { toast } from "sonner";
+import { StandardPage } from "@/components/workspace-frame";
 
 interface WhatsAppUser {
   id: string;
@@ -31,10 +31,15 @@ interface WhatsAppUser {
   phone: string;
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Request failed";
+}
+
 export default function WhatsAppPage() {
   const [status, setStatus] = useState("disconnected");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<string | null>(null);
+  const [qrRequested, setQrRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [user, setUser] = useState<WhatsAppUser | null>(null);
@@ -55,7 +60,7 @@ export default function WhatsAppPage() {
       .catch(() => setQrImage(null));
   }, [qrCode]);
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (includeQr = qrRequested) => {
     try {
       const data = await api<{
         status: string;
@@ -65,12 +70,17 @@ export default function WhatsAppPage() {
         autoReply: boolean;
       }>("/api/whatsapp/status");
       setStatus(data.status);
-      setQrCode(data.qr);
+      if (data.status === "connected") {
+        setQrRequested(false);
+        setQrCode(null);
+      } else if (includeQr) {
+        setQrCode(data.qr);
+      }
       setError(data.error);
       setUser(data.user);
       setAutoReply(data.autoReply);
     } catch {}
-  }, []);
+  }, [qrRequested]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -99,12 +109,16 @@ export default function WhatsAppPage() {
   const handleConnect = async () => {
     setConnecting(true);
     setError(null);
+    setQrRequested(true);
+    setQrCode(null);
     try {
       await api("/api/whatsapp/connect", { method: "POST" });
-      await fetchStatus();
-    } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
+      await fetchStatus(true);
+    } catch (err: unknown) {
+      setQrRequested(false);
+      const message = getErrorMessage(err);
+      setError(message);
+      toast.error(message);
     } finally {
       setConnecting(false);
     }
@@ -114,11 +128,14 @@ export default function WhatsAppPage() {
     try {
       await api("/api/whatsapp/disconnect", { method: "POST" });
       toast.success("WhatsApp disconnected");
+      setQrRequested(false);
+      setQrCode(null);
       setUser(null);
       await fetchStatus();
-    } catch (err: any) {
-      setError(err.message);
-      toast.error(err.message);
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -148,17 +165,7 @@ export default function WhatsAppPage() {
       : "bg-muted-foreground";
 
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b pb-6 mb-6">
-        <MessageCircle className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">WhatsApp</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Connect your WhatsApp account to receive and send messages
-          </p>
-        </div>
-      </div>
+    <StandardPage title="WhatsApp" description="Connect your WhatsApp account to receive and send messages.">
 
       {/* Connection Status */}
       <Card>
@@ -214,8 +221,8 @@ export default function WhatsAppPage() {
             </div>
           )}
 
-          {/* QR Code — shown when connecting */}
-          {!isConnected && qrImage && (
+          {/* QR Code — shown only after an explicit request */}
+          {!isConnected && qrRequested && qrImage && (
             <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30 border border-border">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <QrCode className="h-4 w-4" />
@@ -231,14 +238,24 @@ export default function WhatsAppPage() {
               <p className="text-xs text-muted-foreground text-center">
                 Open WhatsApp on your phone → Settings → Linked Devices → Link a Device
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleConnect}
+                disabled={isConnecting}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isConnecting ? "animate-spin" : ""}`} />
+                Refresh QR
+              </Button>
             </div>
           )}
 
-          {!isConnected && !qrImage && (
+          {!isConnected && (!qrRequested || !qrImage) && (
             <EmptyState
               icon={<MessageCircle className="size-8" />}
               title="Not connected"
-              description="Click Connect to generate a QR code for linking your WhatsApp account."
+              description="Generate a fresh QR code when you are ready to scan."
               action={
                 <Button
                   onClick={handleConnect}
@@ -250,7 +267,7 @@ export default function WhatsAppPage() {
                   ) : (
                     <Power className="h-4 w-4" />
                   )}
-                  {isConnecting ? "Connecting..." : "Connect"}
+                  {isConnecting ? "Generating..." : qrRequested ? "Refresh QR" : "Generate QR"}
                 </Button>
               }
             />
@@ -336,6 +353,6 @@ export default function WhatsAppPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </StandardPage>
   );
 }

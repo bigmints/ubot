@@ -5,7 +5,7 @@ import { registerModule, createMockContext } from './test-helpers.js';
 describe('Messaging Tool Module', () => {
   it('should export correct module metadata', () => {
     expect(messagingModule.name).toBe('messaging');
-    expect(messagingModule.tools.length).toBe(13);
+    expect(messagingModule.tools.length).toBe(16);
   });
 
   it('should register all 8 tool executors', () => {
@@ -40,8 +40,8 @@ describe('Messaging Tool Module', () => {
 
     it('should send a message successfully', async () => {
       const registry = registerModule(messagingModule);
-      const result = await registry.call('send_message', { to: '1234567890', body: 'Hello!' });
-      expect(result.success).toBe(true);
+      const result = await registry.call('send_message', { to: '+1234567890', body: 'Hello!' });
+      expect(result.success, JSON.stringify(result)).toBe(true);
     });
   });
 

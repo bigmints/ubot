@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # youbot — Personal AI Assistant CLI
 # Usage: youbot <command>
-set -e
+set -Eeuo pipefail
+umask 077
 
 # Ensure nvm-managed node is in PATH
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
@@ -12,9 +13,10 @@ LOGO="🤖"
 
 # ─── Paths ──────────────────────────────────────────────────────────────────────
 YOUBOT_HOME="${YOUBOT_HOME:-$HOME/.youbot}"
+YOUBOT_APP_HOME="${YOUBOT_APP_HOME:-$YOUBOT_HOME}"
 YOUBOT_CONFIG="$YOUBOT_HOME/config.json"
-YOUBOT_LIB="$YOUBOT_HOME/lib"
-YOUBOT_WEB="$YOUBOT_HOME/web"
+YOUBOT_LIB="$YOUBOT_APP_HOME/lib"
+YOUBOT_WEB="$YOUBOT_APP_HOME/web"
 YOUBOT_DATA="$YOUBOT_HOME/data"
 YOUBOT_LOGS="$YOUBOT_HOME/logs"
 YOUBOT_PIDFILE="$YOUBOT_HOME/youbot.pid"
@@ -25,46 +27,61 @@ info() { echo "$LOGO $*"; }
 
 # Read a value from config.json (requires node)
 config_get() {
-  node -e "
-    const fs = require('fs');
+  node -e '
+    const fs = require("fs");
     try {
-      const c = JSON.parse(fs.readFileSync('$YOUBOT_CONFIG', 'utf8'));
-      const keys = '$1'.split('.');
+      const c = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      const keys = process.argv[2].split(".");
       let v = c;
       for (const k of keys) { v = v?.[k]; }
       if (v !== undefined) process.stdout.write(String(v));
     } catch {}
-  " 2>/dev/null
+  ' "$YOUBOT_CONFIG" "$1" 2>/dev/null
 }
 
 ensure_home() {
   if [ ! -d "$YOUBOT_HOME" ]; then
     info "First run — creating $YOUBOT_HOME ..."
-    mkdir -p "$YOUBOT_HOME"
-    mkdir -p "$YOUBOT_DATA"
-    mkdir -p "$YOUBOT_LOGS"
-    mkdir -p "$YOUBOT_HOME/sessions"
-    mkdir -p "$YOUBOT_HOME/creds"
-    mkdir -p "$YOUBOT_HOME/browser-profile"
+  fi
+  install -d -m 700 "$YOUBOT_HOME" "$YOUBOT_DATA" "$YOUBOT_LOGS" \
+    "$YOUBOT_HOME/sessions" "$YOUBOT_HOME/creds" "$YOUBOT_HOME/browser-profile" \
+    "$YOUBOT_HOME/backups"
 
-    # Copy default config if we have one bundled
+  if [ ! -f "$YOUBOT_CONFIG" ]; then
+    # Copy default config if we have one bundled.
     local default_config
     default_config="$(dirname "$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")")/default-config.json"
+    if [ ! -f "$default_config" ]; then
+      default_config="$YOUBOT_HOME/default-config.json"
+    fi
     if [ -f "$default_config" ]; then
-      cp "$default_config" "$YOUBOT_CONFIG"
+      install -m 600 "$default_config" "$YOUBOT_CONFIG"
       info "Created default config at $YOUBOT_CONFIG"
     fi
+  else
+    chmod 600 "$YOUBOT_CONFIG"
   fi
 }
 
 is_running() {
-  [ -f "$YOUBOT_PIDFILE" ] && kill -0 "$(cat "$YOUBOT_PIDFILE")" 2>/dev/null
+  [ -f "$YOUBOT_PIDFILE" ] || return 1
+  local pid command_line
+  pid="$(cat "$YOUBOT_PIDFILE")"
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  [[ "$command_line" == *"$YOUBOT_LIB/index.js"* ]]
 }
 
 # ─── Commands ───────────────────────────────────────────────────────────────────
 
 cmd_start() {
   ensure_home
+
+  command -v node >/dev/null 2>&1 || die "Node.js is required"
+  command -v curl >/dev/null 2>&1 || die "curl is required"
+  command -v lsof >/dev/null 2>&1 || die "lsof is required"
+  command -v ps >/dev/null 2>&1 || die "ps is required"
 
   if is_running; then
     local pid
@@ -77,6 +94,15 @@ cmd_start() {
     exit 0
   fi
 
+  if [ -f "$YOUBOT_PIDFILE" ]; then
+    local stale_pid
+    stale_pid="$(cat "$YOUBOT_PIDFILE")"
+    if [[ "$stale_pid" =~ ^[0-9]+$ ]] && kill -0 "$stale_pid" 2>/dev/null; then
+      die "PID file points to a process not owned by this Youbot installation; refusing to continue"
+    fi
+    rm -f "$YOUBOT_PIDFILE"
+  fi
+
   # Verify installation
   [ -f "$YOUBOT_LIB/index.js" ] || die "Youbot is not installed. Run 'make install' from the source directory first."
 
@@ -84,6 +110,10 @@ cmd_start() {
   local port
   port=$(config_get server.port)
   port=${port:-11490}
+
+  if lsof -tiTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    die "Port $port is already in use; refusing to stop an unrelated process"
+  fi
 
   local llm_base_url llm_model llm_api_key google_api_key db_path serper_api_key
   llm_base_url=$(config_get llm.base_url)
@@ -94,6 +124,8 @@ cmd_start() {
   db_path="$YOUBOT_DATA/youbot.db"
 
   info "Starting Youbot on port $port ..."
+
+  install -m 600 /dev/null "$YOUBOT_LOGS/youbot.log"
 
   # Export env vars that the backend reads
   PORT="$port" \
@@ -110,25 +142,39 @@ cmd_start() {
 
   echo $! > "$YOUBOT_PIDFILE"
 
-  sleep 2
-
-  if is_running; then
-    info "Youbot is running! (PID $(cat "$YOUBOT_PIDFILE"))"
-    info "Dashboard: http://localhost:$port"
-    info "Logs:      youbot logs"
-  else
-    die "Youbot failed to start. Check: youbot logs"
-  fi
+  local started_pid
+  started_pid="$(cat "$YOUBOT_PIDFILE")"
+  for _ in $(seq 1 30); do
+    if curl --silent --fail --max-time 2 "http://127.0.0.1:$port/health" >/dev/null; then
+      info "Youbot is ready! (PID $started_pid)"
+      info "Dashboard: http://localhost:$port"
+      info "Logs:      youbot logs"
+      return
+    fi
+    kill -0 "$started_pid" 2>/dev/null || break
+    sleep 1
+  done
+  kill "$started_pid" 2>/dev/null || true
+  rm -f "$YOUBOT_PIDFILE"
+  die "Youbot failed its readiness check. Check: youbot logs"
 }
 
 cmd_stop() {
-  if ! is_running; then
+  if [ ! -f "$YOUBOT_PIDFILE" ]; then
     info "Youbot is not running."
-    exit 0
+    return
   fi
 
   local pid
   pid=$(cat "$YOUBOT_PIDFILE")
+  if ! [[ "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$YOUBOT_PIDFILE"
+    info "Removed a stale PID file."
+    return
+  fi
+  if ! is_running; then
+    die "PID file points to a process not owned by this Youbot installation; refusing to stop it"
+  fi
   info "Stopping Youbot (PID $pid) ..."
   kill "$pid" 2>/dev/null || true
 
@@ -158,7 +204,21 @@ cmd_config() {
     "")
       # Show current config
       if [ -f "$YOUBOT_CONFIG" ]; then
-        cat "$YOUBOT_CONFIG"
+        node -e '
+          const fs = require("fs");
+          const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+          const sensitive = /(password|secret|token|api.?key|private.?key|service.?key|client_secret|connection_token)/i;
+          function redact(input, path = "") {
+            if (Array.isArray(input)) return input.map((item, index) => redact(item, `${path}.${index}`));
+            if (!input || typeof input !== "object") return input;
+            return Object.fromEntries(Object.entries(input).map(([key, child]) => {
+              const childPath = path ? `${path}.${key}` : key;
+              const isApiKeyValue = key === "key" && /(^|\.)api\.keys\.\d+$/.test(path);
+              return [key, sensitive.test(key) || isApiKeyValue ? "[redacted]" : redact(child, childPath)];
+            }));
+          }
+          process.stdout.write(`${JSON.stringify(redact(value), null, 2)}\n`);
+        ' "$YOUBOT_CONFIG"
       else
         die "No config file found at $YOUBOT_CONFIG"
       fi
@@ -181,23 +241,27 @@ cmd_config() {
       if [ ! -f "$YOUBOT_CONFIG" ]; then
         ensure_home
       fi
-      node -e "
-        const fs = require('fs');
-        const c = JSON.parse(fs.readFileSync('$YOUBOT_CONFIG', 'utf8'));
-        const keys = '$key'.split('.');
+      node -e '
+        const fs = require("fs");
+        const path = process.argv[1];
+        const c = JSON.parse(fs.readFileSync(path, "utf8"));
+        const keys = process.argv[2].split(".");
         let obj = c;
         for (let i = 0; i < keys.length - 1; i++) {
           if (obj[keys[i]] === undefined) obj[keys[i]] = {};
           obj = obj[keys[i]];
         }
-        let v = '$val';
-        if (v === 'true') v = true;
-        else if (v === 'false') v = false;
-        else if (!isNaN(v) && v !== '') v = Number(v);
+        let v = process.argv[3];
+        if (v === "true") v = true;
+        else if (v === "false") v = false;
+        else if (!Number.isNaN(Number(v)) && v !== "") v = Number(v);
         obj[keys[keys.length - 1]] = v;
-        fs.writeFileSync('$YOUBOT_CONFIG', JSON.stringify(c, null, 4) + '\\n');
-      " 2>/dev/null || die "Failed to update config"
-      info "Set $key = $val"
+        const temporary = `${path}.${process.pid}.tmp`;
+        fs.writeFileSync(temporary, `${JSON.stringify(c, null, 4)}\n`, { mode: 0o600 });
+        fs.renameSync(temporary, path);
+        fs.chmodSync(path, 0o600);
+      ' "$YOUBOT_CONFIG" "$key" "$val" 2>/dev/null || die "Failed to update config"
+      info "Updated $key"
       ;;
     get)
       # Get a config value: youbot config get <key>
@@ -254,7 +318,7 @@ cmd_doctor() {
 
   # Check config
   if [ -f "$YOUBOT_CONFIG" ]; then
-    if node -e "JSON.parse(require('fs').readFileSync('$YOUBOT_CONFIG','utf8'))" 2>/dev/null; then
+    if node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$YOUBOT_CONFIG" 2>/dev/null; then
       echo "  ✅ Config valid at $YOUBOT_CONFIG"
     else
       echo "  ❌ Config is invalid JSON: $YOUBOT_CONFIG"
@@ -350,6 +414,42 @@ cmd_logs() {
   fi
 }
 
+cmd_backup() {
+  ensure_home
+  local tool="$YOUBOT_LIB/ops/data-backup.js"
+  [ -f "$tool" ] || die "Backup tool is not installed. Run 'make update' from the source directory."
+  if [ -n "${1:-}" ]; then
+    YOUBOT_HOME="$YOUBOT_HOME" node "$tool" backup --home "$YOUBOT_HOME" --to "$1"
+  else
+    YOUBOT_HOME="$YOUBOT_HOME" node "$tool" backup --home "$YOUBOT_HOME"
+  fi
+}
+
+cmd_backup_verify() {
+  local source="${1:-}"
+  [ -n "$source" ] || die "Usage: youbot backup-verify <backup-directory>"
+  local tool="$YOUBOT_LIB/ops/data-backup.js"
+  [ -f "$tool" ] || die "Backup tool is not installed. Run 'make update' from the source directory."
+  YOUBOT_HOME="$YOUBOT_HOME" node "$tool" verify --home "$YOUBOT_HOME" --from "$source"
+}
+
+cmd_restore() {
+  local source="${1:-}"
+  [ -n "$source" ] || die "Usage: youbot restore <backup-directory>"
+  ensure_home
+  local tool="$YOUBOT_LIB/ops/data-backup.js"
+  [ -f "$tool" ] || die "Backup tool is not installed. Run 'make update' from the source directory."
+  if [ -f "$YOUBOT_PIDFILE" ]; then
+    local pid
+    pid="$(cat "$YOUBOT_PIDFILE")"
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+      die "Stop Youbot before restoring a backup"
+    fi
+    rm -f "$YOUBOT_PIDFILE"
+  fi
+  YOUBOT_HOME="$YOUBOT_HOME" node "$tool" restore --home "$YOUBOT_HOME" --from "$source"
+}
+
 cmd_version() {
   echo "$LOGO youbot v$VERSION"
   echo "  Home: $YOUBOT_HOME"
@@ -367,6 +467,9 @@ cmd_help() {
   echo "  restart                Stop + start Youbot"
   echo "  status                 Show running status"
   echo "  logs [-f]              Show logs (use -f to follow)"
+  echo "  backup [directory]     Create a verified private data backup"
+  echo "  backup-verify <dir>    Verify every file in a backup"
+  echo "  restore <dir>          Restore a verified backup (Youbot must be stopped)"
   echo "  config                 Show current config"
   echo "  config edit            Open config in \$EDITOR"
   echo "  config set <key> <val> Set a config value"
@@ -389,6 +492,9 @@ case "$command" in
   restart) cmd_restart ;;
   status)  cmd_status ;;
   logs)    shift; cmd_logs "$@" ;;
+  backup)  shift; cmd_backup "$@" ;;
+  backup-verify) shift; cmd_backup_verify "$@" ;;
+  restore) shift; cmd_restore "$@" ;;
   config)  shift; cmd_config "$@" ;;
   doctor)  cmd_doctor ;;
   open)    cmd_open ;;

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
@@ -15,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Clock, RefreshCw, Play, Pause } from "lucide-react";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 import { api } from "@/lib/api";
 
 interface TaskSchedule {
@@ -59,6 +60,9 @@ function formatSchedule(schedule: TaskSchedule): string {
 export default function SchedulerPage() {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("next");
 
   const loadTasks = async () => {
     setLoading(true);
@@ -76,23 +80,16 @@ export default function SchedulerPage() {
     loadTasks();
   }, []);
 
+  const visibleTasks = tasks
+    .filter((task) => {
+      const matchesSearch = `${task.name} ${task.description || ""} ${task.tags.join(" ")}`.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? task.enabled && !["completed", "failed"].includes(task.status) : statusFilter === "disabled" ? !task.enabled : task.status === statusFilter);
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : (new Date(a.nextRunAt || 8640000000000000).getTime() - new Date(b.nextRunAt || 8640000000000000).getTime()));
+
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      <div className="flex items-center justify-between border-b pb-6 mb-6">
-        <div className="flex items-center gap-3">
-          <Clock className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Scheduler</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Manage scheduled tasks and cron jobs
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={loadTasks}>
-          <RefreshCw className="size-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+    <StandardPage title="Automations" description="Manage scheduled tasks, recurring actions and execution status." actions={<Button variant="outline" onClick={loadTasks}><RefreshCw className="size-4"/>Refresh</Button>}>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -125,11 +122,13 @@ export default function SchedulerPage() {
         </Card>
       </div>
 
-      {tasks.length === 0 && !loading ? (
+      <ListToolbar className="rounded-xl border bg-card" searchLabel="Search automations" searchPlaceholder="Search automations" searchValue={search} onSearchChange={setSearch} filters={[{label:"Automation status",value:statusFilter,onValueChange:setStatusFilter,options:[{value:"all",label:"All automations"},{value:"active",label:"Active"},{value:"disabled",label:"Disabled"},{value:"completed",label:"Completed"},{value:"failed",label:"Failed"}]}]} sort={{label:"Sort automations",value:sort,onValueChange:setSort,options:[{value:"next",label:"Next run"},{value:"name",label:"Name A–Z"}]}} resultLabel={`${visibleTasks.length} of ${tasks.length} automations`} active={!!search||statusFilter!=="all"||sort!=="next"} onReset={()=>{setSearch("");setStatusFilter("all");setSort("next");}} />
+
+      {visibleTasks.length === 0 && !loading ? (
         <EmptyState
           icon={<Clock className="size-8" />}
-          title="No scheduled tasks"
-          description="You do not have any tasks or cron jobs configured yet."
+          title={tasks.length ? "No matching automations" : "No scheduled tasks"}
+          description={tasks.length ? "Try a different search or filter." : "You do not have any tasks or cron jobs configured yet."}
         />
       ) : (
       <Card>
@@ -138,17 +137,17 @@ export default function SchedulerPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Task</TableHead>
-                <TableHead>Schedule</TableHead>
-                <TableHead>Tags</TableHead>
+                <TableHead className="hidden sm:table-cell">Schedule</TableHead>
+                <TableHead className="hidden lg:table-cell">Tags</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Next Run</TableHead>
-                <TableHead>Last Run</TableHead>
+                <TableHead className="hidden md:table-cell">Next Run</TableHead>
+                <TableHead className="hidden lg:table-cell">Last Run</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tasks.map((task) => (
+              {visibleTasks.map((task) => (
                   <TableRow key={task.id}>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <div className="font-medium">{task.name}</div>
                       {task.description && (
                         <div className="text-xs text-muted-foreground mt-0.5 max-w-xs truncate">{task.description}</div>
@@ -159,7 +158,7 @@ export default function SchedulerPage() {
                         {formatSchedule(task.schedule)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="hidden text-sm lg:table-cell">
                       {task.tags?.length ? task.tags.join(', ') : '—'}
                     </TableCell>
                     <TableCell>
@@ -184,12 +183,12 @@ export default function SchedulerPage() {
                          )}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
                       {task.nextRunAt
                         ? new Date(task.nextRunAt).toLocaleString()
                         : "—"}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
                       {task.lastRunAt
                         ? new Date(task.lastRunAt).toLocaleString()
                         : "Never"}
@@ -201,6 +200,6 @@ export default function SchedulerPage() {
         </CardContent>
       </Card>
       )}
-    </div>
+    </StandardPage>
   );
 }

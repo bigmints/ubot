@@ -13,13 +13,24 @@ import type { WorkspaceProvider } from '../data/workspace-provider.js';
 export type { ToolDefinition, ToolExecutionResult, ToolCallResult };
 
 /** Executor function signature — takes args, returns result */
-export type ToolExecutor = (args: Record<string, unknown>) => Promise<ToolExecutionResult>;
+export interface ToolExecutionContext {
+  sessionId?: string;
+  isOwner?: boolean;
+  source?: string;
+  contactName?: string;
+  /** Trusted inbound message for tools whose safety behavior must not depend on model-supplied text. */
+  userMessage?: string;
+  getDatabase?: () => any | null;
+  reportProgress?: (event: any) => void;
+  [key: string]: unknown;
+}
+export type ToolExecutor = (args: Record<string, unknown>, execution?: ToolExecutionContext) => Promise<ToolExecutionResult>;
 
 /** Registry interface — register tool executors, execute tool calls */
 export interface ToolRegistry {
   register(toolName: string, executor: ToolExecutor): void;
   unregister(toolName: string): boolean;
-  execute(toolCall: ToolCallResult): Promise<ToolExecutionResult>;
+  execute(toolCall: ToolCallResult, execution?: ToolExecutionContext): Promise<ToolExecutionResult>;
   has(toolName: string): boolean;
 }
 
@@ -29,6 +40,8 @@ export interface ToolRegistry {
  */
 export interface ToolContext {
   sessionId?: string;
+  /** Host-owned return routing; keeps webchat, Telegram and WhatsApp separate. */
+  relayMessage?: (sessionId: string, message: string) => Promise<boolean>;
   getDatabase(): any | null;
   getMessagingRegistry(): any;
   getScheduler(): any | null;

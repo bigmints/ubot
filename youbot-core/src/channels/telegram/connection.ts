@@ -3,7 +3,11 @@
  * Manages the Telegram bot connection using node-telegram-bot-api (long-polling).
  */
 
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot, {
+  type Message,
+  type SendMessageParams,
+  type User,
+} from 'node-telegram-bot-api';
 import type {
   TelegramConfig,
   TelegramConnectionStatus,
@@ -16,9 +20,9 @@ export class TelegramConnection {
   private bot: TelegramBot | null = null;
   private _status: TelegramConnectionStatus = 'disconnected';
   private eventListeners = new Map<string, Set<Function>>();
-  private botInfo: TelegramBot.User | null = null;
+  private botInfo: User | null = null;
   /** Store recent raw messages for media download */
-  private rawMessages = new Map<string, TelegramBot.Message>();
+  private rawMessages = new Map<string, Message>();
   private readonly MAX_RAW_MESSAGES = 200;
   private _reconnecting = false;
   private _reconnectAttempts = 0;
@@ -128,14 +132,14 @@ export class TelegramConnection {
     }
   }
 
-  async sendMessage(chatId: number | string, text: string, replyToMessageId?: number, sendMediaOpts?: import('../types.js').SendOptions): Promise<TelegramBot.Message> {
+  async sendMessage(chatId: number | string, text: string, replyToMessageId?: number, sendMediaOpts?: import('../types.js').SendOptions): Promise<Message> {
     if (!this.bot) {
       throw new Error('Not connected to Telegram');
     }
 
-    const opts: TelegramBot.SendMessageOptions = {};
+    const opts: Omit<SendMessageParams, 'chat_id' | 'text'> = {};
     if (replyToMessageId) {
-      opts.reply_to_message_id = replyToMessageId;
+      opts.reply_parameters = { message_id: replyToMessageId };
     }
 
     if (sendMediaOpts?.mediaType) {
@@ -222,7 +226,7 @@ export class TelegramConnection {
     }
   }
 
-  private handleMessage(msg: TelegramBot.Message): void {
+  private handleMessage(msg: Message): void {
     const body = msg.text || msg.caption || '';
     const from = msg.from
       ? `${msg.from.first_name}${msg.from.last_name ? ' ' + msg.from.last_name : ''}`
@@ -265,7 +269,7 @@ export class TelegramConnection {
       replyToMessageId: msg.reply_to_message?.message_id,
     };
 
-    console.log(`[Telegram] 📩 from=${from} chat=${msg.chat.id} hasMedia=${hasMedia} body="${body.slice(0, 60)}"`);
+    console.log(`[Telegram] Received message (${body.length} chars, media=${hasMedia})`);
 
     if (!isFromMe) {
       this.emit('message.received', message);
@@ -310,7 +314,7 @@ export class TelegramConnection {
         try {
           (listener as Function)(...args);
         } catch (err) {
-          console.error(`[Telegram] Event handler error (${event}):`, err);
+          console.error(`[Telegram] Event handler error (${event})`);
         }
       }
     }

@@ -2,17 +2,36 @@ import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import { DatabaseConnection, DatabaseOptions, QueryResult } from './types.js';
 import * as path from 'path';
+import fs from 'fs';
+
+export function resolveSQLitePath(
+  configuredPath: string | undefined,
+  environment = process.env,
+  workingDirectory = process.cwd(),
+): string {
+  const selectedPath = environment.DATABASE_PATH
+    || environment.SQLITE_DB_PATH
+    || configuredPath
+    || path.join('data', 'youbot.db');
+  const basePath = environment.YOUBOT_HOME || workingDirectory;
+  return path.isAbsolute(selectedPath) ? selectedPath : path.join(basePath, selectedPath);
+}
 
 export class SQLiteConnection implements DatabaseConnection {
   private dbPromise: Promise<Database>;
 
   constructor(options: DatabaseOptions) {
-    const dbPath = process.env.SQLITE_DB_PATH || path.join(process.cwd(), 'db.sqlite');
+    const dbPath = resolveSQLitePath(options.config.path);
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true, mode: 0o700 });
     this.dbPromise = open({
       filename: dbPath,
       driver: sqlite3.Database
     }).then(async (db) => {
       await db.exec('PRAGMA journal_mode = WAL;');
+      await db.exec('PRAGMA foreign_keys = ON;');
+      await db.exec('PRAGMA synchronous = NORMAL;');
+      await db.exec('PRAGMA busy_timeout = 5000;');
+      try { fs.chmodSync(dbPath, 0o600); } catch { /* best effort */ }
       await this.initializeSchema(db);
       return db;
     });
@@ -22,8 +41,9 @@ export class SQLiteConnection implements DatabaseConnection {
     return true;
   }
 
-  close(): void {
-    this.dbPromise.then(db => db.close());
+  async close(): Promise<void> {
+    const db = await this.dbPromise;
+    await db.close();
   }
 
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
@@ -168,6 +188,7 @@ export class SQLiteConnection implements DatabaseConnection {
           attempts INTEGER NOT NULL DEFAULT 0,
           max_attempts INTEGER NOT NULL DEFAULT 3,
           owner_id TEXT,
+          approval_id TEXT,
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_youbot_followups_status ON youbot_follow_ups(status);
@@ -301,7 +322,22 @@ export class SQLiteConnection implements DatabaseConnection {
         );
       `);
 
+    await this.runFollowUpsMigration(db);
     await this.runCrmMigration(db);
+  }
+
+  private async runFollowUpsMigration(db: Database) {
+    try {
+      const columns = await db.all(`PRAGMA table_info(youbot_follow_ups)`);
+      const hasApprovalId = columns.some((column: any) => column.name === 'approval_id');
+      if (!hasApprovalId) {
+        await db.run(`ALTER TABLE youbot_follow_ups ADD COLUMN approval_id TEXT`);
+        console.log('[SQLite] Added missing approval_id column to youbot_follow_ups.');
+      }
+    } catch (e: any) {
+      console.warn('[SQLite] Follow-up migration failed:', e.message);
+      throw e;
+    }
   }
 
   private async runCrmMigration(db: Database) {
@@ -347,4 +383,3 @@ export class SQLiteConnection implements DatabaseConnection {
     }
   }
 }
-

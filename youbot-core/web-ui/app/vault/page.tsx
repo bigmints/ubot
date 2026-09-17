@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -34,7 +33,6 @@ import {
   Lock,
   Plus,
   RefreshCw,
-  Search,
   Trash2,
   Eye,
   EyeOff,
@@ -47,6 +45,8 @@ import {
   File,
   X,
 } from "lucide-react";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -106,6 +106,7 @@ export default function VaultPage() {
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState("recent");
 
   // Add dialog
   const [showAdd, setShowAdd] = useState(false);
@@ -283,34 +284,10 @@ export default function VaultPage() {
     }
   };
 
+  const visibleItems = [...items].sort((a, b) => sort === "name" ? a.label.localeCompare(b.label) : b.updatedAt.localeCompare(a.updatedAt));
+
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-6 mb-6">
-        <div className="flex items-center gap-3">
-          <Lock className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Vault</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Encrypted secure storage — owner only
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadItems}>
-            <RefreshCw className="size-4 mr-2" />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowUpload(true)}>
-            <Upload className="size-4 mr-2" />
-            Upload File
-          </Button>
-          <Button size="sm" onClick={() => setShowAdd(true)}>
-            <Plus className="size-4 mr-2" />
-            Add Secret
-          </Button>
-        </div>
-      </div>
+    <StandardPage title="Secure storage" description="Manage protected credentials and documents available to your workspace." actions={<><Button variant="outline" onClick={loadItems}><RefreshCw className="size-4"/>Refresh</Button><Button variant="outline" onClick={()=>setShowUpload(true)}><Upload className="size-4"/>Upload file</Button><Button onClick={()=>setShowAdd(true)}><Plus className="size-4"/>Add credential</Button></>}>
 
       {/* Stats */}
       {stats && stats.total > 0 && (
@@ -352,34 +329,7 @@ export default function VaultPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search vault..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <Select
-          value={filterCategory}
-          onValueChange={setFilterCategory}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <ListToolbar className="rounded-xl border bg-card" searchLabel="Search secure storage" searchPlaceholder="Search secure storage" searchValue={searchQuery} onSearchChange={setSearchQuery} searching={loading} filters={[{label:"Storage category",value:filterCategory,onValueChange:setFilterCategory,options:[{value:"all",label:"All categories"},...CATEGORIES.map((category)=>({value:category,label:category.charAt(0).toUpperCase()+category.slice(1)}))]}]} sort={{label:"Sort secure storage",value:sort,onValueChange:setSort,options:[{value:"recent",label:"Recently updated"},{value:"name",label:"Name A–Z"}]}} resultLabel={`${visibleItems.length} item${visibleItems.length===1?"":"s"}`} active={!!searchQuery||filterCategory!=="all"||sort!=="recent"} onReset={()=>{setSearchQuery("");setFilterCategory("all");setSort("recent");}} />
 
       {/* Items Table */}
       <Card>
@@ -388,15 +338,15 @@ export default function VaultPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Label</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead className="hidden sm:table-cell">Category</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Updated</TableHead>
+                <TableHead className="hidden lg:table-cell">Notes</TableHead>
+                <TableHead className="hidden md:table-cell">Updated</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -417,7 +367,7 @@ export default function VaultPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => {
+                visibleItems.map((item) => {
                   const Icon =
                     CATEGORY_ICONS[item.category] || Lock;
                   const colorClass =
@@ -425,7 +375,7 @@ export default function VaultPage() {
                     CATEGORY_COLORS.general;
                   return (
                     <TableRow key={item.id}>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex items-center gap-2">
                           <Icon className="size-4 text-muted-foreground" />
                           <span className="font-medium">{item.label}</span>
@@ -444,10 +394,10 @@ export default function VaultPage() {
                           {item.type === "document" ? "📄 Doc" : "🔑 Text"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                      <TableCell className="hidden text-sm text-muted-foreground max-w-[200px] truncate lg:table-cell">
                         {item.metadata?.notes || "—"}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
                         {formatDate(item.updatedAt)}
                       </TableCell>
                       <TableCell>
@@ -764,6 +714,6 @@ export default function VaultPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </StandardPage>
   );
 }

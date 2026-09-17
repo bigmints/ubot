@@ -1,3 +1,4 @@
+import type { ConciergeProfile } from "../concierge/profile.js";
 /**
  * Agent Types
  * Core types for the Youbot AI agent system
@@ -59,6 +60,8 @@ export interface ConversationSession {
   updatedAt: Date;
   /** Number of messages in this session */
   messageCount: number;
+  /** Latest persisted message, included in conversation list responses. */
+  lastMessage?: Pick<ChatMessage, "role" | "content" | "timestamp">;
 }
 
 export interface ToolDefinition {
@@ -133,6 +136,10 @@ export interface LLMProviderConfig {
   isDefault: boolean;
   /** Per-purpose model assignments — stored in config, editable by user */
   models?: Partial<Record<ModelPurpose, string>>;
+  /** Credentials and requests are managed by Youbot's private provider-access service. */
+  credentialSource?: "provider-access";
+  /** Provider identifier understood by the provider-access service. */
+  runtimeProviderId?: string;
 }
 
 /**
@@ -258,6 +265,7 @@ export function getModelForPurpose(
 export type ModelRouting = Partial<Record<ModelPurpose, string>>;
 
 export interface AgentConfig {
+  concierge?: ConciergeProfile;
   /** Ollama / OpenAI API base URL (derived from active provider) */
   llmBaseUrl: string;
   /** Model name (derived from active provider) */

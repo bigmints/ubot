@@ -5,15 +5,15 @@ import { registerModule, createMockContext } from './test-helpers.js';
 describe('Skills Tool Module', () => {
   it('should export correct module metadata', () => {
     expect(skillsModule.name).toBe('skills');
-    expect(skillsModule.tools.length).toBe(4);
+    expect(skillsModule.tools.length).toBe(5);
     expect(skillsModule.tools.map(t => t.name)).toEqual([
-      'list_skills', 'create_skill', 'update_skill', 'delete_skill',
+      'list_skills', 'create_skill', 'update_skill', 'delete_skill', 'run_skill',
     ]);
   });
 
-  it('should register all 4 executors', () => {
+  it('should register all 5 executors', () => {
     const registry = registerModule(skillsModule);
-    expect(registry.registeredNames()).toHaveLength(4);
+    expect(registry.registeredNames()).toHaveLength(5);
   });
 
   describe('list_skills', () => {

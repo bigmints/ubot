@@ -8,6 +8,7 @@
  * 3. Contact Souls — Profiles for each person the owner interacts with
  */
 
+import { documentRevision } from '../concierge/owner-profile.js';
 import type { MemoryStore } from './memory-store.js';
 import type { WorkspaceProvider } from '../data/workspace-provider.js';
 
@@ -54,7 +55,7 @@ export interface Soul {
   getDocument(personaId: string): Promise<string>;
 
   /** Save a YAML document for a persona */
-  saveDocument(personaId: string, content: string): Promise<void>;
+  saveDocument(personaId: string, content: string, expectedRevision?: string): Promise<void>;
 
   /** Delete a persona document */
   deleteDocument(personaId: string): Promise<boolean>;
@@ -79,6 +80,7 @@ export interface Soul {
 export function createSoul(memoryStore: MemoryStore, workspacePath?: string, workspace?: WorkspaceProvider): Soul {
   // File cache to avoid frequent reads
   const fileCache: Record<string, string> = {};
+  const documentWrites = new Map<string, Promise<void>>();
 
   /** Get workspace-relative path for a persona file, or null if not a mapped persona */
   const getRelativePath = (personaId: string): string | null => {
@@ -147,25 +149,25 @@ export function createSoul(memoryStore: MemoryStore, workspacePath?: string, wor
       return doc?.content || '';
     },
 
-    async saveDocument(personaId: string, content: string): Promise<void> {
-      try {
-        await memoryStore.saveDocument(personaId, content);
-      } catch (err: any) {
-        console.warn(`[Soul] ⚠️ Failed to save to database (is DB configured?): ${err.message}`);
-      }
-      
-      // Also write to workspace if it's a mapped persona
-      if (workspace) {
-        const relPath = getRelativePath(personaId);
-        if (relPath) {
-          try {
-            workspace.writeFile(relPath, content);
-            fileCache[personaId] = content;
-          } catch (err) {
-            console.error(`[Soul] Error writing ${relPath}:`, err);
-          }
+    async saveDocument(personaId: string, content: string, expectedRevision?: string): Promise<void> {
+      const previous = documentWrites.get(personaId) || Promise.resolve();
+      const write = previous.catch(() => {}).then(async () => {
+        const previousDocument = loadFile(personaId) ?? (await memoryStore.getDocument(personaId))?.content ?? '';
+        if (expectedRevision !== undefined && documentRevision(previousDocument) !== expectedRevision) {
+          const error = new Error('This profile changed since you opened it. Reload the saved version before saving.');
+          error.name = 'ProfileConflict'; throw error;
         }
-      }
+        await memoryStore.saveDocument(personaId, content);
+        const relPath = getRelativePath(personaId);
+        if (workspace && relPath) {
+          try { workspace.writeFile(relPath, content); fileCache[personaId] = content; }
+          catch(error) { await memoryStore.saveDocument(personaId, previousDocument); throw error; }
+        }
+        const persisted = await memoryStore.getDocument(personaId);
+        if (persisted?.content !== content || (workspace && relPath && workspace.readFile(relPath) !== content)) throw new Error('The profile could not be saved consistently. Reload and try again.');
+      });
+      documentWrites.set(personaId, write);
+      try { await write; } finally { if (documentWrites.get(personaId) === write) documentWrites.delete(personaId); }
     },
 
     async deleteDocument(personaId: string): Promise<boolean> {

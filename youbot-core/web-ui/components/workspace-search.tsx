@@ -1,0 +1,13 @@
+'use client';
+import { useEffect,useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search,ArrowUpRight } from 'lucide-react';
+import { Dialog,DialogContent,DialogTitle,DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { useFeatures } from '@/hooks/use-features';
+import { workspacePages } from '@/lib/navigation';
+export function WorkspaceSearch(){const [open,setOpen]=useState(false),[query,setQuery]=useState('');const {features}=useFeatures();const router=useRouter();
+ useEffect(()=>{const listener=(event:KeyboardEvent)=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setOpen(v=>!v);}};window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener);},[]);
+ const results=workspacePages.filter(p=>(!p.feature||features[p.feature])&&`${p.title} ${p.description} ${p.group}`.toLowerCase().includes(query.toLowerCase()));
+ return <><button aria-label="Search workspace" onClick={()=>{setQuery('');setOpen(true);}} className="ml-auto flex h-8 items-center gap-2 rounded-lg border bg-card px-2.5 text-xs text-muted-foreground hover:text-foreground"><Search className="size-3.5"/><span className="hidden sm:inline">Search workspace</span><kbd className="hidden rounded border bg-muted/50 px-1.5 text-[10px] lg:inline">⌘ / Ctrl K</kbd></button><Dialog open={open} onOpenChange={setOpen}><DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-xl"><div className="border-b p-5"><DialogTitle className="mb-1 text-base">Search workspace</DialogTitle><DialogDescription className="mb-4 text-xs">Find a feature or configuration page.</DialogDescription><Input autoFocus aria-label="Find a feature" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search profiles, connections, settings…"/></div><div className="max-h-[55vh] overflow-y-auto p-2">{results.length?results.map(p=><button key={p.href} onClick={()=>{setOpen(false);router.push(p.href);}} className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><p.icon className="size-4 shrink-0 text-muted-foreground"/><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{p.title}</span><span className="block text-xs text-muted-foreground">{p.description}</span></span><ArrowUpRight className="size-3.5 text-muted-foreground"/></button>):<p className="p-6 text-center text-sm text-muted-foreground">No matching features. Try another search.</p>}</div></DialogContent></Dialog></>;
+}

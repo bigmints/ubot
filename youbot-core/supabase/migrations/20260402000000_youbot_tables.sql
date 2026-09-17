@@ -79,8 +79,9 @@ CREATE TABLE IF NOT EXISTS youbot_follow_ups (
   result TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
   max_attempts INTEGER NOT NULL DEFAULT 3,
-  owner_id UUID,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    owner_id UUID,
+    approval_id TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_youbot_followups_status ON youbot_follow_ups(status);
 

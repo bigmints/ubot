@@ -1,3 +1,4 @@
+import { parseVisitorReply, VISITOR_REPLY_CONTRACT } from '../../engine/visitor-reply.js';
 /**
  * Approvals Tool Module
  *
@@ -13,7 +14,7 @@ const APPROVAL_TOOLS: ToolDefinition[] = [
     parameters: [
       { name: 'question', type: 'string', description: 'The specific sensitive question requiring owner input', required: true },
       { name: 'context', type: 'string', description: 'Who is asking and why this cannot be answered from persona', required: true },
-      { name: 'requester_jid', type: 'string', description: 'The JID or phone number of the person waiting for a response', required: true },
+      { name: 'requester_jid', type: 'string', description: 'Return address for an owner request. For visitors the host supplies the current conversation; omit this field and never ask them for a routing ID.', required: false },
     ],
   },
   {
@@ -42,28 +43,31 @@ const approvalsToolModule: ToolModule = {
   name: 'approvals',
   tools: APPROVAL_TOOLS,
   register(registry: ToolRegistry, ctx: ToolContext) {
-    registry.register('ask_owner', async (args) => {
+    registry.register('ask_owner', async (args, execution) => {
       const store = ctx.getApprovalStore();
       if (!store) return { toolName: 'ask_owner', success: false, error: 'Approval system not initialized', duration: 0 };
 
       const question = String(args.question || '');
       const context = String(args.context || '');
-      let requesterJid = String(args.requester_jid || '');
+      // Bind visitor approval replies to the trusted active conversation, not model arguments.
+      let requesterJid = execution?.isOwner === false
+        ? execution.sessionId || '' : String(args.requester_jid || execution?.sessionId || '');
+      if (!requesterJid && question) return { toolName: 'ask_owner', success: false, error: 'No trusted return conversation is available', duration: 0 };
       if (!question) return { toolName: 'ask_owner', success: false, error: 'Missing "question" parameter', duration: 0 };
 
       // Normalize: if the LLM provides a raw Telegram ID (no prefix), check if
       // we have a telegram: session for it so the relay goes to the right channel.
       const agent = ctx.getAgent();
-      if (requesterJid && agent && !requesterJid.includes('@') && !requesterJid.startsWith('telegram:')) {
+      if (execution?.isOwner !== false && requesterJid && agent && !requesterJid.includes('@') && !requesterJid.startsWith('telegram:') && !requesterJid.startsWith('webchat:')) {
         const convStore = agent.getConversationStore();
-        const telegramSession = convStore.getSession(`telegram:${requesterJid}`);
+        const telegramSession = await convStore.getSession(`telegram:${requesterJid}`);
         if (telegramSession) {
           requesterJid = `telegram:${requesterJid}`;
         }
       }
 
       const approval = await store.create({ question, context, requesterJid, sessionId: requesterJid });
-      console.log(`[Approvals] Created approval ${approval.id}: "${question.slice(0, 80)}" (requester: ${requesterJid})`);
+      console.log(`[Approvals] Created approval ${approval.id}`);
 
       // Auto-schedule follow-up in case the owner takes a long time to respond.
       // This ensures the contact isn't left hanging indefinitely.
@@ -74,7 +78,7 @@ const approvalsToolModule: ToolModule = {
         // Determine channel from requesterJid format
         let channel = 'whatsapp';
         if (requesterJid.startsWith('telegram:')) channel = 'telegram';
-        else if (requesterJid.startsWith('webchat:')) channel = 'web';
+        else if (requesterJid.startsWith('webchat:')) channel = 'webchat';
 
         // Read delay from config (default: 2 hours)
         const agent = ctx.getAgent();
@@ -82,7 +86,7 @@ const approvalsToolModule: ToolModule = {
         delayHours = Number(config.approvalFollowUpDelayHours) || 2;
         const followUpAt = new Date(Date.now() + delayHours * 60 * 60 * 1000);
         const reason = `Waiting for owner response on: ${question.slice(0, 100)}`;
-        const context = `Approval ID: ${approval.id}. The owner has been notified but hasn't responded yet. Follow up with the contact.`;
+        const context = `Approval ID: ${approval.id}. An owner decision has been requested and is still pending. Follow up with the contact.`;
 
         const followUp = await followUpStore.create({
           sessionId: requesterJid,
@@ -140,7 +144,7 @@ const approvalsToolModule: ToolModule = {
         const followUpInfo = followUpId
           ? ` Follow-up scheduled in ${delayHours}h (ID: ${followUpId}).`
           : '';
-        return { toolName: 'ask_owner', success: true, result: `Approval request created (ID: ${approval.id}). The owner "${ownerName}" has been notified.${followUpInfo} Tell the requester you'll check with ${ownerName} and get back to them.`, duration: 0 };
+        return { toolName: 'ask_owner', success: true, result: `Request recorded for ${ownerName} in the owner inbox (ID: ${approval.id}).${followUpInfo} This does not confirm notification delivery, an owner decision, availability, or a future reply.`, duration: 0 };
       }
 
       const followUpInfo = followUpId
@@ -158,52 +162,47 @@ const approvalsToolModule: ToolModule = {
 
       let approvalId = String(args.approval_id || '');
       if (!approvalId) {
-        const pending = store.getPending();
+        const pending = await store.getPending();
         if (pending.length === 0) return { toolName: 'respond_to_approval', success: true, result: 'No pending approvals to respond to.', duration: 0 };
         approvalId = pending[0].id;
       }
 
-      const approval = store.getById(approvalId);
+      const approval = await store.getById(approvalId);
       if (!approval) return { toolName: 'respond_to_approval', success: false, error: `Approval not found: ${approvalId}`, duration: 0 };
       if (approval.status === 'resolved') return { toolName: 'respond_to_approval', success: true, result: `Approval ${approvalId} was already resolved.`, duration: 0 };
 
-      store.resolve(approvalId, response);
-      console.log(`[Approvals] Owner responded to approval ${approvalId}: "${response.slice(0, 80)}"`);
+      await store.resolve(approvalId, response);
+      console.log(`[Approvals] Owner responded to approval ${approvalId}`);
 
-      // Relay response to the requester — use generate() (no tools) to compose reply
+      // A recorded decision is distinct from a validated and delivered visitor reply.
       const agent = ctx.getAgent();
-      if (approval.requesterJid && agent) {
-        const source = approval.requesterJid.startsWith('telegram:') ? 'telegram' : 'whatsapp';
-        const sessionId = approval.requesterJid;
-
-        // Compose a natural reply using LLM without tools (avoids re-triggering ask_owner)
-        const systemPrompt = `You are composing a reply to a visitor who asked a question that required the owner's approval. Compose a natural, friendly response incorporating the owner's answer. Keep it brief and conversational. Do NOT mention "approval" or "system" or internal processes.`;
-        const userPrompt = `The visitor's original question was: "${approval.question}"\nThe owner's response is: "${response}"\n\nWrite a natural reply to send to the visitor.`;
-
-        agent.generate(systemPrompt, userPrompt).then(async (reply: string) => {
-          const finalReply = reply.trim() || response; // fallback to raw owner response
+      if (!approval.requesterJid || !agent) return { toolName: 'respond_to_approval', success: false, error: 'Decision recorded, but no return conversation or reply service is available.', duration: 0 };
+      const systemPrompt = 'Compose a brief reply incorporating the explicit owner answer. Do not invent additional availability or commitments.';
+      const userPrompt = JSON.stringify({ visitorQuestion: approval.question, ownerAnswer: response });
+      try {
+        const draft = await agent.generate(systemPrompt + '\n\n' + VISITOR_REPLY_CONTRACT, userPrompt);
+        const finalReply = parseVisitorReply(draft);
+        if (!finalReply) return { toolName: 'respond_to_approval', success: false, error: 'Decision recorded; generated visitor reply held for review. Nothing was sent.', duration: 0 };
+        let sent = false;
+        if (ctx.relayMessage) sent = await ctx.relayMessage(approval.requesterJid, finalReply);
+        else if (/^telegram:-?\d+$/.test(approval.requesterJid)) {
           const tg = ctx.getTelegram();
+          if (tg) { await tg.sendMessage(Number(approval.requesterJid.slice(9)), finalReply); sent = true; }
+        } else if (/^\d+@s\.whatsapp\.net$/.test(approval.requesterJid)) {
           const wa = ctx.getWhatsApp();
-          if (source === 'telegram' && tg) {
-            const chatId = Number(sessionId.replace('telegram:', ''));
-            if (!isNaN(chatId)) await tg.sendMessage(chatId, finalReply);
-          } else if (source === 'whatsapp' && wa?.isConnected) {
-            const jid = sessionId.includes('@') ? sessionId : `${sessionId.replace(/\D/g, '')}@s.whatsapp.net`;
-            await wa.sendMessage(jid, { text: finalReply });
-          }
-          console.log(`[Approvals] Relayed to ${sessionId}: ${finalReply.slice(0, 100)}...`);
-        }).catch((err: any) => {
-          console.error(`[Approvals] Failed to relay response to ${sessionId}:`, err.message);
-        });
+          if (wa?.isConnected) { await wa.sendMessage(approval.requesterJid, { text: finalReply }); sent = true; }
+        }
+        if (!sent) return { toolName: 'respond_to_approval', success: false, error: 'Decision recorded, but visitor reply delivery was not confirmed. Review the conversation before retrying.', duration: 0 };
+        return { toolName: 'respond_to_approval', success: true, result: `Approval ${approvalId} resolved and the visitor reply sent.`, duration: 0 };
+      } catch {
+        return { toolName: 'respond_to_approval', success: false, error: 'Decision recorded, but visitor reply delivery was not confirmed. Do not retry blindly.', duration: 0 };
       }
-
-      return { toolName: 'respond_to_approval', success: true, result: `Approval ${approvalId} resolved. Your response "${response}" is being relayed to the requester.`, duration: 0 };
     });
 
     registry.register('list_pending_approvals', async () => {
       const store = ctx.getApprovalStore();
       if (!store) return { toolName: 'list_pending_approvals', success: false, error: 'Approval system not initialized', duration: 0 };
-      const pending = store.getPending();
+      const pending = await store.getPending();
       if (pending.length === 0) return { toolName: 'list_pending_approvals', success: true, result: 'No pending approvals.', duration: 0 };
       const summary = pending.map((a: any) => {
         const ago = Math.round((Date.now() - new Date(a.createdAt).getTime()) / 60000);
@@ -220,17 +219,17 @@ const approvalsToolModule: ToolModule = {
       if (!approvalId) return { toolName: 'delete_approval', success: false, error: 'Missing "approval_id" parameter', duration: 0 };
 
       if (approvalId === 'all_resolved') {
-        const all = store.getAll();
+        const all = await store.getAll();
         const resolved = all.filter((a: any) => a.status === 'resolved');
         if (resolved.length === 0) return { toolName: 'delete_approval', success: true, result: 'No resolved approvals to delete.', duration: 0 };
         let deleted = 0;
         for (const a of resolved) {
-          if (store.delete(a.id)) deleted++;
+          if (await store.delete(a.id)) deleted++;
         }
         return { toolName: 'delete_approval', success: true, result: `Deleted ${deleted} resolved approval(s).`, duration: 0 };
       }
 
-      const deleted = store.delete(approvalId);
+      const deleted = await store.delete(approvalId);
       if (!deleted) return { toolName: 'delete_approval', success: false, error: `Approval not found: ${approvalId}`, duration: 0 };
       console.log(`[Approvals] Deleted approval ${approvalId}`);
       return { toolName: 'delete_approval', success: true, result: `Approval ${approvalId} deleted.`, duration: 0 };

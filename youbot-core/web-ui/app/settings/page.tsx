@@ -1,213 +1,149 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  ArrowRight,
+  ChevronDown,
+  FileText,
+  KeyRound,
+  Moon,
+  Monitor,
+  Save,
+  ScrollText,
+  Sun,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
+import { useTheme, type Theme } from "@/components/theme-provider";
+import { FormSection, FormFeedback } from "@/components/page-header";
+import { StandardPage } from "@/components/workspace-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Settings,
-  Save,
-  RefreshCw,
-} from "lucide-react";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { conciergeApi } from "@/lib/concierge";
 
-// ── Types ──
+interface Preferences { settings: { maxHistoryMessages: number }; revision: string }
+interface SettingLink { href: string; title: string; description: string; icon: LucideIcon }
 
-interface AgentConfig {
-  model: string;
-  baseUrl: string;
-  systemPrompt: string;
-  maxHistoryMessages: number;
-  autoReplyWhatsApp: boolean;
-  autoReplyTelegram: boolean;
-  autoReplyContacts: string[];
-  ownerPhone: string;
-  ownerTelegramId: string;
-  ownerTelegramUsername: string;
-  primaryEscalationChannel: 'telegram' | 'whatsapp' | 'both';
+const profileLinks: SettingLink[] = [
+  { href: "/profile", title: "User profile", description: "Your details and the context your concierge should know.", icon: UserRound },
+  { href: "/personas", title: "Profile documents", description: "Extra reference material and instructions.", icon: FileText },
+  { href: "/vault", title: "Secure storage", description: "Credentials and protected documents.", icon: KeyRound },
+];
+const advancedLinks: SettingLink[] = [
+  { href: "/tools", title: "System status", description: "Check the availability of tools and services.", icon: Activity },
+  { href: "/logs", title: "Activity logs", description: "Review detailed events for troubleshooting.", icon: ScrollText },
+];
+
+function SettingsLinks({ items }: { items: SettingLink[] }) {
+  return (
+    <div className="divide-y border-y">
+      {items.map((item) => (
+        <Link key={item.href} href={item.href} className="group flex items-center gap-4 px-1 py-5 transition-colors hover:bg-muted/50 sm:px-3">
+          <item.icon className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">{item.title}</span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">{item.description}</span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+        </Link>
+      ))}
+    </div>
+  );
 }
 
-// ── Component ──
+export default function Settings() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [data, setData] = useState<Preferences | null>(null);
+  const [value, setValue] = useState("20");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
 
-export default function SettingsPage() {
-  const [config, setConfig] = useState<AgentConfig | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  // ── Load ──
-
-  const loadConfig = useCallback(async () => {
+  async function load() {
     try {
-      const data = await api<AgentConfig>("/api/chat/config");
-      setConfig(data);
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
-
-  // ── Save ──
-
-  const saveConfig = async () => {
-    if (!config) return;
-    setSaving(true);
-    try {
-      await api("/api/chat/config", { method: "PUT", body: config });
-      toast.success("Settings saved");
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch {
-      toast.error("Failed to save settings");
+      const result = await conciergeApi<Preferences>("/workspace-settings");
+      setData(result);
+      setValue(String(result.settings.maxHistoryMessages));
+      setError("");
+    } catch (caught) {
+      setError((caught as Error).message);
     }
-    finally { setSaving(false); }
-  };
+  }
 
-  const updateField = (field: keyof AgentConfig, value: unknown) => {
-    if (!config) return;
-    setConfig({ ...config, [field]: value });
-  };
+  useEffect(() => { setMounted(true); void load(); }, []);
+
+  async function save() {
+    if (!data || busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const saved = await conciergeApi<Preferences>("/workspace-settings", {
+        settings: { maxHistoryMessages: Number(value) },
+        revision: data.revision,
+      }, "PUT");
+      setData(saved);
+      setValue(String(saved.settings.maxHistoryMessages));
+      setNotice("Conversation preference saved.");
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b pb-6 mb-6">
-        <Settings className="h-8 w-8 text-primary" />
+    <StandardPage title="Settings" description="Manage the AI service and a small set of workspace preferences.">
+      <FormFeedback error={error} notice={notice} />
+      {error && <Button variant="outline" onClick={() => void load()}>Reload preferences</Button>}
+
+      <div className="grid items-start gap-6 xl:grid-cols-2">
+        <FormSection title="Appearance" description="Choose how Youbot looks in this browser.">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { id: "light", label: "Light", icon: Sun },
+              { id: "dark", label: "Dark", icon: Moon },
+              { id: "system", label: "System", icon: Monitor },
+            ].map((option) => (
+              <button key={option.id} onClick={() => setTheme(option.id as Theme)} aria-pressed={mounted && theme === option.id} className={`flex flex-col items-center gap-3 rounded-xl border p-4 text-sm ${mounted && theme === option.id ? "border-primary bg-primary/5 font-medium text-primary" : "hover:bg-muted"}`}>
+                <option.icon className="size-5" />{option.label}
+              </button>
+            ))}
+          </div>
+        </FormSection>
+
+        <FormSection title="Conversation context" description="Choose how much recent conversation history the agent considers.">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">Recent messages</span>
+            <div className="flex flex-wrap gap-3">
+              <Input className="w-28" type="number" min={5} max={200} value={value} disabled={!data || busy} onChange={(event) => setValue(event.target.value)} />
+              <Button variant="outline" disabled={!data || busy || Number(value) === data.settings.maxHistoryMessages || !Number.isInteger(Number(value)) || Number(value) < 5 || Number(value) > 200} onClick={() => void save()}>
+                <Save className="size-4" />{busy ? "Saving…" : "Save"}
+              </Button>
+            </div>
+            <span className="block text-xs leading-5 text-muted-foreground">Between 5 and 200 messages. More context can increase AI usage.</span>
+          </label>
+        </FormSection>
+      </div>
+
+      <section className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configure agent behavior, default providers, and owner identity
-          </p>
+          <h2 className="text-base font-semibold">Profile & data</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Information your concierge uses and protected items it can access.</p>
         </div>
-      </div>
+        <SettingsLinks items={profileLinks} />
+      </section>
 
-      <div className="space-y-4">
-        {/* ── Context ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Context</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="maxHistory">Max History Messages</Label>
-              <Input
-                id="maxHistory"
-                type="number"
-                value={config?.maxHistoryMessages || 20}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  updateField("maxHistoryMessages", isNaN(val) ? 0 : val);
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Maximum number of conversation messages to include in context
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── Owner Identity ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Owner Identity</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Your identity across messaging channels. Used to recognize you as the owner.
-            </p>
-
-            <div className="space-y-2">
-              <Label htmlFor="ownerPhone">WhatsApp Number</Label>
-              <Input
-                id="ownerPhone"
-                value={config?.ownerPhone || ""}
-                onChange={(e) => updateField("ownerPhone", e.target.value)}
-                placeholder="+971569737344"
-              />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label htmlFor="ownerTelegramUsername">Telegram Username</Label>
-              <Input
-                id="ownerTelegramUsername"
-                value={config?.ownerTelegramUsername || ""}
-                onChange={(e) => updateField("ownerTelegramUsername", e.target.value)}
-                placeholder="singsungwong"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your Telegram username (without @).
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label htmlFor="ownerTelegramId">Telegram Chat ID</Label>
-              <Input
-                id="ownerTelegramId"
-                value={config?.ownerTelegramId || ""}
-                onChange={(e) => updateField("ownerTelegramId", e.target.value)}
-                placeholder="123456789"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your exact Telegram Chat ID.
-              </p>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label>Primary Escalation Channel</Label>
-              <Select
-                value={config?.primaryEscalationChannel || "both"}
-                onValueChange={(value) => updateField("primaryEscalationChannel", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select primary channel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="both">Both (WhatsApp & Telegram)</SelectItem>
-                  <SelectItem value="telegram">Telegram Only</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp Only</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Which channel YouBot uses to ask you for approvals, send reminders, or escalate issues.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex items-center gap-2">
-          <Button onClick={saveConfig} disabled={saving}>
-            {saving ? (
-              <RefreshCw className="size-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="size-4 mr-2" />
-            )}
-            {saving ? "Saving..." : "Save Settings"}
-          </Button>
-          {saved && (
-            <Badge variant="default" className="bg-green-600">
-              Saved
-            </Badge>
-          )}
-        </div>
-      </div>
-    </div>
+      <details className="group rounded-xl border bg-card">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          Advanced and troubleshooting
+        </summary>
+        <div className="px-5 pb-5"><SettingsLinks items={advancedLinks} /></div>
+      </details>
+    </StandardPage>
   );
 }

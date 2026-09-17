@@ -5,6 +5,7 @@
  */
 
 import type { ToolDefinition, ToolCallResult, ToolExecutionResult } from './types.js';
+import type { ToolExecutionContext } from '../tools/types.js';
 
 import { getAllToolDefinitions } from '../tools/registry.js';
 import { routeTools, getConnectedMcpServers, type RouteResult } from './tool-router.js';
@@ -48,7 +49,13 @@ export const VISITOR_SAFE_TOOL_NAMES: ReadonlySet<string> = new Set([
   'ask_owner',
   'get_profile',
   'save_memory',
-  'wa_respond_to_bot',
+  'collections_list',
+  'collections_get',
+  'collections_item_get',
+  'collections_search',
+  'collections_view_get',
+  'collections_evidence_validate',
+  'collections_answer',
 ]);
 
 /** Current tool aliases from the last routing pass */
@@ -188,13 +195,16 @@ export function extractTextContent(text: string): string {
 }
 
 /** Tool executor type */
-export type ToolExecutor = (args: Record<string, unknown>, context?: any) => Promise<ToolExecutionResult>;
+export type ToolExecutor = (
+  args: Record<string, unknown>,
+  context?: ToolExecutionContext,
+) => Promise<ToolExecutionResult>;
 
 /** Registry of tool executors */
 export interface ToolRegistry {
   register(toolName: string, executor: ToolExecutor): void;
   unregister(toolName: string): boolean;
-  execute(toolCall: ToolCallResult, context?: any): Promise<ToolExecutionResult>;
+  execute(toolCall: ToolCallResult, context?: ToolExecutionContext): Promise<ToolExecutionResult>;
   has(toolName: string): boolean;
 }
 
@@ -206,7 +216,7 @@ export function createToolRegistry(): ToolRegistry {
       executors.set(toolName, executor);
     },
 
-    async execute(toolCall: ToolCallResult, context?: any): Promise<ToolExecutionResult> {
+    async execute(toolCall: ToolCallResult, context?: ToolExecutionContext): Promise<ToolExecutionResult> {
       const start = Date.now();
       const executor = executors.get(toolCall.toolName);
       

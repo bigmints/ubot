@@ -246,21 +246,14 @@ export async function handleChatRoutes(
           const failures = toolCalls.filter((t: any) => !t.success);
           const successes = toolCalls.filter((t: any) => t.success);
           if (failures.length > 0 && successes.length === 0) {
-            const errSummary = failures.map((f: any) =>
-              `• \`${f.toolName}\` failed: ${f.error || 'Unknown error'}`
-            ).join('\n');
-            response.content = `⚠️ I ran into an issue completing your request:\n\n${errSummary}\n\nPlease try again.`;
+            response.content = "I'm sorry, I couldn't complete that just now. I've noted the issue and will try again shortly.";
           } else if (successes.length > 0 && failures.length === 0) {
             const summary = successes.map((r: any) =>
               `• \`${r.toolName}\`: ${String(r.result || 'Completed').slice(0, 150)}`
             ).join('\n');
             response.content = `✅ Done!\n\n${summary}`;
           } else if (successes.length > 0) {
-            const successNames = successes.map((r: any) => `\`${r.toolName}\``).join(', ');
-            const errSummary = failures.map((f: any) =>
-              `• \`${f.toolName}\`: ${f.error || 'Unknown error'}`
-            ).join('\n');
-            response.content = `⚠️ Partially completed. ${successNames} succeeded, but:\n\n${errSummary}`;
+            response.content = "I handled part of that, but couldn't finish everything just now. I'll keep it noted and follow up when I can.";
           } else {
             response.content = "I wasn't able to complete that. Please try rephrasing your request.";
           }
@@ -458,8 +451,9 @@ export async function handleChatRoutes(
       primaryEscalationChannel: config.primaryEscalationChannel || 'both',
       webchatEnabled: webchat.enabled !== false,
       webchatToken: webchat.connection_token || '',
-      webchatRelayUrl: webchat.relay_url || '',
-      webchatBotSecret: webchat.bot_secret || '',
+    webchatRelayUrl: webchat.relay_url || '',
+    webchatRelaySlug: webchat.relay_slug || '',
+    webchatBotSecret: webchat.bot_secret || '',
       webchatOwnerKey: webchat.owner_key || '',
       webchatWidgetTitle: webchat.widget_title || '',
       webchatWidgetColor: webchat.widget_color || '#6366f1',

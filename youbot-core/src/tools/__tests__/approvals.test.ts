@@ -41,7 +41,8 @@ describe('Approvals Tool Module', () => {
         requester_jid: '1234567890@s.whatsapp.net',
       });
       expect(result.success).toBe(true);
-      expect(result.result).toContain('Approval request created');
+      expect(result.result).toContain('Request recorded');
+      expect(result.result).not.toContain('has been notified');
     });
   });
 

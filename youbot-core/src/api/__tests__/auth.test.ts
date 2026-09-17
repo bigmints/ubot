@@ -3,21 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import http from 'http';
-import { requiresAuth, authenticate, invalidateApiKeyCache } from '../middleware/auth.js';
-
-// Mock loadYoubotConfig
-import { vi } from 'vitest';
-vi.mock('../../data/config.js', () => ({
-  loadYoubotConfig: vi.fn(() => ({
-    api: {
-      keys: [
-        { key: 'test-key-123', name: 'Test Client', scopes: ['chat', 'tools'] },
-        { key: 'admin-key-456', name: 'Admin', scopes: [] },
-      ],
-    },
-  })),
-  saveYoubotConfig: vi.fn(),
-}));
+import { requiresAuth, authenticate, setApiKeysForTesting } from '../middleware/auth.js';
 
 function createMockRequest(headers: Record<string, string> = {}): http.IncomingMessage {
   return {
@@ -27,7 +13,10 @@ function createMockRequest(headers: Record<string, string> = {}): http.IncomingM
 
 describe('Auth Middleware', () => {
   beforeEach(() => {
-    invalidateApiKeyCache();
+    setApiKeysForTesting([
+      { key: 'test-key-123', name: 'Test Client', scopes: ['chat', 'tools'] },
+      { key: 'admin-key-456', name: 'Admin', scopes: [] },
+    ]);
   });
 
   describe('requiresAuth', () => {

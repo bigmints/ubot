@@ -93,7 +93,7 @@ export class CircuitBreaker {
 
     if (state.consecutiveFailures >= FAILURE_THRESHOLD && !state.openedAt) {
       state.openedAt = Date.now();
-      log.warn('CircuitBreaker', `${prefix} circuit OPENED after ${state.consecutiveFailures} consecutive failures: ${error.slice(0, 200)}`);
+      log.warn('CircuitBreaker', `${prefix} circuit OPENED after ${state.consecutiveFailures} consecutive failures`);
     }
   }
 }

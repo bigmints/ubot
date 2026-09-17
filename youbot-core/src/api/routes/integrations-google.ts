@@ -1,4 +1,4 @@
-import type { ApiContext } from '../context.js';
+import { parseBody, type ApiContext } from '../context.js';
 import { loadYoubotConfig, saveYoubotConfig } from '../../data/config.js';
 import http from 'http';
 import { google } from 'googleapis';
@@ -10,16 +10,6 @@ function json(res: http.ServerResponse, data: unknown, status = 200) {
 
 function error(res: http.ServerResponse, msg: string, status = 400) {
   json(res, { error: msg }, status);
-}
-
-async function parseBody(req: http.IncomingMessage): Promise<any> {
-  return new Promise((resolve) => {
-    let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-    req.on('end', () => {
-      try { resolve(JSON.parse(body)); } catch { resolve({}); }
-    });
-  });
 }
 
 export async function handleIntegrationsGoogleRoutes(
@@ -47,7 +37,7 @@ export async function handleIntegrationsGoogleRoutes(
 
   // ── POST Config ──
   if (url === basePath && method === 'POST') {
-    const body = await parseBody(req);
+    const body = await parseBody(req) as Record<string, any>;
     const config = loadYoubotConfig();
     
     if (!config.capabilities) config.capabilities = {};
@@ -98,7 +88,7 @@ export async function handleIntegrationsGoogleRoutes(
 
   // ── POST Token (exchange code) ──
   if (url === `${basePath}/token` && method === 'POST') {
-    const body = await parseBody(req);
+    const body = await parseBody(req) as Record<string, any>;
     if (!body.code) {
       error(res, 'Authorization code is required', 400);
       return true;

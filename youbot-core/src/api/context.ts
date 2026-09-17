@@ -11,6 +11,7 @@ import type { EventBus } from '../agents/skills/event-bus.js';
 import type { TaskSchedulerService } from '../automation/scheduler/service.js';
 import type { WhatsAppConnection } from '../channels/whatsapp/connection.js';
 import type { TelegramConnection } from '../channels/telegram/connection.js';
+import type { WebchatConnection } from '../channels/webchat/connection.js';
 import type { MessagingRegistry } from '../channels/registry.js';
 import type { WhatsAppMessagingProvider } from '../channels/whatsapp/messaging-provider.js';
 import type { TelegramMessagingProvider } from '../channels/telegram/messaging-provider.js';
@@ -32,6 +33,7 @@ export interface ApiContext {
   contactStore: ContactStore | null;
 
   // Channels
+  webchatConnection?: WebchatConnection | null;
   waConnection: WhatsAppConnection | null;
   waQrCode: string | null;
   waStatus: string;
@@ -116,15 +118,40 @@ export async function parseLargeBody(req: http.IncomingMessage): Promise<unknown
   return parseBody(req, 15 * 1024 * 1024);
 }
 
-export function json(res: http.ServerResponse, data: unknown, status = 200): void {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  // Only set CORS if not already set by middleware
-  if (!res.getHeader('Access-Control-Allow-Origin')) {
-    headers['Access-Control-Allow-Origin'] = '*';
+/** Read a non-JSON request body with a hard streaming limit. */
+export async function readBodyBuffer(req: http.IncomingMessage, maxBytes: number): Promise<Buffer> {
+  const declaredLength = Number(req.headers['content-length'] || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    throw Object.assign(new Error('Payload too large'), { statusCode: 413 });
   }
-  res.writeHead(status, headers);
+
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let settled = false;
+    req.on('data', (chunk: Buffer | string) => {
+      if (settled) return;
+      const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += value.byteLength;
+      if (size > maxBytes) {
+        settled = true;
+        reject(Object.assign(new Error('Payload too large'), { statusCode: 413 }));
+        req.resume();
+        return;
+      }
+      chunks.push(value);
+    });
+    req.on('end', () => {
+      if (!settled) resolve(Buffer.concat(chunks, size));
+    });
+    req.on('error', (cause) => {
+      if (!settled) reject(cause);
+    });
+  });
+}
+
+export function json(res: http.ServerResponse, data: unknown, status = 200): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
 }
 

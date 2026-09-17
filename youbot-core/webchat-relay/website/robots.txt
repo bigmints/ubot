@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /$
+Allow: /docs
+Allow: /assets/
+Disallow: /
+Sitemap: https://youbot.live/sitemap.xml

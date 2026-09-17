@@ -1,3 +1,6 @@
+import { finalizeVisitorReply, VISITOR_REPLY_CONTRACT, VISITOR_REPLY_FORMAT, visitorReplyRepairMessages } from './visitor-reply.js';
+import { documentRevision, readOwnerProfile } from '../concierge/owner-profile.js';
+import { conciergeInstructions } from "../concierge/profile.js";
 
 // --- DUMMY IMPLEMENTATIONS FOR REMOVED FEATURES ---
 const runSubagent = async (...args: any[]): Promise<any> => ({ status: 'completed', result: 'Subagents are disabled.' });
@@ -86,6 +89,12 @@ import type {
 import { getModelForPurpose } from "./types.js";
 import { VectorStore } from "./vector-store.js";
 import { getVertexAccessToken } from "./vertex-auth.js";
+import { createProviderChatClient } from "../integrations/provider-chat-client.js";
+import {
+	requestStructuredCompletion,
+	type StructuredGenerationResult,
+	type StructuredOutputSpec,
+} from "./structured-generation.js";
 
 /**
  * Find recent outbound messages sent TO a specific contact by the owner.
@@ -124,7 +133,7 @@ async function findRecentOutboundMessages(
 				const msg = history[i];
 				const content = msg.content || "";
 				const contentLower = content.toLowerCase();
-				
+
 				if (msg.role === "assistant") {
 					const mentionsContact = searchTerms.some((term) => contentLower.includes(term));
 					if (mentionsContact) {
@@ -173,6 +182,22 @@ export interface AgentOrchestrator {
 	): Promise<AgentResponse>;
 	/** Direct LLM text generation (no tools) — for skill generation, etc. */
 	generate(systemPrompt: string, userMessage: string): Promise<string>;
+	/** Request one non-executing schema-only function call, with JSON text fallback. */
+	generateStructured(
+		systemPrompt: string,
+		userMessage: string,
+		spec: StructuredOutputSpec,
+	): Promise<StructuredGenerationResult>;
+	/** Direct LLM vision generation with one in-memory image and no tools/actions. */
+  generateWithImage(
+    systemPrompt: string,
+    userMessage: string,
+    image: {
+      mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+      bytes: Uint8Array;
+      signal?: AbortSignal;
+    },
+  ): Promise<string>;
 	/** Get the current config */
 	getConfig(): AgentConfig;
 	/** Update config */
@@ -931,6 +956,13 @@ export function createAgentOrchestrator(
 		});
 	}
 
+	function createConfiguredClient(provider: LLMProviderConfig, baseUrl: string, apiKey: string): OpenAI {
+		if (provider.credentialSource === "provider-access") {
+			return createProviderChatClient(provider.runtimeProviderId || provider.id);
+		}
+		return new OpenAI({ apiKey, baseURL: baseUrl, timeout: 60000 });
+	}
+
 	/**
 	 * Create an OpenAI client routed to the best provider for a given purpose.
 	 * Falls back to the default provider if no routing is configured.
@@ -994,7 +1026,7 @@ export function createAgentOrchestrator(
 					provider.model;
 
 				return {
-					client: new OpenAI({ apiKey, baseURL: baseUrl, timeout: 60000 }),
+					client: createConfiguredClient(provider, baseUrl, apiKey),
 					model: purposeModel,
 					providerId: provider.id,
 				};
@@ -1005,6 +1037,38 @@ export function createAgentOrchestrator(
 		const defaultProvider = currentConfig.llmProviders.find(
 			(p) => p.id === currentConfig.defaultLlmProviderId,
 		);
+		if (
+			defaultProvider?.credentialSource === "provider-access" &&
+			!["chat", "router", "extraction", "generation"].includes(purpose)
+		) {
+			const fallback = currentConfig.llmProviders.find(
+				(provider) =>
+					provider.credentialSource !== "provider-access" &&
+					Boolean(provider.models?.[purpose]),
+			);
+			if (!fallback) {
+				throw new Error(
+					`The active subscription provider does not support ${purpose}. Configure a separate provider for that capability.`,
+				);
+			}
+			let baseUrl = fallback.baseUrl;
+			let apiKey = fallback.apiKey;
+			if (fallback.provider === "vertex") {
+				apiKey = (await getVertexAccessToken()) || "";
+				if (!apiKey) throw new Error("Vertex credentials are unavailable.");
+			}
+			if (baseUrl.includes("generativelanguage.googleapis.com") && !baseUrl.includes("/openai")) {
+				baseUrl = baseUrl.replace(/\/?$/, "") + "/openai/";
+			}
+			if (baseUrl.includes("://localhost:")) {
+				baseUrl = baseUrl.replace("://localhost:", "://127.0.0.1:");
+			}
+			return {
+				client: createConfiguredClient(fallback, baseUrl, apiKey),
+				model: getModelForPurpose(fallback.provider, purpose, fallback.models) || fallback.model,
+				providerId: fallback.id,
+			};
+		}
 		const defaultProviderId =
 			defaultProvider?.provider || currentConfig.defaultLlmProviderId;
 		const catalogModel = getModelForPurpose(
@@ -1031,7 +1095,7 @@ export function createAgentOrchestrator(
 					baseUrl = baseUrl.replace("://localhost:", "://127.0.0.1:");
 				}
 				return {
-					client: new OpenAI({ apiKey: token, baseURL: baseUrl, timeout: 60000 }),
+					client: createConfiguredClient(defaultProvider, baseUrl, token),
 					model: catalogModel || defaultProvider.model,
 					providerId: defaultProvider.id,
 				};
@@ -1039,7 +1103,9 @@ export function createAgentOrchestrator(
 		}
 
 		return {
-			client: createLLMClient(),
+			client: defaultProvider?.credentialSource === "provider-access"
+				? createConfiguredClient(defaultProvider, defaultProvider.baseUrl, defaultProvider.apiKey)
+				: createLLMClient(),
 			model: catalogModel || currentConfig.llmModel,
 			providerId: currentConfig.defaultLlmProviderId,
 		};
@@ -1053,12 +1119,14 @@ export function createAgentOrchestrator(
 		}
 
 		// Override with specialized agent prompt if applicable
-		if (agentId && crewRegistry.hasAgent(agentId)) {
+		if (isOwner && agentId && crewRegistry.hasAgent(agentId)) {
 			const agent = crewRegistry.getAgent(agentId)!;
 			if (agent.systemPrompt) {
 				basePrompt = agent.systemPrompt;
 			}
 		}
+
+		if (!isOwner && currentConfig.concierge) basePrompt += conciergeInstructions(currentConfig.concierge);
 
 		return basePrompt.replace(
 			"{{tools}}",
@@ -1168,14 +1236,14 @@ export function createAgentOrchestrator(
 
 		// Check for pending skill suggestions
 		const suggestion = SkillDetectorMiddleware.getPendingSuggestion(sessionId);
-		if (suggestion) {
+		if (isOwner && suggestion) {
 			systemPrompt += `\n\n## SKILL SUGGESTION
 You just completed a successful complex workflow. You can offer the user to save it as a reusable skill.
 Suggested Name: ${suggestion.name}
 Description: ${suggestion.description}
 Workflow: ${suggestion.toolSequence.join(" -> ")}
 
-If the user wants to save this, you can use the 'save_suggested_skill' tool. 
+If the user wants to save this, you can use the 'save_suggested_skill' tool.
 Inform the user about this possibility if it's relevant to the current conversation.`;
 			SkillDetectorMiddleware.markAsShown(sessionId);
 		}
@@ -1374,7 +1442,7 @@ Inform the user about this possibility if it's relevant to the current conversat
 					if (newFacts.trim() && newFacts.trim() !== "NO_NEW_FACTS") {
 						const merged = mergeIntoOwnerDoc(await currentDoc, newFacts);
 						if (merged !== (await currentDoc)) {
-							soul.saveDocument(OWNER_SOUL_ID, merged);
+							await soul.saveDocument(OWNER_SOUL_ID, merged, documentRevision(await currentDoc));
 							console.log(
 								`[Soul] ✏️ Merged new facts into owner profile (${merged.length} chars)`,
 							);
@@ -1457,8 +1525,8 @@ Inform the user about this possibility if it's relevant to the current conversat
 
 				// Read owner name for context
 				const ownerDoc = await soul.getDocument(OWNER_SOUL_ID);
-				const ownerNameMatch = ownerDoc?.match(/name:\s*(.+)/i);
-				const ownerName = ownerNameMatch ? ownerNameMatch[1].trim() : "";
+
+				const ownerName = readOwnerProfile(ownerDoc || "").profile.name;
 
 				const ownerContext = ownerName
 					? `\nCONTEXT: The owner of this AI assistant is "${ownerName}". The user in this conversation is "${contactName || "unknown"}". Only record facts about the USER.`
@@ -1572,7 +1640,7 @@ Inform the user about this possibility if it's relevant to the current conversat
 					const updatedDoc =
 						personaResult.value.choices[0]?.message?.content || "";
 					if (updatedDoc.trim()) {
-						soul.saveDocument(personaId, updatedDoc.trim());
+						await soul.saveDocument(personaId, updatedDoc.trim(), documentRevision(await currentDoc));
 						console.log(
 							`[Soul] 🧠 Updated persona for ${personaId} (${updatedDoc.length} chars)`,
 						);
@@ -1759,6 +1827,7 @@ Inform the user about this possibility if it's relevant to the current conversat
 		preSelectedTools?: ToolDefinition[],
 		purpose: ModelPurpose = "chat",
 		source?: string,
+		responseFormat?: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming['response_format'],
 	): Promise<{
 		content: string;
 		toolCalls: Array<{
@@ -1914,22 +1983,23 @@ Inform the user about this possibility if it's relevant to the current conversat
 				extra_body: {
 					google: {
 						thinking_config: {
-							include_thoughts: true,
+							include_thoughts: isOwner,
 						},
 					},
 				},
 			};
 		} else if (isOllamaProvider) {
 			// Ollama exposes thinking via think: true in the request body
-			thinkingConfig = { think: true };
+			thinkingConfig = { think: isOwner };
 		}
 
 		try {
 			const completion = await client.chat.completions.create({
 				model: activeModel,
-				messages,
-				temperature: currentConfig.temperature,
+				messages: isOwner ? messages : [...messages, { role: "system" as const, content: VISITOR_REPLY_CONTRACT }],
+				temperature: responseFormat ? 0 : currentConfig.temperature,
 				max_tokens: currentConfig.maxTokens,
+				...(responseFormat ? { response_format: responseFormat } : {}),
 				...(tools ? { tools } : {}),
 				...thinkingConfig,
 			} as any);
@@ -2091,7 +2161,7 @@ Inform the user about this possibility if it's relevant to the current conversat
 						const preResult = await pipeline.runBeforeTool(ctx);
 						if (preResult?.skipExecution) return preResult.skipExecution;
 
-						if (!isOwner && !VISITOR_SAFE_TOOL_NAMES.has(ctx.toolName)) {
+						if (sessionId.startsWith("followup-") || (!isOwner && !VISITOR_SAFE_TOOL_NAMES.has(ctx.toolName))) {
 							return {
 								toolName: ctx.toolName,
 								success: false,
@@ -2171,7 +2241,7 @@ Inform the user about this possibility if it's relevant to the current conversat
 			const experiments = getPromptExperiments();
 			let activeExperiment = null;
 			let assignedVariant = null;
-			if (experiments) {
+			if (ownerFlag && experiments) {
 				activeExperiment = await experiments.getActiveExperiment();
 				if (activeExperiment) {
 					assignedVariant = experiments.assignVariant(
@@ -2585,12 +2655,13 @@ If a skill matches the user's request, call run_skill with the skill ID. Otherwi
 						);
 					}
 
-					const toolContext = {
-						sessionId,
-						isOwner: ownerFlag,
-						contactName,
-						source,
-						getDatabase: () => db,
+      const toolContext = {
+        sessionId,
+        isOwner: ownerFlag,
+        contactName,
+        source,
+        userMessage: message,
+        getDatabase: () => db,
 						getAgent: () => orchestrator,
 						skillRepo,
 						skillEngine,
@@ -2625,7 +2696,7 @@ If a skill matches the user's request, call run_skill with the skill ID. Otherwi
 
 					if (beforeResult?.skipExecution) {
 						result = beforeResult.skipExecution;
-					} else if (!isOwner && !VISITOR_SAFE_TOOL_NAMES.has(resolvedToolName)) {
+					} else if (sessionId.startsWith("followup-") || (!isOwner && !VISITOR_SAFE_TOOL_NAMES.has(resolvedToolName))) {
 						result = {
 							toolName: resolvedToolName,
 							success: false,
@@ -2662,7 +2733,9 @@ If a skill matches the user's request, call run_skill with the skill ID. Otherwi
 					// Add tool result as a "tool" role message (OpenAI format)
 					const rawToolContent = result.success
 						? result.result || "Completed (no details returned)."
-						: `❌ TOOL FAILED: ${toolCall.toolName}\nError: ${result.error}\nIMPORTANT: This tool call FAILED — do NOT tell the user it succeeded. Report the actual error. If you are using write_todos to track progress, mark this step as "failed" (not "completed"). Continue with the next step.`;
+						: isOwner
+							? `❌ TOOL FAILED: ${toolCall.toolName}\nError: ${result.error}\nIMPORTANT: This tool call FAILED — do NOT tell the user it succeeded. Report the actual error. If you are using write_todos to track progress, mark this step as "failed" (not "completed"). Continue with the next step.`
+							: "The requested internal action could not be completed right now. Do not mention technical errors, tools, databases, or system details to the visitor. State that the action could not be confirmed. Do not promise a handoff or follow-up.";
 
 					// ── Token guard: truncate large tool results ──────────────
 					// browser_snapshot returns full DOM accessibility trees (10k+ tokens).
@@ -2709,7 +2782,7 @@ If a skill matches the user's request, call run_skill with the skill ID. Otherwi
 					finalContent =
 						llmResult.content || "I completed the requested actions.";
 
-					const todos = await getTodos(sessionId, db);
+					const todos = ownerFlag ? await getTodos(sessionId, db) : [];
 					const pendingCount = todos.filter(
 						(t: any) => t.status === "pending" || t.status === "in_progress",
 					).length;
@@ -2755,7 +2828,7 @@ If a skill matches the user's request, call run_skill with the skill ID. Otherwi
 			// If the task used tools (actionable request) but ended without
 			// clear evidence of completion, give the agent a few more tries
 			// to either complete it or explain the failure explicitly.
-			if (toolResults.length > 0 && finalContent) {
+			if (ownerFlag && toolResults.length > 0 && finalContent) {
 				const failureSignals = [
 					"unable to",
 					"couldn't",
@@ -2871,7 +2944,7 @@ REQUIREMENTS:
 							}
 
 							let result: ToolExecutionResult;
-							if (!isOwner && !VISITOR_SAFE_TOOL_NAMES.has(resolvedName)) {
+							if (sessionId.startsWith("followup-") || (!isOwner && !VISITOR_SAFE_TOOL_NAMES.has(resolvedName))) {
 								result = {
 									toolName: resolvedName,
 									success: false,
@@ -2886,11 +2959,12 @@ REQUIREMENTS:
 										rawText: "",
 									},
 								{
-									sessionId,
-									isOwner: ownerFlag,
-									contactName,
-									source,
-									getDatabase: () => db,
+            sessionId,
+            isOwner: ownerFlag,
+            contactName,
+            source,
+            userMessage: message,
+            getDatabase: () => db,
 									getAgent: () => orchestrator,
 									skillRepo,
 									skillEngine,
@@ -2909,7 +2983,9 @@ REQUIREMENTS:
 
 							const raw = result.success
 								? result.result || "Completed."
-								: `❌ TOOL FAILED: ${tc.toolName}\nError: ${result.error}`;
+								: ownerFlag
+									? `❌ TOOL FAILED: ${tc.toolName}\nError: ${result.error}`
+									: "The requested internal action could not be completed right now. Do not mention technical errors, tools, databases, or system details to the visitor. State that the action could not be confirmed. Do not promise a handoff or follow-up.";
 							const maxC = resolvedName.startsWith("mcp_playwright_")
 								? 6000
 								: 3000;
@@ -2973,14 +3049,9 @@ REQUIREMENTS:
 					const successes = toolResults.filter((r) => r.success);
 
 					if (failures.length > 0 && successes.length === 0) {
-						// All tools failed — surface the errors clearly
-						const errSummary = failures
-							.map(
-								(f) =>
-									`• \`${f.toolName}\` failed: ${f.error || "Unknown error"}`,
-							)
-							.join("\n");
-						finalContent = `⚠️ I ran into an issue completing your request:\n\n${errSummary}\n\nPlease check the details above and try again.`;
+						// All tools failed. Keep raw details in logs, not in user-facing chat.
+						finalContent =
+							"I'm sorry, I couldn't complete that just now. I've noted the issue and will try again shortly.";
 					} else if (successes.length > 0 && failures.length === 0) {
 						// All tools succeeded but no text was generated — give a brief summary
 						const summary = successes
@@ -2991,14 +3062,9 @@ REQUIREMENTS:
 							.join("\n");
 						finalContent = `✅ Done! Here's what I completed:\n\n${summary}`;
 					} else {
-						// Mixed — some succeeded, some failed
-						const successNames = successes
-							.map((r) => `\`${r.toolName}\``)
-							.join(", ");
-						const errSummary = failures
-							.map((f) => `• \`${f.toolName}\`: ${f.error || "Unknown error"}`)
-							.join("\n");
-						finalContent = `⚠️ Partially completed. ${successNames} succeeded, but:\n\n${errSummary}`;
+						// Mixed results. Avoid exposing tool names or backend errors to visitors.
+						finalContent =
+							"I handled part of that, but couldn't finish everything just now. I'll keep it noted and follow up when I can.";
 					}
 					log.warn(
 						"Agent",
@@ -3014,6 +3080,18 @@ REQUIREMENTS:
 					);
 				}
 			}
+        if (!ownerFlag) {
+          const safeReply = await finalizeVisitorReply(finalContent, async () => {
+        const corrected = await callLLM(visitorReplyRepairMessages(message, finalContent), false, undefined, [], "chat", source, VISITOR_REPLY_FORMAT);
+            return corrected.toolCalls.length ? "" : corrected.content;
+          });
+          if (safeReply === null) {
+            log.warn("Agent", "Visitor reply held: final response validation failed");
+            return { content: "", toolCalls: toolResults, usage: lastUsage, model: lastModel, duration: Date.now() - startTime };
+          }
+          finalContent = safeReply;
+        }
+
 
 			await conversationStore.addMessage(
 				sessionId,
@@ -3107,6 +3185,83 @@ REQUIREMENTS:
 						`Generate fallback also failed [chat]: ${fallbackErr.message}`,
 					);
 					throw new Error(`LLM generate failed: ${err.message}`);
+				}
+			}
+		},
+
+		async generateStructured(
+			systemPrompt: string,
+			userMessage: string,
+			spec: StructuredOutputSpec,
+		): Promise<StructuredGenerationResult> {
+			for (const purpose of ["generation", "chat"] as const) {
+				try {
+					const { client, model } = await getClientForPurpose(purpose);
+					return await requestStructuredCompletion(
+						client,
+						model,
+						systemPrompt,
+						userMessage,
+						spec,
+						{
+							temperature: 0,
+							maxTokens: currentConfig.maxTokens,
+						},
+					);
+				} catch {
+					log.warn("Agent", `Structured generation was unavailable for ${purpose}; trying a compatible fallback.`);
+				}
+			}
+			return {
+				content: await this.generate(systemPrompt, userMessage),
+				transport: "text",
+				finishReason: "unknown",
+			};
+		},
+
+		async generateWithImage(
+      systemPrompt: string,
+      userMessage: string,
+      image: {
+        mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+        bytes: Uint8Array;
+        signal?: AbortSignal;
+      },
+    ): Promise<string> {
+      const safeUserMessage = userMessage || " ";
+      const base64 = Buffer.from(image.bytes).toString("base64");
+      const userContent = [
+				{ type: "text", text: safeUserMessage },
+				{
+					type: "image_url",
+					image_url: {
+            url: `data:${image.mimeType};base64,${base64}`,
+						detail: "high",
+					},
+				},
+			] as any;
+			const invoke = async (purpose: "generation" | "chat") => {
+				const { client, model } = await getClientForPurpose(purpose);
+        const completion = await client.chat.completions.create({
+					model,
+					messages: [
+						{ role: "system", content: systemPrompt },
+						{ role: "user", content: userContent },
+					],
+					temperature: currentConfig.temperature,
+					max_tokens: currentConfig.maxTokens,
+        } as any, { signal: image.signal });
+				return completion.choices[0]?.message?.content || "";
+			};
+			try {
+				return await invoke("generation");
+			} catch (err: any) {
+				log.error("Agent", `Vision generate call failed: ${err.message} — falling back to chat model`);
+				try {
+					return await invoke("chat");
+				} catch (fallbackErr: any) {
+					log.error("Agent", `Vision generate fallback also failed: ${fallbackErr.message}`);
+					throw new Error(`LLM vision generate failed: ${err.message}`);
 				}
 			}
 		},

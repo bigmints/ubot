@@ -79,7 +79,10 @@ export function createConversationStore(db: DatabaseConnection): ConversationSto
     async listSessions(): Promise<ConversationSession[]> {
       try {
         const sessions = await db.query(`
-          SELECT s.id, s.type, s.name, s.created_at, s.updated_at, COUNT(m.id) as count 
+          SELECT s.id, s.type, s.name, s.created_at, s.updated_at, COUNT(m.id) as count,
+                 (SELECT latest.role FROM youbot_chat_messages latest WHERE latest.session_id = s.id ORDER BY latest.timestamp DESC LIMIT 1) as last_message_role,
+                 (SELECT latest.content FROM youbot_chat_messages latest WHERE latest.session_id = s.id ORDER BY latest.timestamp DESC LIMIT 1) as last_message_content,
+                 (SELECT latest.timestamp FROM youbot_chat_messages latest WHERE latest.session_id = s.id ORDER BY latest.timestamp DESC LIMIT 1) as last_message_timestamp
           FROM youbot_chat_sessions s 
           LEFT JOIN youbot_chat_messages m ON s.id = m.session_id 
           GROUP BY s.id 
@@ -93,6 +96,11 @@ export function createConversationStore(db: DatabaseConnection): ConversationSto
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at),
           messageCount: row.count || 0,
+          lastMessage: row.last_message_timestamp ? {
+            role: row.last_message_role as ChatRole,
+            content: row.last_message_content || '',
+            timestamp: new Date(row.last_message_timestamp),
+          } : undefined,
         }));
       } catch (error) {
         console.error('[SQLite] listSessions Error:', error);

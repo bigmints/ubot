@@ -22,15 +22,33 @@ describe('Youbot Core', () => {
 
   describe('handleRequest', () => {
     let mockRes: {
-      writeHead: ReturnType<typeof vi.fn>;
-      end: ReturnType<typeof vi.fn>;
+    writeHead: ReturnType<typeof vi.fn>;
+    end: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+    setHeader: ReturnType<typeof vi.fn>;
+    getHeader: ReturnType<typeof vi.fn>;
+      headersSent: boolean;
+      writableEnded: boolean;
+      destroyed: boolean;
     };
 
     beforeEach(() => {
       resetState();
-      mockRes = {
-        writeHead: vi.fn(),
-        end: vi.fn(),
+    mockRes = {
+      headersSent: false,
+      writableEnded: false,
+      destroyed: false,
+      setHeader: vi.fn(),
+      getHeader: vi.fn(),
+      writeHead: vi.fn(() => {
+          mockRes.headersSent = true;
+        }),
+        end: vi.fn(() => {
+          mockRes.writableEnded = true;
+        }),
+        destroy: vi.fn(() => {
+          mockRes.destroyed = true;
+        }),
       };
     });
 
@@ -73,6 +91,48 @@ describe('Youbot Core', () => {
       
       expect(mockRes.writeHead).toHaveBeenCalledWith(403, { 'Content-Type': 'text/plain' });
       expect(mockRes.end).toHaveBeenCalledWith('Forbidden');
+    });
+
+    it('should not write a second response if the dev proxy errors after headers are sent', async () => {
+      const proxyReq = {
+        on: vi.fn(),
+      };
+      let proxyResponseHandler: ((res: any) => void) | undefined;
+      const errorHandlers = new Map<string, (error: Error) => void>();
+
+      vi.spyOn(http, 'request').mockImplementation(((options, callback) => {
+        proxyResponseHandler = callback as (res: any) => void;
+        return proxyReq as unknown as http.ClientRequest;
+      }) as typeof http.request);
+
+      proxyReq.on.mockImplementation((event: string, handler: (error: Error) => void) => {
+        errorHandlers.set(event, handler);
+        return proxyReq;
+      });
+
+      const req = {
+        url: '/dashboard',
+        method: 'GET',
+        headers: {},
+        pipe: vi.fn(() => {
+          proxyResponseHandler?.({
+            statusCode: 200,
+            headers: {},
+            pipe: vi.fn(),
+          });
+          errorHandlers.get('error')?.(new Error('proxy failed'));
+          return proxyReq;
+        }),
+      } as unknown as http.IncomingMessage;
+
+      await handleRequest(req, mockRes as unknown as http.ServerResponse);
+
+      expect(mockRes.writeHead).toHaveBeenCalledTimes(1);
+      expect(mockRes.writeHead).toHaveBeenCalledWith(200, {});
+      expect(mockRes.destroy).toHaveBeenCalledTimes(1);
+      expect(mockRes.end).not.toHaveBeenCalledWith(
+        expect.stringContaining('Frontend dev server not ready')
+      );
     });
   });
 });

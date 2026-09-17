@@ -33,6 +33,8 @@ export interface TranscriptionOptions {
   /** Provider config override */
   providerBaseUrl?: string;
   providerApiKey?: string;
+  providerModelId?: string;
+  providerHeaders?: Record<string, string>;
 }
 
 // ─── Local Whisper (legacy) ───────────────────────────────
@@ -88,7 +90,8 @@ async function transcribeViaGemini(
     // apiBase should be like: https://generativelanguage.googleapis.com/v1beta
     if (!apiBase.includes('/v1')) apiBase = apiBase.replace(/\/?$/, '/v1beta');
 
-    const url = `${apiBase}/models/gemini-2.0-flash:generateContent?key=${options.apiKey || ''}`;
+    const modelId = options.providerModelId || 'gemini-2.0-flash';
+    const url = `${apiBase}/models/${encodeURIComponent(modelId)}:generateContent?key=${options.apiKey || ''}`;
 
     const langHint = options.language && options.language !== 'auto' ? ` in ${options.language}` : '';
     const body = {
@@ -103,13 +106,13 @@ async function transcribeViaGemini(
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(options.providerHeaders ?? {}) },
       body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.warn(`[Transcription] Gemini ${response.status}: ${errText.slice(0, 200)}`);
+      await response.body?.cancel().catch(() => undefined);
+      console.warn(`[Transcription] Gemini request failed with status ${response.status}`);
       return null;
     }
 
@@ -150,11 +153,11 @@ async function transcribeViaWhisperApi(
 
     const form = new FormData();
     form.append('file', fileBuffer, { filename: `audio${ext}`, contentType: mimeType, knownLength: fileSize });
-    form.append('model', 'whisper-1');
+    form.append('model', options.providerModelId || 'whisper-1');
     if (options.language && options.language !== 'auto') form.append('language', options.language);
     form.append('response_format', 'json');
 
-    const headers: Record<string, string> = { ...form.getHeaders() };
+    const headers: Record<string, string> = { ...form.getHeaders(), ...(options.providerHeaders ?? {}) };
     if (options.apiKey) headers['Authorization'] = `Bearer ${options.apiKey}`;
 
     const response = await fetch(transcribeUrl, {
@@ -164,8 +167,8 @@ async function transcribeViaWhisperApi(
     });
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.warn(`[Transcription] Whisper API ${response.status}: ${errText.slice(0, 200)}`);
+      await response.body?.cancel().catch(() => undefined);
+      console.warn(`[Transcription] Whisper API request failed with status ${response.status}`);
       return null;
     }
 
@@ -195,18 +198,18 @@ export async function transcribeAudio(
   if (baseUrl) {
     // ── 1. Gemini/Vertex — use native generateContent ───────
     if (isGeminiProvider(baseUrl)) {
-      const result = await transcribeViaGemini(filePath, { baseUrl, apiKey, language });
+      const result = await transcribeViaGemini(filePath, { ...options, baseUrl, apiKey, language });
       if (result) {
-        console.info(`[Transcription] Gemini: "${result.text.slice(0, 80)}"`);
+      console.info('[Transcription] Gemini transcription completed');
         return result;
       }
       console.warn('[Transcription] Gemini failed — trying Whisper API fallback');
     }
 
     // ── 2. OpenAI-compatible Whisper API ────────────────────
-    const result = await transcribeViaWhisperApi(filePath, { baseUrl, apiKey, language });
+    const result = await transcribeViaWhisperApi(filePath, { ...options, baseUrl, apiKey, language });
     if (result) {
-      console.info(`[Transcription] Whisper API: "${result.text.slice(0, 80)}"`);
+      console.info('[Transcription] Whisper API transcription completed');
       return result;
     }
     console.warn('[Transcription] Provider failed — trying local whisper fallback');

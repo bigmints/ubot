@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, Fragment } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -13,15 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { RefreshCw, Wrench } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
+import { StandardPage } from "@/components/workspace-frame";
+import { ListToolbar } from "@/components/list-toolbar";
 
 interface ToolDefinition {
   name: string;
@@ -40,6 +40,8 @@ export default function ToolsHealthPage() {
   const [tools, setTools] = useState<ToolHealthStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("module");
 
   const loadTools = async () => {
     setLoading(true);
@@ -87,51 +89,31 @@ export default function ToolsHealthPage() {
 
   const modules = ["all", ...Array.from(new Set(tools.map((t) => t.module)))].sort();
 
-  const filteredTools = selectedModule === "all" 
-    ? tools 
-    : tools.filter(t => t.module === selectedModule);
+  const filteredTools = tools
+    .filter((item) => selectedModule === "all" || item.module === selectedModule)
+    .filter((item) => `${item.module} ${item.tool.name} ${item.tool.description}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => sort === "name" ? a.tool.name.localeCompare(b.tool.name) : a.module.localeCompare(b.module) || a.tool.name.localeCompare(b.tool.name));
 
   return (
     <TooltipProvider>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <Wrench className="size-6" /> Tools Health
-            </h1>
-            <p className="text-muted-foreground">Monitor the availability and connection status of all AI tools</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={loadTools}>
+      <StandardPage title="System status" description="Monitor the availability and connection status of all AI tools." actions={
+        <Button variant="outline" size="sm" onClick={loadTools}>
             <RefreshCw className="size-4 mr-2" />
             Refresh
           </Button>
-        </div>
+      }>
 
-        <Separator />
+        <ListToolbar className="rounded-xl border bg-card" searchLabel="Search system tools" searchPlaceholder="Search tools" searchValue={search} onSearchChange={setSearch} filters={[{label:"Tool module",value:selectedModule,onValueChange:setSelectedModule,options:modules.map((module)=>({value:module,label:module === "all" ? "All modules" : module}))}]} sort={{label:"Sort tools",value:sort,onValueChange:setSort,options:[{value:"module",label:"Module"},{value:"name",label:"Name A–Z"}]}} resultLabel={`${filteredTools.length} of ${tools.length} tools`} active={!!search||selectedModule!=="all"||sort!=="module"} onReset={()=>{setSearch("");setSelectedModule("all");setSort("module");}} />
 
         <div className="flex flex-col gap-4">
-          <Tabs defaultValue="all" onValueChange={setSelectedModule}>
-            <TabsList className="bg-muted/50 p-1 flex-wrap h-auto">
-              {modules.map((mod) => (
-                <TabsTrigger
-                  key={mod}
-                  value={mod}
-                  className="px-4 py-1.5 text-xs font-medium capitalize"
-                >
-                  {mod}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-
           <Card className="border-muted/40">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-muted/30">
-                    <TableHead className="w-[140px] font-semibold text-foreground/80">Capability</TableHead>
+                    <TableHead className="hidden w-[140px] font-semibold text-foreground/80 sm:table-cell">Capability</TableHead>
                     <TableHead className="w-[200px] font-semibold text-foreground/80">Tool Name</TableHead>
-                    <TableHead className="font-semibold text-foreground/80">Description</TableHead>
+                    <TableHead className="hidden font-semibold text-foreground/80 md:table-cell">Description</TableHead>
                     <TableHead className="w-[100px] font-semibold text-foreground/80">Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -149,7 +131,7 @@ export default function ToolsHealthPage() {
                   ) : (
                     filteredTools.map((item) => (
                       <TableRow key={item.tool.name} className="border-muted/20">
-                        <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                           <Badge variant="outline" className="text-[10px] font-bold tracking-tight bg-muted/30 border-muted-foreground/10 text-muted-foreground uppercase py-0 px-2 h-5">
                             {item.module}
                           </Badge>
@@ -157,7 +139,7 @@ export default function ToolsHealthPage() {
                         <TableCell className="font-mono font-medium text-xs text-primary/90">
                           {item.tool.name}
                         </TableCell>
-                        <TableCell className="max-w-[200px] md:max-w-md">
+                      <TableCell className="hidden max-w-[200px] md:table-cell md:max-w-md">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="truncate text-sm text-muted-foreground/90 cursor-help transition-colors hover:text-foreground">
@@ -180,7 +162,7 @@ export default function ToolsHealthPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </StandardPage>
     </TooltipProvider>
   );
 }

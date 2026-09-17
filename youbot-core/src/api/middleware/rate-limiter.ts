@@ -19,10 +19,10 @@ interface ClientWindow {
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
-  defaultLimit: 100,
+  defaultLimit: 300,
   windowMs: 60_000, // 1 minute
   pathLimits: {
-    '/api/chat': 50,       // Increased for test suite
+    '/api/chat': 60,
   },
 };
 

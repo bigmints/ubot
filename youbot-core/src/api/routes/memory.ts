@@ -1,3 +1,6 @@
+import { documentRevision } from '../../concierge/owner-profile.js';
+import { getConciergeStore } from '../../concierge/store.js';
+import { replyAvailability, sendVisitorReply } from './concierge.js';
 /**
  * Memory & Persona Routes
  * /api/personas/*, /api/memories/*
@@ -44,7 +47,7 @@ export async function handleMemoryRoutes(
       content = ctx.agentOrchestrator.getAgentMarkdown(personaId) || '';
     }
     
-    json(res, { personaId, content });
+    json(res, { personaId, content, revision: documentRevision(content) });
     return true;
   }
 
@@ -60,7 +63,8 @@ export async function handleMemoryRoutes(
     
     const existingDoc = await ctx.agentOrchestrator.getSoul().getDocument(personaId);
     if (personaId === BOT_SOUL_ID || personaId === OWNER_SOUL_ID || existingDoc) {
-      await ctx.agentOrchestrator.getSoul().saveDocument(personaId, body.content);
+      try { await ctx.agentOrchestrator.getSoul().saveDocument(personaId, body.content, body.revision); }
+      catch(e) { json(res,{error:(e as Error).name==='ProfileConflict'?(e as Error).message:'The profile could not be saved. Reload and try again.'},(e as Error).name==='ProfileConflict'?409:500);return true; }
     } else {
       ctx.agentOrchestrator.saveAgentMarkdown(personaId, body.content);
     }
@@ -182,27 +186,21 @@ export async function handleMemoryRoutes(
 
     const resolved = await ctx.approvalStore.resolve(approvalId, response);
 
-    if (approval.requesterJid && ctx.agentOrchestrator) {
-      const source = approval.requesterJid.startsWith('telegram:') ? 'telegram' : 'whatsapp';
-      const sessionId = approval.requesterJid;
-      
-      const systemMessage = `[SYSTEM] The owner has responded to the pending approval request (ID: ${approvalId}). The owner's answer is: "${response}"\n\nCompose a natural, friendly reply to the visitor incorporating the owner's answer. Do NOT use send_message or any other tool — just write the reply text. It will be delivered automatically.`;
-      
-      ctx.agentOrchestrator.chat(sessionId, systemMessage, source).then(result => {
-        const reply = result.content || response;
-        if (source === 'telegram' && ctx.tgConnection) {
-          const chatId = Number(sessionId.replace('telegram:', ''));
-          ctx.tgConnection.sendMessage(chatId, reply);
-        } else if (source === 'whatsapp' && ctx.waConnection?.isConnected) {
-          const jid = sessionId.includes('@') ? sessionId : `${sessionId.replace(/\D/g, '')}@s.whatsapp.net`;
-          ctx.waConnection.sendMessage(jid, { text: reply });
+    let relayed = false;
+    let deliveryError: string | undefined;
+    if (ctx.coreDb && ctx.agentOrchestrator) {
+      const inbox = getConciergeStore(ctx.coreDb);
+      const thread = await inbox.get(approval.sessionId);
+      if (thread && !thread.paused && !thread.lastError && !replyAvailability(ctx, thread)) {
+        try {
+          const result = await ctx.agentOrchestrator.chat(`followup-approval-${approval.id}`, `Write only a visitor-facing reply to this question: ${approval.question}. The owner answered: ${response}. Do not call tools.`, 'web', thread.name, false);
+          relayed = await inbox.automatedReply(thread.id, thread.revision, result.content || response, () => sendVisitorReply(ctx, thread, result.content || response));
+        } catch {
+          deliveryError = 'The decision was saved, but reply delivery could not be confirmed. Review the conversation.';
         }
-      }).catch(err => {
-        console.error(`[Approvals] Follow-up failed for ${sessionId}:`, err.message);
-      });
+      }
     }
-
-    json(res, { approval: resolved, relayed: true });
+    json(res, { approval: resolved, relayed, ...(deliveryError ? { error: deliveryError } : {}) });
     return true;
   }
 

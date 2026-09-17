@@ -19,18 +19,19 @@ import {
   ExternalLink,
   Code,
   Palette,
-  Key,
-  Server,
   BotMessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { RelaySlugField, type SlugState } from "@/components/relay-slug-field";
+import { StandardPage } from "@/components/workspace-frame";
 
 interface ChatConfig {
   autoReplyWebchat: boolean;
   webchatEnabled: boolean;
   webchatToken: string;
   webchatRelayUrl: string;
+  webchatRelaySlug: string;
   webchatBotSecret: string;
   webchatOwnerKey: string;
   webchatWidgetTitle: string;
@@ -49,12 +50,16 @@ export default function WebchatPage() {
   const [config, setConfig] = useState<ChatConfig | null>(null);
   const [connStatus, setConnStatus] = useState<WebchatStatus | null>(null);
   const [saving, setSaving] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [relaySlug, setRelaySlug] = useState("");
+  const [slugState, setSlugState] = useState<SlugState>("idle");
 
   const loadConfig = useCallback(async () => {
     try {
       const data = await api<ChatConfig>("/api/chat/config");
       setConfig(data);
+      setRelaySlug(data.webchatRelaySlug || "");
     } catch { /* ignore */ }
   }, []);
 
@@ -79,11 +84,34 @@ export default function WebchatPage() {
     setSaving(true);
     try {
       await api("/api/chat/config", { method: "PUT", body: config });
-      toast.success("Web Chat settings saved. Restart YOUBOT for relay changes to take effect.");
+      if (config.webchatRelayUrl) {
+        await api("/api/channels/webchat/relay", { method: "POST" });
+        await fetchStatus();
+      }
+      toast.success("Website chat settings saved.");
     } catch {
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const createFreeRelay = async () => {
+    if (slugState !== "available" || !relaySlug) return;
+    setProvisioning(true);
+    try {
+      const result = await api<{ relayUrl: string }>("/api/channels/webchat/relay", {
+        method: "POST",
+        body: { requestedSlug: relaySlug },
+      });
+      await loadConfig();
+      await fetchStatus();
+      toast.success("Your free relay link is ready.");
+      if (result.relayUrl) await navigator.clipboard.writeText(result.relayUrl).catch(() => {});
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Free relay could not be created");
+    } finally {
+      setProvisioning(false);
     }
   };
 
@@ -102,8 +130,6 @@ export default function WebchatPage() {
   };
 
   const relayUrl = config?.webchatRelayUrl || "";
-  const ownerKey = config?.webchatOwnerKey || "";
-  const ownerUrl = relayUrl && ownerKey ? `${relayUrl}/k/${ownerKey}` : "";
   const embedSnippet = relayUrl
     ? `<script src="${relayUrl}/widget.js"\n        data-server="${relayUrl}"></script>`
     : "";
@@ -118,17 +144,7 @@ export default function WebchatPage() {
       : "bg-muted-foreground";
 
   return (
-    <div className="p-6 pb-12 space-y-6 flex-1">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b pb-6 mb-6">
-        <Globe className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Web Chat</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Embed a chat widget on any website — messages flow through a cloud relay
-          </p>
-        </div>
-      </div>
+    <StandardPage title="Website chat" description="Share your concierge with a link or add it to your website.">
 
       {/* Connection Status */}
       <Card>
@@ -140,7 +156,7 @@ export default function WebchatPage() {
               ) : (
                 <WifiOff className="h-5 w-5 text-muted-foreground" />
               )}
-              Connection Status
+              Your relay link
             </span>
             <Badge variant="outline" className="gap-1.5">
               <span className={`h-2 w-2 rounded-full ${statusColor}`} />
@@ -149,16 +165,14 @@ export default function WebchatPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isConnected && (
+          {relayUrl && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
               <Globe className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
               <div>
                 <p className="font-medium text-emerald-700 dark:text-emerald-300">
-                  Connected to Relay
+                  {isConnected ? "Ready to receive messages" : "Relay link created"}
                 </p>
-                <p className="text-sm text-muted-foreground font-mono">
-                  {connStatus?.relayUrl || relayUrl}
-                </p>
+                <p className="text-sm text-muted-foreground break-all">{relayUrl}</p>
               </div>
             </div>
           )}
@@ -169,38 +183,24 @@ export default function WebchatPage() {
             </div>
           )}
 
-          {!isConnected && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Relay URL</label>
-                <Input
-                  value={config?.webchatRelayUrl || ""}
-                  onChange={(e) => updateField("webchatRelayUrl", e.target.value)}
-                  placeholder="https://youbot-webchat-xxx.run.app"
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL of the deployed webchat relay server
-                </p>
+          {!config?.webchatRelaySlug && (
+            <div className="space-y-4 rounded-xl border bg-muted/20 p-5">
+              <div>
+                <p className="text-sm font-medium">Choose your free relay address</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">This is the link you can share with visitors. Your computer must be running for the concierge to reply.</p>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Bot Secret</label>
-                <Input
-                  type="password"
-                  value={config?.webchatBotSecret || ""}
-                  onChange={(e) => updateField("webchatBotSecret", e.target.value)}
-                  placeholder="your-secret-key"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Must match the BOT_SECRET on the relay
-                </p>
-              </div>
+              <RelaySlugField value={relaySlug} onChange={setRelaySlug} onStateChange={setSlugState} disabled={provisioning} />
+              <Button onClick={createFreeRelay} disabled={provisioning || slugState !== "available"}>
+                {provisioning ? <RefreshCw className="size-4 animate-spin" /> : <Globe className="size-4" />}
+                {provisioning ? "Creating address…" : relayUrl ? "Use this address" : "Create relay address"}
+              </Button>
             </div>
           )}
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Enable Web Chat</Label>
-              <p className="text-xs text-muted-foreground">Allow visitors to chat with your bot</p>
+              <Label>Website chat</Label>
+              <p className="text-xs text-muted-foreground">Allow visitors to message your concierge.</p>
             </div>
             <Switch
               checked={config?.webchatEnabled ?? true}
@@ -215,15 +215,15 @@ export default function WebchatPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <BotMessageSquare className="h-5 w-5" />
-            Auto-Reply
+            Concierge replies
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="wc-auto-reply">Webchat Auto-Reply</Label>
+              <Label htmlFor="wc-auto-reply">Reply automatically</Label>
               <p className="text-xs text-muted-foreground">
-                Automatically respond to incoming webchat messages
+                Let your concierge respond to new website messages.
               </p>
             </div>
             <Switch
@@ -232,50 +232,6 @@ export default function WebchatPage() {
               onCheckedChange={(v) => updateField("autoReplyWebchat", v)}
             />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Owner Key */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Key className="h-5 w-5" />
-            Owner Key
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Input
-              type="password"
-              value={config?.webchatOwnerKey || ""}
-              onChange={(e) => updateField("webchatOwnerKey", e.target.value)}
-              placeholder="your-owner-secret"
-              className="flex-1"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => copyToClipboard(config?.webchatOwnerKey || "", "Owner Key")}
-            >
-              {copied === "Owner Key" ? <Check className="size-4" /> : <Copy className="size-4" />}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Access the chat via <code className="text-xs bg-muted px-1 rounded">{relayUrl || "relay"}?key=YOUR_KEY</code> to be recognized as the owner.
-          </p>
-          {ownerUrl && (
-            <div className="flex items-center gap-2">
-              <Input readOnly value={ownerUrl} className="font-mono text-xs flex-1" />
-              <Button variant="outline" size="icon" onClick={() => copyToClipboard(ownerUrl, "Owner link")}>
-                {copied === "Owner link" ? <Check className="size-4" /> : <Copy className="size-4" />}
-              </Button>
-              <Button variant="outline" size="icon" asChild>
-                <a href={ownerUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="size-4" />
-                </a>
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -293,7 +249,7 @@ export default function WebchatPage() {
             <Input
               value={config?.webchatWidgetTitle || ""}
               onChange={(e) => updateField("webchatWidgetTitle", e.target.value)}
-              placeholder="Chat with us"
+              placeholder="Connect with us"
             />
           </div>
 
@@ -387,6 +343,6 @@ export default function WebchatPage() {
         {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
         {saving ? "Saving..." : "Save Settings"}
       </Button>
-    </div>
+    </StandardPage>
   );
 }

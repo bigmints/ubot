@@ -3,9 +3,9 @@
 </p>
 
 <h1 align="center">Youbot</h1>
-<p align="center"><strong>Your Personal AI Operating System</strong></p>
+<p align="center"><strong>Your AI concierge for visitors</strong></p>
 <p align="center">
-  Open-source, self-hosted AI assistant that connects to your messaging apps, tools, and services.<br/>
+  Open-source, self-hosted concierge that helps visitors on behalf of you or your organization.<br/>
   Runs locally. Privacy-first. Extensible via MCP.
 </p>
 
@@ -17,11 +17,24 @@
 
 ---
 
+## Start here
+
+Want to use Youbot without learning terminal commands? Open [START HERE.md](START%20HERE.md). It walks through the Mac and Windows launchers, your first AI connection, and troubleshooting.
+
+- **Self-hosted:** free software; you manage your computer and AI account.
+- **Version 1:** self-hosted on Mac and Windows. Paid managed hosting is planned for phase two and is not part of this release.
+
+The instructions below are for developers and existing installations.
+
 ## What is Youbot?
 
-Youbot is a **self-hosted AI assistant** that acts as your personal operating system for digital life. Connect it to WhatsApp, Telegram, iMessage, Gmail, and more — then control everything through natural conversation. It browses the web, sends messages, manages files, schedules tasks, and replies to people on your behalf.
+Youbot is a **self-hosted AI concierge** that helps visitors using the information and boundaries its owner supplies. The owner configures the concierge, connects supported channels, follows visitor conversations, and takes over when a decision or personal reply is needed. Channel integrations and available actions depend on configuration and authorization.
 
-Unlike cloud-based assistants, Youbot runs **entirely on your machine**. Your data never leaves your computer.
+Youbot's server runs on your own computer. Connected messaging services and configured AI providers receive the information needed for the requests you send through them.
+
+### Planned: reusable collection engine
+
+The next proposed capability is a reusable headless collection engine with LLM-callable tools. Youbot will be its first integration: owners add catalogues or written information, review organized items through cards or schedules, and keep visitor answers current through conversational updates. Other projects can use the same package with their own model, authentication and interface. This is a documented implementation plan, not a released feature. Start with the [collections planning package](docs/collections/README.md) for the specification, architecture, assigned stories, and verification plan.
 
 ### Key Capabilities
 
@@ -137,6 +150,9 @@ youbot restart           # Stop + start
 youbot status            # Show PID, port, dashboard URL
 youbot logs              # Last 50 log lines
 youbot logs -f           # Follow logs in real-time
+youbot backup            # Create a verified private backup
+youbot backup-verify DIR # Verify hashes and SQLite integrity
+youbot restore DIR       # Offline, recoverable restore
 youbot config            # Show current config
 youbot config edit       # Open config in $EDITOR
 youbot config set k v    # Set a config value
@@ -144,6 +160,8 @@ youbot config get k      # Get a config value
 youbot doctor            # Health check
 youbot open              # Open dashboard in browser
 ```
+
+The supported production profile is one loopback-bound process on one trusted host with local SQLite storage. Read the [operations guide](youbot-core/docs/operations.md) before using real visitor data; it covers permissions, backups, restore drills, updates, monitoring, and the boundary for broader deployments.
 
 ---
 
@@ -160,7 +178,7 @@ youbot open              # Open dashboard in browser
 cd youbot-core && npx vitest
 
 # Build + deploy to runtime
-make install           # Builds, copies to ~/.youbot/, restarts
+make install           # Builds and copies to ~/.youbot/; restart separately
 ```
 
 > **Important**: `npm run build` only compiles to `youbot-core/dist/`. The runtime loads from `~/.youbot/lib/`. Always use `make install` to deploy changes.
