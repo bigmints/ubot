@@ -21,10 +21,10 @@ The public source omission discovered during the first live installer run has be
 ### Public source and installer
 
 - Public repository: `Bigmints-com/ubot`.
-- Public `master` readback: `48535b17e34c328060cb600dfa5084b06a88ab8a`.
+- Deployment-time public `master` readback: `983bc3307b2a9944d34bba675ec9a5c3d9610e67`.
 - `https://youbot.live/install.sh`: HTTP 200 with `text/x-shellscript`.
 - Live installer SHA-256: `6fea3c23c1bc2b544fc8275d6fcf2a530a42b3867a8211200372386b772fd9b7`.
-- A disposable macOS user home installed directly from the live URL and resolved the corrected public commit.
+- A disposable macOS user home installed directly from the live URL and, before the documentation-only follow-up commits, resolved corrected application commit `48535b17e34c328060cb600dfa5084b06a88ab8a`.
 - The installed CLI was configured on isolated port `19091`, started successfully, and returned:
 
   ```json
@@ -110,6 +110,7 @@ The verification directory was created from `git archive HEAD`, not from the wor
 5. Clean-device installation was executed on macOS. Linux is supported by the same script but still needs separate clean-device evidence; Windows uses the documented launcher rather than `install.sh`.
 6. The public service has health checks and Cloud Run logs, but centralized SLO ownership, paging, and incident automation remain operational follow-up work.
 7. GitHub dependency reporting may include development or historical default-branch findings that are outside the installed production dependency trees. The release gate uses the clean archive's `npm audit --omit=dev` results recorded above.
+8. Live Cloud Run behavior and revision traffic are verified, but the release record does not retain an immutable deployed image digest or source-to-image attestation.
 
 ## Gates for a broader profile
 
