@@ -1,0 +1,61 @@
+						id: sid,
+						agent_id: agentDef.id,
+						task: task.slice(0, 500),
+						status: "running",
+						start_time: new Date().toISOString(),
+					});
+			} catch (e: any) {
+				console.error(
+					"[Orchestrator] Failed to insert subagent session:",
+					e.message,
+				);
+			}
+		}
+
+		const result = null;
+
+		if (db) {
+			try {
+				await db
+					.get_client()
+					.from("youbot_spawned_sessions")
+					.update({
+						status: result.status === "completed" ? "completed" : "failed",
+						result: result.result || null,
+						error: result.error || null,
+						end_time: new Date().toISOString(),
+					})
+					.eq("id", sid);
+
+				// Ensure no lingering history chunks clog the main DB memory array
+				await db.get_client().from("youbot_sessions").delete().eq("id", sid);
+			} catch (e: any) {
+				console.error(
+					"[Orchestrator] Failed to update/cleanup subagent session:",
+					e.message,
+				);
+			}
+		}
+
+		if (result.status === "completed") {
+			return {
+				toolName: "delegate_to_agent",
+				success: true,
+				result: `Agent '${agentDef.name}' completed: ${result.result}`,
+				duration: 0,
+			};
+		} else {
+			return {
+				toolName: "delegate_to_agent",
+				success: false,
+				error: `Agent '${agentDef.name}' failed: ${result.error}`,
+				duration: 0,
+			};
+		}
+	});
+
+	toolRegistry.register("broadcast_message", async (args, context) => {
+		const topic = String(args.topic || "");
+		const payload = args.payload;
+		const targetAgentId = args.targetAgentId
+			? String(args.targetAgentId)

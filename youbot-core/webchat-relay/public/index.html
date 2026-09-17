@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="theme-color" content="#f7f8f5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Chat — powered by YOUBOT" />
+  <!-- manifest link set dynamically by script to include owner key for PWA -->
+  <link rel="icon" href="/icon-192.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon-192.svg" />
+  <title>Chat</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{color-scheme:light;--accent:#28594b;--accent-text:#fff;--bg:#f7f8f5;--surface:#fff;--surface2:#eef1eb;--border:#dfe5dc;--text:#24332c;--muted:#657169;--danger:#ad3535;--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:15px;-webkit-font-smoothing:antialiased}
+    button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed}button,input,textarea{-webkit-tap-highlight-color:transparent}
+    button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+    #app{display:flex;flex-direction:column;height:100dvh;width:100%;overflow:hidden;position:fixed;top:0;left:0}
+    .header{flex-shrink:0;display:flex;align-items:center;gap:12px;padding:calc(16px + var(--safe-top)) max(20px,calc((100% - 880px)/2)) 16px;border-bottom:1px solid var(--border);background:var(--surface);z-index:10}
+    .avatar{width:44px;height:44px;border-radius:16px;background:color-mix(in srgb,var(--accent) 12%,white);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:600;font-size:19px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 15%,white)}
+    .avatar img{width:100%;height:100%;object-fit:cover}
+    .identity{flex:1;min-width:0}.title{font-weight:600;font-size:15px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.subtitle{font-size:12px;color:var(--muted);margin-top:3px}
+    .header-actions{display:flex;gap:4px}.icon-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s}.icon-btn:disabled{opacity:.35;cursor:not-allowed}.icon-btn:hover{background:var(--surface2);color:var(--text)}.icon-btn svg{width:18px;height:18px}
+    .messages{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:28px max(20px,calc((100% - 800px)/2));display:flex;flex-direction:column;gap:20px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+    .welcome{margin:auto;max-width:500px;text-align:center;padding:32px 0 48px;flex-shrink:0}.welcome-mark{width:72px;height:72px;border-radius:24px;background:color-mix(in srgb,var(--accent) 10%,white);color:var(--accent);display:grid;place-items:center;margin:0 auto 28px;border:1px solid color-mix(in srgb,var(--accent) 15%,white)}.welcome-mark svg{width:32px;height:32px}.eyebrow{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}.welcome h1{font-size:clamp(28px,5vw,40px);font-weight:500;line-height:1.17;letter-spacing:-.045em;margin-bottom:16px}.welcome p{font-size:15px;line-height:1.7;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}.suggestions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:28px}.suggestion{border:1px solid var(--border);border-radius:24px;padding:12px 16px;background:var(--surface);font-size:13px;color:var(--text);min-height:44px;transition:background .15s, border-color .15s}.suggestion:hover{background:var(--surface2);border-color:var(--muted)}
+    .day-label{align-self:center;font-size:11px;font-weight:500;color:var(--muted);padding:2px 0 6px}.msg{max-width:88%;padding:14px 17px;border-radius:20px;font-size:15px;line-height:1.65;overflow-wrap:anywhere;flex-shrink:0}.msg-text{white-space:pre-wrap}.msg-user{align-self:flex-end;background:var(--accent);color:var(--accent-text);border-bottom-right-radius:6px}.msg-bot{align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:6px}.msg-time{font-size:10px;margin-top:8px;line-height:1.4;color:var(--muted)}.msg-user .msg-time{text-align:right;color:inherit;opacity:.8}
+    .msg-voice{display:flex;align-items:center;gap:10px;min-width:150px}.play-btn{width:44px;height:44px;border-radius:50%;border:0;background:color-mix(in srgb,var(--surface) 20%,transparent);color:inherit;display:grid;place-items:center;flex-shrink:0}.play-btn svg{width:18px;height:18px}.dur{font-size:12px}.waveform{flex:1;height:24px;display:flex;align-items:center;gap:2px}.waveform .bar{width:2px;background:currentColor;border-radius:1px;opacity:.65;min-height:3px}.msg-img{max-width:280px;margin-bottom:6px}.msg-img img{width:100%;border-radius:12px;display:block}
+    .typing{display:flex;gap:5px;padding:18px;align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:20px;flex-shrink:0}.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:bounce 1.4s ease-in-out infinite}.dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+    .composer-area{flex-shrink:0;padding:12px max(16px,calc((100% - 800px)/2)) calc(14px + var(--safe-bottom));background:var(--bg)}.input-row{padding:8px;display:flex;align-items:flex-end;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:0 4px 24px #233b2810;transition:border-color .15s}.input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 8%,transparent)}.input{flex:1;min-width:0;background:transparent;border:0;padding:11px 10px;color:var(--text);font-size:16px;line-height:24px;outline:none;resize:none;min-height:46px;max-height:142px}.input::placeholder{color:var(--muted)}.action-btn{width:44px;height:44px;border-radius:50%;border:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,opacity .15s}.action-btn svg{width:20px;height:20px}.send-btn{background:var(--accent);color:var(--accent-text)}.send-btn svg{fill:currentColor}.send-btn:hover{filter:brightness(.94)}.send-btn:disabled{opacity:.35}.mic-btn,.attach-btn{background:transparent;color:var(--muted)}.mic-btn:hover,.attach-btn:hover{background:var(--surface2);color:var(--text)}.mic-btn.recording{background:var(--danger);color:white;animation:pulse 1.5s infinite}@keyframes pulse{50%{opacity:.65}}#file-input{display:none}.composer-note{text-align:center;color:var(--muted);font-size:11px;margin-top:12px}.composer-note a{color:inherit;text-decoration:none;font-weight:600}.composer-note a:hover{text-decoration:underline}.feedback{font-size:13px;line-height:1.5;color:var(--danger);padding:0 8px 10px}.feedback:empty{display:none}
+    .rec-bar{display:none;align-items:center;gap:8px;padding:0 8px 10px;font-size:13px;color:var(--danger)}.rec-bar.show{display:flex}.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--danger);animation:pulse 1s infinite}.rec-time{flex:1;font-variant-numeric:tabular-nums}.rec-cancel{background:none;border:0;color:var(--muted);padding:10px;min-height:44px}
+    .install{display:none;flex-shrink:0;gap:12px;align-items:center;justify-content:center;padding:4px 16px;background:var(--surface2);font-size:12px;color:var(--muted)}.install.show{display:flex}.install-btn{background:none;color:var(--accent);border:0;font-size:12px;font-weight:600;min-height:44px;padding:8px}.install-x{background:none;border:0;color:var(--muted);width:44px;height:44px}
+    .overlay{display:none;position:fixed;inset:0;background:#17251c55;z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(6px);padding:20px}.overlay.show{display:flex}.dialog{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px;max-width:360px;width:100%;box-shadow:0 20px 80px #17251c20}.dialog h2{font-size:20px;font-weight:600;letter-spacing:-.025em;margin-bottom:12px}.dialog p{font-size:14px;line-height:1.6;color:var(--muted);margin-bottom:24px}.btns{display:flex;gap:8px}.dialog button{flex:1;padding:12px;border-radius:12px;border:0;font-size:14px;font-weight:500;min-height:44px}.cancel{background:var(--surface2);color:var(--text)}.danger{background:var(--danger);color:white}
+    .img-preview{display:none;position:fixed;inset:0;z-index:110;background:var(--bg);flex-direction:column}.img-preview.show{display:flex}.img-preview-header{display:flex;align-items:center;justify-content:space-between;padding:calc(12px + var(--safe-top)) 20px 12px;border-bottom:1px solid var(--border)}.img-preview-close{background:none;border:0;color:var(--muted);font-size:22px;width:44px;height:44px}.img-preview-body{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px;min-height:0}.img-preview-body img{max-width:100%;max-height:100%;object-fit:contain;border-radius:16px}.img-preview-footer{padding:16px max(16px,calc((100% - 800px)/2)) calc(16px + var(--safe-bottom));display:flex;gap:8px}.img-preview-footer input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px;color:var(--text);font-size:16px}
+    @media(min-width:768px){.msg{max-width:78%}.messages{padding-top:36px;padding-bottom:28px}.header{padding-top:calc(20px + var(--safe-top));padding-bottom:20px}.title{font-size:16px}.composer-area{padding-top:16px;padding-bottom:calc(22px + var(--safe-bottom))}}
+    @media(max-width:380px){.header{padding-left:16px;padding-right:16px}.messages{padding-left:16px;padding-right:16px}.welcome h1{font-size:28px}.suggestions{gap:6px}.suggestion{font-size:12px;padding:10px 12px}.composer-area{padding-left:10px;padding-right:10px}.input-row{gap:0}.input{padding-left:8px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+  </style>
+  <script src="/telemetry.js" data-youbot-telemetry="relay_ui" defer></script>
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="avatar" id="avatar"><span id="avatar-letter">U</span></div>
+      <div class="identity"><div class="title" id="title">Chat</div><div class="subtitle">Your AI concierge</div></div>
+      <div class="header-actions">
+        <button class="icon-btn" id="clear-btn" data-telemetry="clear_open" aria-label="Clear conversation" title="Clear chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="install" id="install-banner">
+      <span>Keep this chat a tap away</span>
+      <button class="install-btn" id="install-btn" data-telemetry="install">Install</button>
+      <button class="install-x" id="install-x" data-telemetry="install_dismiss" aria-label="Dismiss install suggestion">✕</button>
+    </div>
+
+    <main class="messages" id="messages" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions" tabindex="0"></main>
+    <div class="composer-area">
+      <div class="feedback" id="feedback" role="status"></div>
+    <div class="rec-bar" id="rec-bar">
+      <div class="rec-dot"></div>
+      <span class="rec-time" id="rec-time">0:00</span>
+      <button class="rec-cancel" id="rec-cancel">Cancel</button>
+    </div>
+
+    <div class="input-row" id="input-row">
+      <button class="action-btn attach-btn" id="attach-btn" data-telemetry="attach_image" aria-label="Attach image" title="Send image" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </button>
+      <input type="file" id="file-input" accept="image/*" />
+      <textarea class="input" id="input" rows="1" placeholder="Write a message…" aria-label="Message" autocomplete="off"></textarea>
+      <button class="action-btn mic-btn" id="mic-btn" data-telemetry="voice_message" aria-label="Record voice message" title="Voice message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button class="action-btn send-btn" id="send-btn" data-telemetry="send_message" aria-label="Send message">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+      <p class="composer-note">Powered by <a href="/" target="_blank" rel="noopener">Youbot</a></p>
+    </div>
+  </div>
+
+  <div class="overlay" id="confirm-overlay">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="clear-title" aria-describedby="clear-description">
+      <h2 id="clear-title">Clear this conversation?</h2>
+      <p id="clear-description">This removes the chat history from this device. It can’t be undone.</p>
+      <div class="btns">
+        <button class="cancel" id="confirm-cancel" data-telemetry="clear_cancel">Cancel</button>
+        <button class="danger" id="confirm-clear" data-telemetry="clear_confirm">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="img-preview" id="img-preview" role="dialog" aria-modal="true" aria-label="Send image">
+    <div class="img-preview-header">
+      <span>Send Image</span>
+      <button class="img-preview-close" id="img-preview-close" aria-label="Close image preview">✕</button>
+    </div>
+    <div class="img-preview-body">
+      <img id="img-preview-img" src="" alt="Preview" />
+    </div>
+    <div class="img-preview-footer">
+      <input id="img-preview-caption" aria-label="Image caption" placeholder="Add a caption..." autocomplete="off" />
+      <button class="action-btn send-btn" id="img-preview-send" aria-label="Send image">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const TENANT_ID = location.pathname.split('/').filter(Boolean)[0] || '';
+    const BASE = location.origin + '/' + encodeURIComponent(TENANT_ID);
+    const SK_SESSION = 'youbot_wc_sid_' + TENANT_ID;
+    const SK_HISTORY = 'youbot_wc_hist_' + TENANT_ID;
+    const SK_OWNER   = 'youbot_wc_key_' + TENANT_ID;  // Persist owner key for PWA
+
+    // ── Owner key: path /k/SECRET > ?key=SECRET > localStorage ──
+    // iOS strips query params on Add to Home Screen, but preserves paths.
+    // So the primary method is path-based: /k/boss123
+    const pathMatch = location.pathname.match(/^\/[^/]+\/k\/(.+)/);
+    const params = new URLSearchParams(location.search);
+    let OWNER_KEY = '';
+    if (pathMatch) {
+      OWNER_KEY = decodeURIComponent(pathMatch[1]);
+    } else if (params.get('key')) {
+      OWNER_KEY = params.get('key');
+    }
+    if (OWNER_KEY) {
+      try { localStorage.setItem(SK_OWNER, OWNER_KEY); } catch {}
+    } else {
+      try { OWNER_KEY = localStorage.getItem(SK_OWNER) || ''; } catch {}
+    }
+    const IS_ADMIN = !!OWNER_KEY;
+
+    // ── Dynamic manifest with owner key baked into start_url ──
+    {
+      const manifestUrl = OWNER_KEY
+        ? BASE + '/manifest.json?key=' + encodeURIComponent(OWNER_KEY)
+        : BASE + '/manifest.json';
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+    }
+
+    // Show attach button for admins
+    if (IS_ADMIN) document.getElementById('attach-btn').style.display = '';
+
+    let messages = [], loading = false;
+    let cfg = { title: 'Chat', color: '#28594b', welcomeMessage: '', avatarUrl: '' };
+
+    // Session
+    let sid = '';
+    try { sid = localStorage.getItem(SK_SESSION) || ''; } catch {}
+    if (!sid) { sid = 'wc_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); try { localStorage.setItem(SK_SESSION, sid); } catch {} }
+
+    // Load history
+    try { const s = localStorage.getItem(SK_HISTORY); if (s) { const saved = JSON.parse(s); if (Array.isArray(saved)) messages = saved.filter(m => m && ['u', 'b'].includes(m.r) && Number.isFinite(m.ts)).slice(-300); } } catch {}
+    function saveHist() { try { localStorage.setItem(SK_HISTORY, JSON.stringify(messages.slice(-300))); } catch {} }
+
+    // Owner replies can arrive after the visitor's original request has finished.
+    const SK_RECEIVED = SK_HISTORY + '_received';
+    let receivedReplies = [];
+    try { const saved = JSON.parse(localStorage.getItem(SK_RECEIVED) || '[]'); if (Array.isArray(saved)) receivedReplies = saved.slice(-300); } catch {}
+    let checkingReplies = false;
+    async function receiveReplies() {
+      if (checkingReplies || document.hidden) return;
+      checkingReplies = true;
+      try {
+        const response = await fetch(BASE + '/api/history?session=' + encodeURIComponent(sid), { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        let changed = false;
+        for (const event of data.messages || []) {
+          if (event.delivery !== 'session' || !event.id || receivedReplies.includes(event.id)) continue;
+          receivedReplies.push(event.id);
+          if (!messages.some(message => message.id === event.id)) {
+            messages.push({ id: event.id, r: 'b', t: event.content, ts: new Date(event.timestamp).getTime() });
+            changed = true;
+          }
+        }
+        receivedReplies = receivedReplies.slice(-300);
+        try { localStorage.setItem(SK_RECEIVED, JSON.stringify(receivedReplies)); } catch {}
+        if (changed) { saveHist(); render(); }
+      } catch { /* Keep the conversation and draft intact while offline. */ }
+      finally { checkingReplies = false; }
+    }
+    setInterval(receiveReplies, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) receiveReplies(); });
+    window.addEventListener('online', receiveReplies);
+    // Run after the page has initialized its composer and renderer.
+    setTimeout(receiveReplies, 0);
+
+    function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+    function fmtTime(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    function fmtDur(s) { const m = Math.floor(s / 60); return m + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
+
+    function renderVoice(m) {
+      const bars = Array.from({ length: 20 }, (_, i) => `<div class="bar" style="height:${4 + ((i * 7 + 3) % 18)}px"></div>`).join('');
+      return `<div class="msg-voice">
+        <button class="play-btn" aria-label="Play voice message" data-audio="${esc(m.audio)}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+        <div class="waveform">${bars}</div>
+        <span class="dur">${fmtDur(m.dur || 0)}</span>
+      </div>`;
+    }
+
+    function render() {
+      const el = document.getElementById('messages');
+      let h = '';
+      if (!messages.length) h = `<section class="welcome"><div class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 15a10 10 0 0 1-10 10h-4l-6 3 1-7a10 10 0 1 1 19-6Z"/><path d="M11 14h10M11 18h6"/></svg></div><div class="eyebrow">A conversation starts here</div><h1>What’s on your mind?</h1><p>${esc(cfg.welcomeMessage || 'Ask a question or tell me what you need. I’m here to help.')}</p><div class="suggestions"><button class="suggestion" data-prompt="What can you help me with?">What can you help with? ↗</button><button class="suggestion" data-prompt="I have a question.">I have a question ↗</button></div></section>`;
+      let lastDay = '';
+      for (const m of messages) {
+        const day = new Date(m.ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        if (day !== lastDay) { h += '<div class="day-label">' + esc(day) + '</div>'; lastDay = day; }
+        const cls = m.r === 'u' ? 'msg-user' : 'msg-bot';
+        let content = '';
+        if (m.audio) content = renderVoice(m);
+        else if (m.img) {
+          content = '<div class="msg-img"><img src="' + esc(m.img) + '" alt="Attached image" /></div>';
+          if (m.t) content += '<div class="msg-text" style="margin-top:6px">' + esc(m.t) + '</div>';
+        } else content = '<div class="msg-text">' + esc(m.t) + '</div>';
+        h += '<div class="msg ' + cls + '">' + content + '<div class="msg-time">' + (m.failed ? 'Delivery not confirmed' : fmtTime(m.ts)) + '</div></div>';
+      }
+      if (loading) h += '<div class="typing" role="status" aria-label="Waiting for a reply"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+      // Retain unchanged transcript nodes so the live log announces only new content.
+      const template = document.createElement('template');
+      template.innerHTML = h;
+      const nextChildren = Array.from(template.content.children);
+      nextChildren.forEach((next, index) => {
+        const current = el.children[index];
+        if (!current) el.appendChild(next);
+        else if (!current.isEqualNode(next)) current.replaceWith(next);
+      });
+      while (el.children.length > nextChildren.length) el.lastElementChild.remove();
+      updateComposer();
+      requestAnimationFrame(() => el.scrollTop = el.scrollHeight);
+    }
+
+    let playingAudio = null, playingButton = null;
+    function stopPlayback() {
+      if (playingAudio) playingAudio.pause();
+      if (playingButton) { playingButton.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; playingButton.setAttribute('aria-label', 'Play voice message'); }
+      playingAudio = null; playingButton = null;
+    }
+    window.playAudio = function(dataUrl, btn) {
+      const wasPlaying = playingButton === btn;
+      stopPlayback(); if (wasPlaying) return;
+      const audio = new Audio(dataUrl); playingAudio = audio; playingButton = btn;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+      btn.setAttribute('aria-label', 'Pause voice message');
+      audio.onended = stopPlayback;
+      audio.play().catch(() => { stopPlayback(); document.getElementById('feedback').textContent = 'This recording could not be played. Please try again.'; });
+    };
+
+    async function loadConfig() {
+      try {
+        const r = await fetch(BASE + '/api/config'); if (!r.ok) return;
+        const d = await r.json();
+        cfg.title = d.title || cfg.title; cfg.color = d.color || cfg.color;
+        cfg.welcomeMessage = d.welcomeMessage || ''; cfg.avatarUrl = d.avatarUrl || '';
+        document.getElementById('title').textContent = cfg.title;
+        setAccent(cfg.color);
+        document.title = cfg.title + ' · Youbot';
+        const av = document.getElementById('avatar');
+        av.textContent = cfg.title.charAt(0).toUpperCase();
+        if (cfg.avatarUrl) {
+          const img = document.createElement('img'); img.alt = ''; img.src = cfg.avatarUrl;
+          img.onerror = () => { av.textContent = cfg.title.charAt(0).toUpperCase(); };
+          av.replaceChildren(img);
+        }
+        render();
+      } catch {}
+    }
+
+    async function sendMessage(text, audio, audioB64, audioDur, imageB64) {
+      if (loading) return;
+      const mediaKind = audio ? 'voice' : imageB64 ? (text ? 'image_with_text' : 'image') : 'text';
+      window.youbotTelemetry?.event('relay_message', { outcome: 'accepted', media_kind: mediaKind });
+      document.getElementById('feedback').textContent = '';
+      const now = Date.now();
+      stopPlayback();
+      if (audio) messages.push({ r: 'u', t: '', audio: audioB64, dur: audioDur, ts: now });
+      else if (imageB64) messages.push({ r: 'u', t: text, img: imageB64, ts: now });
+      else messages.push({ r: 'u', t: text, ts: now });
+      const submitted = messages[messages.length - 1];
+      saveHist(); loading = true; render();
+      try {
+        const body = { session: sid, message: text || '' };
+        if (OWNER_KEY) body.ownerKey = OWNER_KEY;
+        if (audioB64) body.audio = audioB64;
+        if (imageB64) body.image = imageB64;
+        const r = await fetch(BASE + '/api/message', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d.response) messages.push({ r: 'b', t: d.response, ts: Date.now() });
+          window.youbotTelemetry?.event('relay_message', { outcome: d.timeout ? 'timeout' : 'replied', media_kind: mediaKind });
+        }
+        else throw new Error('Request failed');
+      } catch {
+        window.youbotTelemetry?.event('relay_message', { outcome: 'client_error', media_kind: mediaKind });
+        submitted.failed = true;
+        document.getElementById('feedback').textContent = 'We couldn’t confirm delivery. Check your connection before trying again.';
+        if (!audio && !imageB64 && !document.getElementById('input').value) { document.getElementById('input').value = text; resizeInput(); }
+      }
+      loading = false; saveHist(); render();
+    }
+
+    // ── Text send ──
+    document.getElementById('send-btn').addEventListener('click', () => {
+      const inp = document.getElementById('input');
+      const t = inp.value.trim();
+      if (!t || loading || recording || processingVoice) return;
+      inp.value = '';
+      resizeInput();
+      sendMessage(t);
+    });
+    document.getElementById('input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); document.getElementById('send-btn').click(); }
+    });
+
+    function setAccent(color) {
+      if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+      const rgb = color.slice(1).match(/../g).map(v => parseInt(v, 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+      const luminance = .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
+      document.documentElement.style.setProperty('--accent', color);
+      document.documentElement.style.setProperty('--accent-text', luminance > .179 ? '#000000' : '#ffffff');
+    }
+    function updateComposer() {
+      const busy = loading || processingVoice;
+      document.getElementById('send-btn').disabled = busy || recording || !document.getElementById('input').value.trim();
+      document.getElementById('mic-btn').disabled = busy;
+      document.getElementById('attach-btn').disabled = busy || recording;
+      document.getElementById('clear-btn').disabled = busy || recording || !messages.length;
+      document.getElementById('img-preview-send').disabled = busy || recording;
+    }
+    function resizeInput() {
+      const input = document.getElementById('input');
+      input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 142) + 'px';
+      updateComposer();
+    }
+    document.getElementById('input').addEventListener('input', resizeInput);
+    document.getElementById('messages').addEventListener('click', event => {
+      const audioButton = event.target.closest('[data-audio]');
+      if (audioButton) { playAudio(audioButton.dataset.audio, audioButton); return; }
+      const suggestion = event.target.closest('[data-prompt]');
+      if (!suggestion) return;
+      document.getElementById('input').value = suggestion.dataset.prompt;
+      resizeInput(); document.getElementById('input').focus();
+    });
+
+    // Voice controls use the browser's supported format and never send cancelled audio.
+    let mediaRec = null, audioChunks = [], recStart = 0, recTimer = null;
+    let recording = false, recordingCancelled = false, requestingMic = false, processingVoice = false;
+    document.getElementById('mic-btn').addEventListener('click', async () => {
+      if (loading || processingVoice || requestingMic) return;
+      if (mediaRec && mediaRec.state === 'recording') { mediaRec.stop(); return; }
+      let stream;
+      try {
+        requestingMic = true;
+        document.getElementById('feedback').textContent = '';
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') throw new Error('unsupported');
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (loading) { stream.getTracks().forEach(t => t.stop()); return; }
+        const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find(type => MediaRecorder.isTypeSupported(type));
+        mediaRec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        audioChunks = []; recordingCancelled = false;
+        mediaRec.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRec.onstop = () => {
+          stream.getTracks().forEach(t => t.stop()); clearInterval(recTimer);
+          recording = false;
+          processingVoice = !recordingCancelled && audioChunks.length > 0;
+          document.getElementById('rec-bar').classList.remove('show');
+          document.getElementById('mic-btn').classList.remove('recording');
+          document.getElementById('mic-btn').setAttribute('aria-label', 'Record voice message');
+          document.getElementById('mic-btn').title = 'Voice message';
+          updateComposer();
+          if (recordingCancelled || !audioChunks.length) return;
+          const blob = new Blob(audioChunks, { type: mediaRec.mimeType || 'audio/webm' });
+          const dur = (Date.now() - recStart) / 1000;
+          const reader = new FileReader();
+          document.getElementById('feedback').textContent = 'Preparing voice message…';
+          reader.onload = () => {
+            processingVoice = false;
+            sendMessage('[Voice message]', true, reader.result, dur);
+          };
+          reader.onerror = () => {
+            processingVoice = false; updateComposer();
+            document.getElementById('feedback').textContent = 'Couldn’t prepare this recording. Please record it again or type a message.';
+          };
+          reader.readAsDataURL(blob);
+        };
+        mediaRec.start(); recStart = Date.now(); recording = true;
+        stopPlayback(); updateComposer();
+        document.getElementById('mic-btn').classList.add('recording');
+        document.getElementById('mic-btn').setAttribute('aria-label', 'Stop recording and send');
+        document.getElementById('mic-btn').title = 'Stop recording and send';
+        document.getElementById('rec-bar').classList.add('show');
+        updateRecTime(); recTimer = setInterval(updateRecTime, 1000);
+      } catch {
+        stream?.getTracks().forEach(t => t.stop());
+        document.getElementById('feedback').textContent = 'Microphone unavailable. Allow microphone access in your browser, or type a message.';
+      } finally { requestingMic = false; }
+    });
+    function updateRecTime() { document.getElementById('rec-time').textContent = 'Recording · ' + fmtDur(Math.floor((Date.now() - recStart) / 1000)) + ' · Tap mic to send'; }
+    document.getElementById('rec-cancel').addEventListener('click', () => {
+      if (mediaRec?.state === 'recording') { recordingCancelled = true; mediaRec.stop(); }
+    });
+
+    // ── Image upload (admin only) ──
+    let pendingImageB64 = null;
+    document.getElementById('attach-btn')?.addEventListener('click', () => document.getElementById('file-input').click());
+    document.getElementById('file-input').addEventListener('change', e => {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        pendingImageB64 = reader.result;
+        document.getElementById('img-preview-img').src = pendingImageB64;
+        document.getElementById('img-preview-caption').value = '';
+        openModal('img-preview', 'img-preview-caption');
+        setTimeout(() => document.getElementById('img-preview-caption').focus(), 100);
+      };
+      reader.readAsDataURL(file); e.target.value = '';
+    });
+    document.getElementById('img-preview-close').addEventListener('click', () => {
+      closeModal('img-preview');
+      pendingImageB64 = null;
+    });
+    document.getElementById('img-preview-send').addEventListener('click', () => {
+      if (!pendingImageB64) return;
+      const caption = document.getElementById('img-preview-caption').value.trim();
+      sendMessage(caption, false, null, 0, pendingImageB64);
+      closeModal('img-preview');
+      pendingImageB64 = null;
+    });
+    document.getElementById('img-preview-caption').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); document.getElementById('img-preview-send').click(); }
+    });
+
+    // Modal focus stays inside the dialog and returns to its trigger on dismissal.
+    let modalTrigger = null;
+    function openModal(id, focusId) {
+      modalTrigger = document.activeElement;
+      document.getElementById(id).classList.add('show');
+      document.getElementById('app').inert = true;
+      document.getElementById(focusId).focus();
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+      document.getElementById('app').inert = false;
+      if (modalTrigger && !modalTrigger.disabled) modalTrigger.focus();
+      else document.getElementById('input').focus();
+    }
+    document.addEventListener('keydown', event => {
+      const modal = document.querySelector('.overlay.show, .img-preview.show');
+      if (!modal) return;
+      if (event.key === 'Escape') { event.preventDefault(); closeModal(modal.id); return; }
+      if (event.key !== 'Tab') return;
+      const controls = Array.from(modal.querySelectorAll('button:not(:disabled), input'));
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+    document.getElementById('clear-btn').addEventListener('click', () => openModal('confirm-overlay', 'confirm-cancel'));
+    document.getElementById('confirm-cancel').addEventListener('click', () => closeModal('confirm-overlay'));
+    document.getElementById('confirm-clear').addEventListener('click', () => {
+      stopPlayback(); messages = [];
+      try { localStorage.removeItem(SK_HISTORY); } catch {}
+      document.getElementById('feedback').textContent = '';
+      render(); closeModal('confirm-overlay');
+    });
+
+    // ── PWA ──
+    let dp = null;
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); dp = e; document.getElementById('install-banner').classList.add('show'); });
+    document.getElementById('install-btn')?.addEventListener('click', async () => { if (dp) { dp.prompt(); await dp.userChoice; dp = null; } document.getElementById('install-banner').classList.remove('show'); });
+    document.getElementById('install-x')?.addEventListener('click', () => document.getElementById('install-banner').classList.remove('show'));
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+    // ── Keyboard handling (mobile) ──
+    // Resize #app to visualViewport height so flexbox naturally adjusts
+    const appEl = document.getElementById('app');
+    const inputRow = document.getElementById('input-row');
+
+    function syncAppHeight() {
+      const vv = window.visualViewport;
+      if (!vv || vv.scale !== 1) return;
+      const h = vv.height;
+      appEl.style.height = h + 'px';
+      // On iOS, visualViewport.offsetTop tells us how much the page was scrolled
+      appEl.style.top = vv.offsetTop + 'px';
+
+      const kbOpen = window.innerHeight - h > 100;
+      inputRow.parentElement.style.paddingBottom = kbOpen ? '10px' : '';
+      inputRow.parentElement.querySelector('.composer-note').hidden = kbOpen;
+
+      // Scroll messages to bottom
+      requestAnimationFrame(() => {
+        const el = document.getElementById('messages');
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', syncAppHeight);
+      window.visualViewport.addEventListener('scroll', syncAppHeight);
+      syncAppHeight(); // initial
+    }
+
+    document.getElementById('input').addEventListener('focus', () => {
+      setTimeout(syncAppHeight, 300);
+    });
+
+    loadConfig();
+    render();
+  </script>
+</body>
+</html>

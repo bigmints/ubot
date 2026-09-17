@@ -1,4 +1,4 @@
-Update the system prompt in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/types.ts (DEFAULT_AGENT_CONFIG.systemPrompt).
+Update the system prompt in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/types.ts (DEFAULT_AGENT_CONFIG.systemPrompt).
 
 ## Location
 Find the system prompt string in the DEFAULT_AGENT_CONFIG object. Look for the section that starts with:

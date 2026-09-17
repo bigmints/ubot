@@ -1,8 +1,8 @@
 Update the ask_owner tool implementation to automatically schedule a follow-up when ask_owner is called.
 
 ## Files to modify
-1. /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/automation/approvals/service.ts
-2. /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/automation/approvals/tools.ts (if tools are defined there)
+1. /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/automation/approvals/service.ts
+2. /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/automation/approvals/tools.ts (if tools are defined there)
 
 ## Current Problem
 When the LLM calls `ask_owner`, the approval is created and stored, but there is no automatic follow-up scheduled. If the owner doesn't respond for hours or days, the conversation hangs forever with no reminder to check back.

@@ -1,0 +1,253 @@
+{
+  "$schema": "#",
+  "_comment": "Default YOUBOT sidebar nav. items = nav item library. layouts = structure per deployment mode.",
+  "items": {
+    "dashboard": {
+      "title": "Dashboard",
+      "href": "/",
+      "icon": "LayoutDashboard"
+    },
+    "personas": {
+      "title": "Personas",
+      "href": "/personas",
+      "icon": "Brain"
+    },
+    "skills": {
+      "title": "Skills",
+      "href": "/skills",
+      "icon": "Puzzle",
+      "feature": "skills"
+    },
+    "safetyRules": {
+      "title": "Safety Rules",
+      "href": "/safety",
+      "icon": "ShieldAlert",
+      "feature": "safety"
+    },
+    "vault": {
+      "title": "Vault",
+      "href": "/vault",
+      "icon": "Lock",
+      "feature": "vault"
+    },
+    "scheduler": {
+      "title": "Scheduler",
+      "href": "/scheduler",
+      "icon": "Clock",
+      "feature": "scheduler"
+    },
+    "whatsapp": {
+      "title": "WhatsApp",
+      "href": "/whatsapp",
+      "icon": "MessageCircle",
+      "feature": "whatsapp"
+    },
+    "telegram": {
+      "title": "Telegram",
+      "href": "/telegram",
+      "icon": "Send",
+      "feature": "telegram"
+    },
+    "webchat": {
+      "title": "Web Chat",
+      "href": "/webchat",
+      "icon": "Globe",
+      "feature": "webchat"
+    },
+    "models": {
+      "title": "Models",
+      "href": "/llms",
+      "icon": "Bot"
+    },
+    "filesystem": {
+      "title": "Filesystem",
+      "href": "/filesystem",
+      "icon": "FolderOpen",
+      "feature": "filesystem"
+    },
+    "googleApps": {
+      "title": "Google Apps",
+      "href": "/google",
+      "icon": "Calendar",
+      "feature": "google"
+    },
+    "appleServices": {
+      "title": "Apple Services",
+      "href": "/apple",
+      "icon": "Apple",
+      "feature": "appleServices"
+    },
+    "mcpServers": {
+      "title": "MCP Servers",
+      "href": "/mcp-servers",
+      "icon": "Plug",
+      "feature": "mcp"
+    },
+    "logs": {
+      "title": "Logs",
+      "href": "/logs",
+      "icon": "ScrollText"
+    },
+    "toolsHealth": {
+      "title": "Tools Health",
+      "href": "/tools",
+      "icon": "Activity"
+    }
+  },
+  "layouts": {
+    "local": {
+      "description": "Full self-hosted layout with all capabilities",
+      "branding": {
+        "name": "YOUBOT",
+        "subtitle": "Agent Core"
+      },
+      "groups": [
+        {
+          "label": "Core",
+          "items": [
+            "dashboard"
+          ]
+        },
+        {
+          "label": "Agents",
+          "items": [
+            "personas",
+            "skills",
+            "safetyRules",
+            "vault"
+          ]
+        },
+        {
+          "label": "Automation",
+          "items": [
+            "scheduler"
+          ],
+          "hideIfEmpty": true
+        },
+        {
+          "label": "Channels",
+          "items": [
+            "whatsapp",
+            "telegram",
+            "webchat"
+          ],
+          "hideIfEmpty": true
+        },
+        {
+          "label": "Capabilities",
+          "items": [
+            "models",
+            "filesystem",
+            "googleApps",
+            "appleServices",
+            "mcpServers"
+          ]
+        },
+        {
+          "label": "Monitor",
+          "items": [
+            "logs",
+            "toolsHealth"
+          ]
+        }
+      ],
+      "footer": {
+        "showSettings": true
+      }
+    },
+    "cloud-hosted": {
+      "description": "Single-tenant dedicated cloud",
+      "branding": {
+        "name": "YOUBOT",
+        "subtitle": "Cloud Agent"
+      },
+      "groups": [
+        {
+          "label": "Core",
+          "items": [
+            "dashboard"
+          ]
+        },
+        {
+          "label": "Agents",
+          "items": [
+            "personas",
+            "skills",
+            "safetyRules",
+            "vault"
+          ]
+        },
+        {
+          "label": "Automation",
+          "items": [
+            "scheduler"
+          ],
+          "hideIfEmpty": true
+        },
+        {
+          "label": "Channels",
+          "items": [
+            "telegram",
+            "webchat"
+          ],
+          "hideIfEmpty": true
+        },
+        {
+          "label": "Capabilities",
+          "items": [
+            "models",
+            "googleApps",
+            "mcpServers"
+          ]
+        },
+        {
+          "label": "Monitor",
+          "items": [
+            "logs",
+            "toolsHealth"
+          ]
+        }
+      ],
+      "footer": {
+        "showSettings": true
+      }
+    },
+    "cloud-saas": {
+      "description": "Multi-tenant SaaS",
+      "branding": {
+        "name": "YOUBOT",
+        "subtitle": "Assistant"
+      },
+      "groups": [
+        {
+          "label": "",
+          "items": [
+            "dashboard",
+            "scheduler"
+          ]
+        },
+        {
+          "label": "Channels",
+          "items": [
+            "telegram",
+            "webchat"
+          ]
+        },
+        {
+          "label": "Configure",
+          "items": [
+            "personas",
+            "skills",
+            "safetyRules",
+            "vault",
+            "mcpServers",
+            "models"
+          ]
+        }
+      ],
+      "footer": {
+        "showSettings": true
+      }
+    }
+  }
+}

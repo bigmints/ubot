@@ -1,0 +1,1110 @@
+[
+  {
+    "id": "CC-S01",
+    "title": "Define raw-data package contracts and host boundaries",
+    "specialist": "collections_architect",
+    "role": "architect",
+    "requirements": [
+      "CC-02",
+      "CC-03",
+      "CC-04",
+      "CC-06",
+      "CC-10",
+      "CC-18",
+      "CC-21",
+      "CC-22",
+      "CC-25",
+      "CC-26",
+      "CC-27",
+      "CC-28",
+      "CC-29",
+      "CC-30",
+      "CC-31"
+    ],
+    "dependsOn": [],
+    "acceptance": [
+      "Record schema/transaction, authenticated entity scope, published-snapshot, source revision, typed query and generation-aware dispatch contracts with failure semantics.",
+      "Evaluate current DatabaseConnection transaction gap and pdf-parse TextResult contract; select documented input page/byte/runtime limits against a representative corpus without silently reducing product scope.",
+      "Record provider credential reuse/configuration decision through the existing authorized provider boundary; no new credentials or provider calls are assumed approved."
+    ],
+    "nextAction": "Retain the exact-revision pass; treat CPU event-loop starvation, worker/RSS isolation, customer-document accuracy, and release evidence as separate gates.",
+    "scope": [
+      "docs/collections/architecture.md",
+      "docs/collections/implementation-plan.md",
+      "docs/collections/engine-api.md",
+      "packages/collection-engine/ (proposed public contracts)",
+      "youbot-core/src/concierge/collections/ (first-host adapter only)"
+    ],
+    "spacecrewWorkId": "work_62ce2939-c249-4b6d-b017-bdf73845c30d",
+    "spacecrewRevision": 14,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_architect.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Define packages/collection-engine public exports, canonical ownership and tool/port/schema/version/error contracts with no hard Youbot, UI-framework or model-provider dependency.",
+      "Separate trusted host context, source handles, approval integration, model loop and dispatch from engine arguments; document extraction-port bounds and host-loop proposal equivalence."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Define bounded raw text, segments and record batch contracts with provenance, upstream completeness, idempotency and explicit resource limits.",
+      "The core exposes no file importer, ParserPort, BlobPort, PDF/OCR dependency, file-processing job runner or required ExtractionPort; hosts own those operations and their LLM loops."
+    ],
+    "spacecrewRecordedNextAction": "Independent review passed exact revision 14. CPU event-loop starvation, worker/RSS isolation, actual customer-document accuracy, and release evidence remain separate gates.",
+    "review": {
+      "id": "review_16eab662-d056-466b-b2eb-0598b68db6d7",
+      "workRevision": 14,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:s01-s02-supplemental-review-05b630d5-7bc7-4c2e-b8c5-2873bdc25878",
+      "evidence": [
+        {
+          "path": "docs/collections/s01-s02-independent-signoff.md",
+          "sha256": "50f48140e09ebbcd2f0a921126b5048118e4fb685390e3498cd67a9340efd2bc"
+        },
+        {
+          "path": "docs/collections/evidence/s01-s02-closeout-20260914T152657Z/README.md",
+          "sha256": "e0c103c5876a9ea442f6ef3dbfd37fc9df28433482c4a93dc62b843b34655fcc"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S02",
+    "title": "Persist supplied data, typed collections and revisions",
+    "specialist": "collections_backend",
+    "role": "engineer",
+    "requirements": [
+      "CC-02",
+      "CC-03",
+      "CC-04",
+      "CC-10",
+      "CC-21",
+      "CC-25",
+      "CC-27",
+      "CC-28",
+      "CC-31"
+    ],
+    "dependsOn": [
+      "CC-S01"
+    ],
+    "acceptance": [
+      "Store entity-owned collections/items, typed attributes, parent-child relationships, provenance references, revision history and separate published snapshots with migrations.",
+      "Use atomic checked writes; concurrent edits reject a stale expected revision without losing either the committed change or submitted proposal.",
+      "Restart and rebuild derived state without losing canonical records; reject cross-entity references and unsupported temporal conversions."
+    ],
+    "nextAction": "Retain the exact-revision pass; treat fsync power-loss, distributed filesystems, clean-platform migration, deployment, and registry publication as separate gates.",
+    "scope": [
+      "packages/collection-engine/src/ (state, ports and checked operations)",
+      "packages/collection-engine-sqlite/ (proposed optional persistent adapter)",
+      "youbot-core/src/data/database/",
+      "youbot-core/src/concierge/collections/ (storage adapter wiring)"
+    ],
+    "spacecrewWorkId": "work_8127313b-be59-4886-a9db-ae19bba4d263",
+    "spacecrewRevision": 13,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_backend.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_62ce2939-c249-4b6d-b017-bdf73845c30d"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Implement canonical content/state/revisions through engine storage/transaction ports; Youbot consumes public contracts and cannot maintain a second authoritative collection store.",
+      "Provide a supported persistent adapter with real transaction/migration/restart conformance; keep Youbot database integration outside core and expose predictable adapter/version errors."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Store immutable supplied-data revisions and provenance with transactional ingestion receipts, canonical items and publication revisions.",
+      "Persist no original binary through the engine; upstream references are opaque metadata and never authority to read paths, fetch URLs or access host files."
+    ],
+    "spacecrewRecordedNextAction": "Independent review passed exact revision 13. fsync power-loss, distributed filesystems, clean-platform migration, deployment, and registry publication remain separate gates.",
+    "review": {
+      "id": "review_46a54176-7ddc-4872-9da4-0543f3194e17",
+      "workRevision": 13,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:s01-s02-supplemental-review-05b630d5-7bc7-4c2e-b8c5-2873bdc25878",
+      "evidence": [
+        {
+          "path": "docs/collections/s01-s02-independent-signoff.md",
+          "sha256": "50f48140e09ebbcd2f0a921126b5048118e4fb685390e3498cd67a9340efd2bc"
+        },
+        {
+          "path": "docs/collections/evidence/s01-s02-closeout-20260914T152657Z/README.md",
+          "sha256": "e0c103c5876a9ea442f6ef3dbfd37fc9df28433482c4a93dc62b843b34655fcc"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S03",
+    "title": "Separate host file processing from engine raw-data ingestion",
+    "specialist": "collections_import",
+    "role": "engineer",
+    "requirements": [
+      "CC-02",
+      "CC-05",
+      "CC-06",
+      "CC-07",
+      "CC-21",
+      "CC-22",
+      "CC-25",
+      "CC-27",
+      "CC-28",
+      "CC-29"
+    ],
+    "dependsOn": [
+      "CC-S01",
+      "CC-S02"
+    ],
+    "acceptance": [
+      "Accept owner text and supported PDFs into private versioned sources with validated configured limits and progress/coverage/terminal status.",
+      "A real text-PDF roundtrip reads pdf-parse v2 TextResult.text/pages/total correctly and proves page/source text preservation; no String(object) or silent 100,000-character cutoff counts as success.",
+      "Retry interruption using durable checkpoints/leases/idempotency without duplicate sources; empty, encrypted, scanned-only, malformed, over-limit and partial inputs report honest recoverable outcomes."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve and review CC-S01 and CC-S02 before dependency-ordered closure.",
+    "scope": [
+      "packages/collection-engine/src/ (raw-data ingestion and receipts only)",
+      "youbot-core/src/concierge/collections/ (host upload/parser/library orchestration only)"
+    ],
+    "spacecrewWorkId": "work_a5b4a04d-d8b8-4908-a84a-e5fef0ad3a66",
+    "spacecrewRevision": 11,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_import.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_62ce2939-c249-4b6d-b017-bdf73845c30d",
+      "work_8127313b-be59-4886-a9db-ae19bba4d263"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Engine intake uses authorized source handles and replaceable blob/job ports with resumable semantics; local paths, arbitrary remote URLs and Youbot filesystem assumptions cannot enter model-controlled authority.",
+      "Place PDF parser dependencies behind an explicit adapter; inject bounded extraction capability and cancellation/time limits without importing a provider SDK or making hidden model/network calls."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Youbot alone uses external libraries for file upload, private original storage, PDF parsing, file-processing limits, progress, cancellation and retry.",
+      "The package accepts already-extracted crude text/segments/records through bounded idempotent ingestion; validates payload and supplied provenance, reports accepted/rejected data, and preserves upstream partial/unknown coverage without claiming document completeness.",
+      "Verify host PDF handling separately from engine tests; core ingestion works with a literal raw-text payload and no parser, file store, model SDK or background worker installed."
+    ],
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_fe6f6b51-acdf-433b-90d0-3cc5dd254893",
+      "workRevision": 11,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S04",
+    "title": "Organize supplied data through validated LLM proposals",
+    "specialist": "collections_import",
+    "role": "engineer",
+    "requirements": [
+      "CC-03",
+      "CC-04",
+      "CC-05",
+      "CC-07",
+      "CC-08",
+      "CC-09",
+      "CC-22",
+      "CC-25",
+      "CC-28",
+      "CC-29",
+      "CC-30"
+    ],
+    "dependsOn": [
+      "CC-S02",
+      "CC-S03"
+    ],
+    "acceptance": [
+      "Produce draft properties, classes/sessions or generic items with material fact provenance, explicit unknown values and source coverage.",
+      "Reimport matches strong identifiers to stable items, surfaces ambiguous merges and critical-field uncertainty, preserves manual corrections, and never infers deletion or availability from absence.",
+      "Validated model proposals cannot run instructions found in a source, mutate live data directly, or invent recurrence/currency/basis; partial outcomes remain reviewable."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve CC-S02 and complete dependency-ordered closure before closing this story.",
+    "scope": [
+      "packages/collection-engine/src/ (proposal validation and reconciliation)",
+      "youbot-core/src/concierge/collections/ (host LLM conversation and semantic organization)"
+    ],
+    "spacecrewWorkId": "work_15fc4f11-d23e-4678-a833-0be7253e5bcd",
+    "spacecrewRevision": 11,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_import.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_8127313b-be59-4886-a9db-ae19bba4d263",
+      "work_a5b4a04d-d8b8-4908-a84a-e5fef0ad3a66"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Validate proposals identically whether supplied by the host extraction port or an external host LLM loop; core does not choose a provider or read credentials.",
+      "Keep property/class semantics in optional domain adapters while generic extraction/provenance/reconciliation remains usable without those adapters."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Host LLM uses supplied raw-data references and public tools to propose typed collections/items; engine validates candidate shapes, evidence and schema versions before reconciliation.",
+      "No core extraction runner or mandatory model callback; preserve unknown facts, stable identities, owner corrections and ambiguous merge review, and never infer deletions from an incomplete resubmission."
+    ],
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_cc9f3a38-d8c3-4fe6-b9d9-d875cb5ca9db",
+      "workRevision": 11,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S05",
+    "title": "Apply owner changes, publication and freshness safely",
+    "specialist": "collections_backend",
+    "role": "engineer",
+    "requirements": [
+      "CC-02",
+      "CC-08",
+      "CC-09",
+      "CC-10",
+      "CC-11",
+      "CC-12",
+      "CC-13",
+      "CC-21",
+      "CC-25",
+      "CC-26",
+      "CC-27",
+      "CC-29",
+      "CC-31"
+    ],
+    "dependsOn": [
+      "CC-S02",
+      "CC-S04"
+    ],
+    "acceptance": [
+      "Bounded owner operations support draft corrections, change history, checked undo, explicit reviewed publication, unpublish/archive and owner-set valid-through dates.",
+      "Ambiguous conversational changes request focused clarification; explicit publication of a selected eligible batch does not publish blocked or private fields.",
+      "Working edits preserve previous published snapshots; withdrawal invalidates visitor eligibility immediately and concurrent expected-revision conflicts preserve proposals."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve CC-S02 and close prerequisite stories before closing this story.",
+    "scope": [
+      "packages/collection-engine/src/ (operations/policy/publication/history)",
+      "youbot-core/src/concierge/collections/ (trusted host operation binding)",
+      "youbot-core/src/api/routes/concierge.ts"
+    ],
+    "spacecrewWorkId": "work_034859e6-dadc-40cd-bf5f-cdc80b41e279",
+    "spacecrewRevision": 11,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_backend.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_8127313b-be59-4886-a9db-ae19bba4d263",
+      "work_15fc4f11-d23e-4678-a833-0be7253e5bcd"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Expose checked mutation/publication/history operations through public engine APIs that authorize trusted host context on every call and return typed predictable results/errors.",
+      "Host owns identity and approvals; validated operation scope/revision/idempotency checks cannot be bypassed through direct API or forged model approval/context arguments."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "All direct and tool operations share trusted-context policy, expected revisions, idempotency and typed errors.",
+      "Ingestion and semantic proposals cannot publish implicitly; apply, publish, archive, unpublish and undo retain checked revision/intent boundaries."
+    ],
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_5df3522b-86a1-4e85-9098-bb93dad46379",
+      "workRevision": 11,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S06",
+    "title": "Design host authoring and portable collection views",
+    "specialist": "collections_designer",
+    "role": "designer",
+    "requirements": [
+      "CC-01",
+      "CC-05",
+      "CC-09",
+      "CC-11",
+      "CC-13",
+      "CC-14",
+      "CC-15",
+      "CC-20",
+      "CC-30"
+    ],
+    "dependsOn": [
+      "CC-S01"
+    ],
+    "acceptance": [
+      "Prepare reviewable desktop/narrow layouts inside Your concierge: content conversation, property gallery, class agenda, generic cards, item detail, source inspector, change review and visitor preview.",
+      "Cover empty/loading/partial/error/conflict, draft/published/unavailable/outdated/needs-review states, keyboard focus, direct edits and supported layout alternatives without a CRM grid.",
+      "Record human visual approval of the exact reviewed design before UI implementation, preserving the existing concierge navigation and no-general-chat boundary."
+    ],
+    "nextAction": "Human may review the implemented exact visual revision; retain the missing pre-implementation approval chronology as an explicit acceptance gap.",
+    "scope": [
+      "docs/collections/ (exact visual design artifact)",
+      "packages/collection-engine/ (presentation descriptor contract context)",
+      "youbot-core/web-ui/app/concierge/page.tsx",
+      "youbot-core/web-ui/components/ (existing design system context)"
+    ],
+    "spacecrewWorkId": "work_fccb7abc-cf9f-4407-9d36-46dcb5d74bd9",
+    "spacecrewRevision": 17,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_designer.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_62ce2939-c249-4b6d-b017-bdf73845c30d"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Design Youbot as the first renderer/authoring host; define portable allowlisted layout descriptors separately from optional React components and leave generic headless consumers UI-independent."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Keep declarative allowlisted view descriptions in core and rendering optional; show source-data coverage separately from host file-processing status.",
+      "Original-file preview and download use authorized host UI routes, never a core file-access tool."
+    ],
+    "spacecrewReviewId": "review_ceac6ee7-4d43-4ca1-af9b-663c20fbb18b",
+    "spacecrewReviewVerdict": "pass",
+    "spacecrewReviewEvidence": [
+      "docs/collections/ui-workspace-rebuild-independent-review-20260915.md",
+      "docs/collections/evidence/ui-workspace-rebuild-20260915.md",
+      "docs/collections/evidence/ui-workspace-rebuild-a11y-20260915.md"
+    ],
+    "spacecrewRecordedNextAction": "Factory revision 4 records human approval before implementation. Await exact-revision independent review and owner judgment of the running result.",
+    "revision4Direction": "Show all collections and Add collection first; use a focused name/type create screen; then use a focused editor led by Add items. The earlier simultaneous workspace is superseded."
+  },
+  {
+    "id": "CC-S07",
+    "title": "Build host collection views from public engine data",
+    "specialist": "collections_frontend",
+    "role": "engineer",
+    "requirements": [
+      "CC-01",
+      "CC-05",
+      "CC-11",
+      "CC-12",
+      "CC-13",
+      "CC-14",
+      "CC-15",
+      "CC-25",
+      "CC-30"
+    ],
+    "dependsOn": [
+      "CC-S05",
+      "CC-S06"
+    ],
+    "acceptance": [
+      "Render saved allowlisted gallery/agenda/card layouts and safe fallback details from canonical data, preserving layout choice after restart without new generation calls.",
+      "Owners inspect source provenance and status, directly correct a field, resolve/review changes and publish selected eligible items through the shared checked backend.",
+      "Implement approved responsive/accessibility and honest state designs, with no exposure of original sources or owner controls to visitor contexts."
+    ],
+    "nextAction": "Finalize independent content-first review; verify rendered signed-in creation and configured-model output, then recover prior saved source job. No live success claimed yet.",
+    "scope": [
+      "youbot-core/web-ui/app/concierge/page.tsx",
+      "youbot-core/web-ui/components/collections/ (first-host views)",
+      "youbot-core/web-ui/lib/concierge.ts",
+      "packages/collection-engine-react/ (optional companion only if justified)"
+    ],
+    "spacecrewWorkId": "work_d13698d7-9a40-4614-a77d-21b713a145f8",
+    "spacecrewRevision": 35,
+    "assignmentStatus": "implemented-awaiting-authenticated-verification",
+    "specialistProfile": "docs/collections/agents/collections_frontend.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 5,
+      "status": "approved"
+    },
+    "dependencyWorkIds": [
+      "work_034859e6-dadc-40cd-bf5f-cdc80b41e279",
+      "work_fccb7abc-cf9f-4407-9d36-46dcb5d74bd9"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Render through public engine descriptors/results and Youbot host APIs; UI components stay in Youbot or optional packages/collection-engine-react and never become required core imports.",
+      "Prove core generic use still works when optional property/class presentation and React dependencies are not installed."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Consume engine descriptors/results for cards, galleries, agendas and direct edits; React and Youbot dependencies remain outside core.",
+      "Show supplied segment/record evidence in core review and resolve any original document link through separately authorized host code."
+    ],
+    "spacecrewRecordedNextAction": "Focused independent review passed exact revision 23. Owner now assesses the running visual result; broader release gates remain separate.",
+    "revision4Acceptance": [
+      "Do not auto-open a collection. Render all collections and one clear Add collection action on the landing screen.",
+      "Use a focused name/type creation screen, then a focused collection editor led by Add items while retaining canonical review, source, preview and publishing behavior.",
+      "Keep route state shareable and browser-navigation safe within the static export, with responsive labeled controls and no visitor exposure of owner data."
+    ],
+    "spacecrewReviewEvidence": [
+      "docs/collections/evidence/ui-two-screen-flow-20260915.md",
+      "docs/collections/ui-two-screen-independent-review-20260915.md"
+    ],
+    "spacecrewReviewVerdict": "pass",
+    "review": {
+      "id": "review_bc0d821f-9594-4473-82c5-96b153dffffe",
+      "workRevision": 23,
+      "verdict": "pass",
+      "actor": "codex:01a09d0e-5d28-79c0-a7ca-e3a4152da877:/root:engine-plan",
+      "evidence": [
+        {
+          "path": "docs/collections/ui-two-screen-independent-review-20260915.md"
+        },
+        {
+          "path": "docs/collections/evidence/ui-two-screen-flow-20260915.md"
+        }
+      ]
+    },
+    "editorFollowup": {
+      "date": "2026-09-15",
+      "request": "Reimagine the collection detail editor while retaining gallery and focused creation.",
+      "design": "Compact header, unified text/PDF composer, proposal-first review, populated cards and on-demand authoring.",
+      "evidence": [
+        "docs/collections/evidence/ui-editor-reimagine-20260915.md",
+        "docs/collections/ui-editor-independent-review-20260915.md"
+      ],
+      "visualAcceptance": "Awaiting owner assessment of delivered refinement.",
+      "sourceSha256": "ec8f21f18d18596f872ff465140b43e7057c34470eb0da79bf00f475fc874332",
+      "independentReviewId": "review_fb663357-8bc0-4a63-b1d9-842806382ed3",
+      "reviewedWorkRevision": 29
+    },
+    "authoringFailureRepair": {
+      "date": "2026-09-15",
+      "implementation": "Host contract validation, bounded model repair, saved-source retry, truthful UI failure status.",
+      "independentReviewId": "review_cd7a22d4-90aa-4790-9150-93b1dad323e4",
+      "reviewedWorkRevision": 32,
+      "liveVerification": "Pending owner login after restart; actual saved job not yet retried.",
+      "evidence": "docs/collections/evidence/authoring-live-failure-20260915.md"
+    }
+  },
+  {
+    "id": "CC-S08",
+    "title": "Connect host uploads and conversation to ingestion tools",
+    "specialist": "collections_frontend",
+    "role": "engineer",
+    "requirements": [
+      "CC-01",
+      "CC-06",
+      "CC-07",
+      "CC-08",
+      "CC-09",
+      "CC-10",
+      "CC-15",
+      "CC-22",
+      "CC-26",
+      "CC-27",
+      "CC-29",
+      "CC-30"
+    ],
+    "dependsOn": [
+      "CC-S05",
+      "CC-S06",
+      "CC-S07",
+      "CC-S13"
+    ],
+    "acceptance": [
+      "Provide text/PDF authoring within Collections that shows durable job progress, draft proposals, focused clarifications and saved change results reflected in the adjacent canonical view.",
+      "Retry failed/partial processing without duplicate imports; preserve drafts on conflicts and show concrete changes rather than claiming upload means complete import.",
+      "Keep this conversation scoped to maintaining content and preserve existing general-chat exclusion and inbox operation."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve the CC-S06/CC-S07 visual-approval gap and prerequisite closures before closing this story.",
+    "scope": [
+      "youbot-core/web-ui/components/collections/",
+      "youbot-core/web-ui/app/concierge/page.tsx",
+      "youbot-core/web-ui/lib/concierge.ts",
+      "youbot-core/src/concierge/collections/ (owner model-loop/tool binding)"
+    ],
+    "spacecrewWorkId": "work_1e76d4bc-6f0d-4467-b866-1c4e7b80d062",
+    "spacecrewRevision": 11,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_frontend.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_034859e6-dadc-40cd-bf5f-cdc80b41e279",
+      "work_fccb7abc-cf9f-4407-9d36-46dcb5d74bd9",
+      "work_d13698d7-9a40-4614-a77d-21b713a145f8",
+      "work_9b26ee09-86c7-4a40-9a45-5070439195fb"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Youbot owns the content LLM loop and existing credential/provider configuration, binding selected engine tools with trusted context supplied outside model arguments.",
+      "Use public tool/operation results for progress/proposals/saved state; the engine must remain usable when this chat UI and Youbot model loop are absent."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Youbot coordinates upload/parsing with external libraries and reports their progress; only extracted data/provenance crosses the engine ingestion boundary.",
+      "Youbot owns the LLM conversation and passes trusted context separately; use engine ingest/propose/apply results for saved readback and never claim parse/upload completion is canonical organization or publication."
+    ],
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_0454b17c-8435-4da9-9359-aef0457a5786",
+      "workRevision": 11,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S09",
+    "title": "Query canonical content and validate response evidence",
+    "specialist": "collections_retrieval",
+    "role": "engineer",
+    "requirements": [
+      "CC-02",
+      "CC-13",
+      "CC-16",
+      "CC-17",
+      "CC-18",
+      "CC-21",
+      "CC-22",
+      "CC-25",
+      "CC-27",
+      "CC-28",
+      "CC-29",
+      "CC-31"
+    ],
+    "dependsOn": [
+      "CC-S02",
+      "CC-S05"
+    ],
+    "acceptance": [
+      "Provide validated typed filters/counts/order/pagination for prices/units/bedrooms and explicit dated sessions, excluding unknown/incompatible/expired facts from current exact claims.",
+      "Combine descriptive retrieval with exact constraints and per-item current revision/projection checks; distinguish bounded ranked selections from exhaustive results.",
+      "Rebuild delayed derived indexes safely, recheck permission/publication/freshness in canonical storage, and degrade honestly when complete retrieval is unavailable."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve CC-S02 and prerequisite closures before closing this story.",
+    "scope": [
+      "packages/collection-engine/src/retrieval/",
+      "packages/collection-engine/src/ports/ (query/index adapters)",
+      "youbot-core/src/concierge/collections/ (query adapter wiring)"
+    ],
+    "spacecrewWorkId": "work_8ca41fd4-d575-43f9-9d65-88fdc48a3a08",
+    "spacecrewRevision": 11,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_retrieval.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_8127313b-be59-4886-a9db-ae19bba4d263",
+      "work_034859e6-dadc-40cd-bf5f-cdc80b41e279"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Export bounded retrieval/current-eligibility APIs independent of model or channel runtime through declared query/index ports; return explicit completeness, revision/generation and time-freshness information.",
+      "Host can revalidate at dispatch after index lag, publication changes or time expiry without importing engine internals; unsupported query/adapter capabilities return stable errors."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Structured predicates, counts, search and evidence eligibility use reviewed canonical content and supplied-data provenance; no source URL fetching or PDF processing during search."
+    ],
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_8ad5811c-ad10-4c65-aa36-724c26828b60",
+      "workRevision": 11,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S10",
+    "title": "Bind visitor and preview flows to engine tools",
+    "specialist": "collections_retrieval",
+    "role": "engineer",
+    "requirements": [
+      "CC-05",
+      "CC-17",
+      "CC-18",
+      "CC-19",
+      "CC-20",
+      "CC-22",
+      "CC-26",
+      "CC-27",
+      "CC-29",
+      "CC-30"
+    ],
+    "dependsOn": [
+      "CC-S09",
+      "CC-S07",
+      "CC-S13"
+    ],
+    "acceptance": [
+      "Use bounded read-only collection retrieval through supported existing concierge channel routes and the owner preview, identifying supporting permitted published item revisions.",
+      "Respect answerFromKnowledge, takeover and existing approval/financial/booking boundaries; source or visitor instructions cannot gain owner tool access.",
+      "Invalidate/recheck already-loaded context and pending dispatch on publication generation changes; owner preview is labeled and sends no message or mutation."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve the CC-S07 visual-approval gap and prerequisite closures before closing this story.",
+    "scope": [
+      "youbot-core/src/concierge/collections/ (visitor/preview tool adapter)",
+      "youbot-core/src/concierge/profile.ts",
+      "youbot-core/src/engine/handler.ts",
+      "youbot-core/src/engine/prompt-builder/",
+      "youbot-core/src/channels/",
+      "youbot-core/web-ui/components/collections/"
+    ],
+    "spacecrewWorkId": "work_87af54c0-fee9-4f86-9ac1-b05ee1ba85b7",
+    "spacecrewRevision": 11,
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_retrieval.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_8ca41fd4-d575-43f9-9d65-88fdc48a3a08",
+      "work_d13698d7-9a40-4614-a77d-21b713a145f8",
+      "work_9b26ee09-86c7-4a40-9a45-5070439195fb"
+    ],
+    "workStatus": "review",
+    "revision2Acceptance": [
+      "Bind the provider-neutral catalogue/dispatcher through a Youbot-specific host adapter while existing model loop, policies, credentials, approvals and channels remain host-owned.",
+      "Use public revision/eligibility APIs immediately before dispatch and keep preview side-effect-free; no dependency on Youbot policy/channel classes is imported into core."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Host owns visitor identity, LLM loop, preview and channel dispatch; visitors cannot access raw private payloads or host originals through forged tool arguments."
+    ],
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_6720c6b5-e937-47b5-808b-107f0bfb7fc3",
+      "workRevision": 11,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S11",
+    "title": "Verify first-host pipeline and engine lifecycle separately",
+    "specialist": "collections_quality",
+    "role": "reviewer",
+    "requirements": [
+      "CC-01",
+      "CC-02",
+      "CC-03",
+      "CC-04",
+      "CC-05",
+      "CC-06",
+      "CC-07",
+      "CC-08",
+      "CC-09",
+      "CC-10",
+      "CC-11",
+      "CC-12",
+      "CC-13",
+      "CC-14",
+      "CC-15",
+      "CC-16",
+      "CC-17",
+      "CC-18",
+      "CC-19",
+      "CC-20",
+      "CC-21",
+      "CC-22",
+      "CC-23",
+      "CC-25",
+      "CC-26",
+      "CC-27",
+      "CC-28",
+      "CC-29",
+      "CC-30",
+      "CC-31"
+    ],
+    "dependsOn": [
+      "CC-S08",
+      "CC-S10",
+      "CC-S13"
+    ],
+    "acceptance": [
+      "Run the versioned corpus and two-entity owner/visitor lifecycle on the exact implementation revision; record per-requirement outcomes and independent reviewer identity.",
+      "Measure extraction coverage, duplicates and critical-field accuracy with source references; include partial/malicious inputs, conflicting updates, stale context/index/dispatch and restart/recovery.",
+      "Keep source/unit/browser/persisted/transport/provider evidence distinct; failures and unrun checks remain open and block relevant readiness claims."
+    ],
+    "nextAction": "Run the full 39-scenario corpus and record two-entity lifecycle plus extraction coverage, duplicate, and critical-field metrics.",
+    "scope": [
+      "docs/collections/verification-plan.md",
+      "docs/collections/evidence/ (future revision-2 execution reports)",
+      "packages/collection-engine/ (conformance/contract/security tests)",
+      "youbot-core/src/concierge/collections/ (first-host integration tests)",
+      "youbot-core/web-ui/"
+    ],
+    "spacecrewWorkId": "work_73606574-f2ed-4e75-b91f-19251df5e08b",
+    "spacecrewRevision": 7,
+    "assignmentStatus": "assigned-blocked",
+    "specialistProfile": "docs/collections/agents/collections_quality.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_1e76d4bc-6f0d-4467-b866-1c4e7b80d062",
+      "work_87af54c0-fee9-4f86-9ac1-b05ee1ba85b7",
+      "work_9b26ee09-86c7-4a40-9a45-5070439195fb"
+    ],
+    "workStatus": "blocked",
+    "revision2Acceptance": [
+      "Independently verify every delivered engine/host boundary and mandatory revision-2 supplement on the exact implementation revision, including unauthorized direct calls, schema violations, absent providers and optional dependency isolation.",
+      "Treat original native Spacecrew acceptance as necessary but insufficient for revision 2; record package smoke from S13 and all failures for final S14 portability/aggregate review."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Provide separate host PDF-pipeline evidence and engine raw-payload/proposal evidence, plus their end-to-end boundary handoff.",
+      "Verify every current story supplement and canonical criterion, preserving lifecycle, isolation, authorization and freshness coverage."
+    ],
+    "spacecrewRecordedNextAction": "Run the full 39-scenario corpus and record two-entity lifecycle plus extraction coverage, duplicate, and critical-field metrics."
+  },
+  {
+    "id": "CC-S12",
+    "title": "Prepare package artifacts and host handoff evidence",
+    "specialist": "collections_release",
+    "role": "release",
+    "requirements": [
+      "CC-06",
+      "CC-13",
+      "CC-21",
+      "CC-23",
+      "CC-24",
+      "CC-25",
+      "CC-28",
+      "CC-31",
+      "CC-32"
+    ],
+    "dependsOn": [
+      "CC-S11"
+    ],
+    "acceptance": [
+      "Update owner guidance for supported imports/limits, corrections, draft/publication, privacy, freshness and recovery using verified product behavior.",
+      "Record built-package migration/persistence/restart and supported clean Mac/Windows installation evidence separately from source and browser checks; preserve explicit gaps.",
+      "Assemble release decision evidence on the independently reviewed exact revision, without deploying, sending real visitor messages or claiming release authorization from task closure."
+    ],
+    "nextAction": "Run clean Mac and Windows installation/migration evidence, then assemble the release decision on the independently reviewed artifact.",
+    "scope": [
+      "README.md",
+      "packages/collection-engine/ (README/export/version/packing docs)",
+      "packages/collection-engine-sqlite/ (adapter docs)",
+      "youbot-core/webchat-relay/website/docs/ (app owner guidance)",
+      "scripts/package-release.mjs; scripts/start-desktop.mjs; scripts/start-windows.ps1",
+      "docs/collections/evidence/"
+    ],
+    "spacecrewWorkId": "work_895c3d74-55dd-4c95-8fb4-1823d5639350",
+    "spacecrewRevision": 7,
+    "assignmentStatus": "assigned-blocked",
+    "specialistProfile": "docs/collections/agents/collections_release.md",
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "dependencyWorkIds": [
+      "work_73606574-f2ed-4e75-b91f-19251df5e08b"
+    ],
+    "workStatus": "blocked",
+    "revision2Acceptance": [
+      "Prepare package export/version/error/migration/adapter documentation and packed artifacts with hashes alongside the existing Youbot installed-package evidence.",
+      "Document package integration through public APIs/tools without claiming a registry namespace or publishing permission; hand artifact and first-host evidence to S14, whose final review is required before revision-2 readiness can be claimed."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "revision3Acceptance": [
+      "Document separately engine payload limits and host file/parser limits; packaged core does not bundle binary parsers, OCR, upload jobs or mandatory LLM dependencies.",
+      "Keep release/registry publication authorization separate from artifact preparation and final S14 verification."
+    ],
+    "spacecrewRecordedNextAction": "Run clean Mac and Windows installation/migration evidence, then assemble the release decision on the independently reviewed artifact."
+  },
+  {
+    "id": "CC-S13",
+    "title": "Implement provider-neutral ingestion and collection tools",
+    "specialist": "collections_package",
+    "role": "engineer",
+    "requirements": [
+      "CC-25",
+      "CC-26",
+      "CC-27",
+      "CC-28",
+      "CC-29",
+      "CC-30",
+      "CC-31",
+      "CC-32"
+    ],
+    "dependsOn": [
+      "CC-S01",
+      "CC-S05",
+      "CC-S09"
+    ],
+    "acceptance": [
+      "Export documented public engine operations and a versioned serializable tool catalogue with stable names, descriptions, JSON input/output schemas and read/write metadata; validate every dispatcher input and output against its schema, rejecting unknown/invalid arguments before execution (CC-25, CC-26, CC-31).",
+      "Dispatch and direct APIs enforce the same typed revision/idempotency/domain rules and authorize trusted actor/entity/capability/request context supplied separately by the host; forged model context/approval and source path/URL arguments cannot grant access, including visitor invocation of hidden owner tools (CC-26, CC-27).",
+      "Wire documented storage/transaction, blob, job, extraction and policy ports, predictable missing-capability/version errors, cancellation/retry semantics and host-supplied bounded extraction or validated proposal paths; engine executes no hidden provider/network/model call and hosts own credentials, LLM loops and dispatch (CC-28, CC-29, CC-31).",
+      "Keep generic headless operation independent of Youbot, Next.js, React, model SDKs and optional domain/renderer adapters; implement the independent packed-package consumer fixtures and provide Youbot owner/visitor binding examples using public contracts, with preliminary external packed-consumer smoke without workspace source links (CC-25, CC-30, CC-32)."
+    ],
+    "nextAction": "Retain the exact-revision pass; resolve CC-S01 and prerequisite closures before closing this story.",
+    "scope": [
+      "packages/collection-engine/src/tools/ (catalogue/dispatcher)",
+      "packages/collection-engine/src/index.ts (public exports)",
+      "packages/collection-engine/ (schema/conformance/security tests)",
+      "youbot-core/src/concierge/collections/ (host tool bindings)",
+      "examples/collection-engine-consumer/ (proposed independent fixture)"
+    ],
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "assignmentStatus": "implemented-reviewed-pass",
+    "specialistProfile": "docs/collections/agents/collections_package.md",
+    "spacecrewWorkId": "work_9b26ee09-86c7-4a40-9a45-5070439195fb",
+    "spacecrewRevision": 10,
+    "dependencyWorkIds": [
+      "work_62ce2939-c249-4b6d-b017-bdf73845c30d",
+      "work_034859e6-dadc-40cd-bf5f-cdc80b41e279",
+      "work_8ca41fd4-d575-43f9-9d65-88fdc48a3a08"
+    ],
+    "workStatus": "review",
+    "revision3Acceptance": [
+      "Expose the revision-3 catalogue and schema-validated executor through public exports; host protocol adapters normalize tool calls without granting argument-supplied authority.",
+      "Packed-consumer fixtures feed crude text/segments/records directly, organize through proposal tools, and require no PDF parser, file storage or extraction callback."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "spacecrewRecordedNextAction": "Independent reviewer must execute retained probes and review this exact Spacecrew revision; broader unsupported acceptance remains open rather than inferred.",
+    "review": {
+      "id": "review_19b04c98-c8b5-4201-af28-b6da17f9732d",
+      "workRevision": 10,
+      "verdict": "pass",
+      "actor": "codex:01a09f15-dbcd-7e02-8d2b-e13ed1738ea9:frozen-final-review-d9121ca4-593f-4d81-aa17-9400e22417b0",
+      "evidence": [
+        {
+          "path": "docs/collections/implementation-final-independent-signoff.md",
+          "sha256": "ce365e8f04b7487629b87fc02f46805ec749ef82868f5293698f75971cf3cd96"
+        },
+        {
+          "path": "docs/collections/implementation-validation.json",
+          "sha256": "80d415cd54fb8c6545b48f7b3fa831f96abd4bc85877ed05924c2e027a9cc895"
+        }
+      ]
+    }
+  },
+  {
+    "id": "CC-S14",
+    "title": "Verify final package reuse and revision-3 requirements",
+    "specialist": "collections_quality",
+    "role": "reviewer",
+    "requirements": [
+      "CC-01",
+      "CC-02",
+      "CC-03",
+      "CC-04",
+      "CC-05",
+      "CC-06",
+      "CC-07",
+      "CC-08",
+      "CC-09",
+      "CC-10",
+      "CC-11",
+      "CC-12",
+      "CC-13",
+      "CC-14",
+      "CC-15",
+      "CC-16",
+      "CC-17",
+      "CC-18",
+      "CC-19",
+      "CC-20",
+      "CC-21",
+      "CC-22",
+      "CC-23",
+      "CC-24",
+      "CC-25",
+      "CC-26",
+      "CC-27",
+      "CC-28",
+      "CC-29",
+      "CC-30",
+      "CC-31",
+      "CC-32"
+    ],
+    "dependsOn": [
+      "CC-S12",
+      "CC-S13"
+    ],
+    "acceptance": [
+      "Independently verify all original CC-S01 through CC-S12 acceptance, every mandatory revision2Acceptance supplement, CC-S13 acceptance and all CC-01 through CC-32 on the exact delivered revision; no original-story closure or revision-1 evidence substitutes for this aggregate revision-2 gate.",
+      "Install hashed packed engine and explicit adapter artifacts in a clean temporary independent second consumer with no workspace symlinks/private source imports/Youbot configuration, browser, React/Next.js, model SDK or provider credentials; exercise create/import/propose/review/publish/search/update/restart and owner/visitor denial using only public exports (CC-25, CC-30, CC-32).",
+      "Roundtrip every advertised tool schema/catalogue and check dispatcher/direct-API equivalence, unknown/invalid argument rejection, trusted context separation, spoofed authority/approval rejection and unauthorized source handle/path/URL denial (CC-26, CC-27).",
+      "Run replaceable storage/transaction/blob/job/extraction port conformance and real persistent-adapter recovery, missing-capability/version/cancellation/retry errors, host extraction/proposal equivalence, and absent-provider/no-hidden-call checks; verify public revision/freshness APIs support dispatch invalidation (CC-28, CC-29, CC-31).",
+      "Inspect packed dependency/export graphs and optional domain/renderer absence; document tool/API/persisted version compatibility and migration proof, exact artifact hashes, independent reviewer identity and per-requirement evidence. Distinguish deterministic second-host fixtures, real provider extraction, built Youbot installation and any separately authorized live channel evidence; unresolved failures block aggregate readiness and no registry/release publication is implied (CC-24, CC-25, CC-30, CC-31, CC-32)."
+    ],
+    "nextAction": "Complete the aggregate revision gate, persistent-adapter recovery matrix, compatibility migration proof, second-host validation, and registry/release evidence.",
+    "scope": [
+      "docs/collections/verification-plan.md",
+      "docs/collections/evidence/ (future independent revision-2 package report)",
+      "examples/collection-engine-consumer/ (proposed second host)",
+      "packages/collection-engine/ (packed artifact)",
+      "packages/collection-engine-sqlite/ (explicit persistent adapter)"
+    ],
+    "specification": {
+      "id": "conversational-collections",
+      "revision": 3,
+      "status": "draft"
+    },
+    "assignmentStatus": "assigned-blocked",
+    "specialistProfile": "docs/collections/agents/collections_quality.md",
+    "spacecrewWorkId": "work_956f147c-929b-49f6-9379-c3177ef94141",
+    "spacecrewRevision": 6,
+    "dependencyWorkIds": [
+      "work_895c3d74-55dd-4c95-8fb4-1823d5639350",
+      "work_9b26ee09-86c7-4a40-9a45-5070439195fb"
+    ],
+    "workStatus": "blocked",
+    "revision3Acceptance": [
+      "Install built tarballs outside the repository in a framework-free second consumer and verify raw-data ingestion, semantic proposals, review/apply/publish/search/update/restart and owner/visitor denial.",
+      "Verify all 32 current requirements and all current revision3Acceptance supplements, with original immutable acceptance interpreted at its host or engine boundary.",
+      "Inspect dependency and runtime behavior: no package binary parsing, file imports, OCR, file-job runner or mandatory model callback; provider-protocol fixtures remain distinct from live-model accuracy evidence."
+    ],
+    "acceptanceBaseline": {
+      "nativeAcceptance": "immutable-preserved; PDF/file-processing clauses apply to Youbot host only",
+      "revision2Acceptance": "historical-superseded-by-revision3Acceptance",
+      "revision3Acceptance": "current mandatory supplement; final independent verification in CC-S14"
+    },
+    "spacecrewRecordedNextAction": "Complete the aggregate revision gate, persistent-adapter recovery matrix, compatibility migration proof, second-host validation, and registry/release evidence."
+  }
+]

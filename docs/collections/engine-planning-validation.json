@@ -1,0 +1,354 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-14T08:48:09.245886+00:00",
+  "scope": "Reusable-engine PLANNING revision 2; document/schema/hand-off verification, not implementation acceptance",
+  "result": "pass",
+  "counts": {
+    "stories": 14,
+    "requirements": 32,
+    "specialistProfiles": 9,
+    "providerNeutralToolDefinitions": 23,
+    "mandatoryRevision2Supplements": 23
+  },
+  "checks": {
+    "requirementCoverage": "complete",
+    "dependencyGraph": "acyclic",
+    "finalS14Gate": "depends transitively on every prior story and covers all32 requirements",
+    "oldNativeAcceptanceAndWorkIds": "12 preserved",
+    "persistedAssignments": [
+      {
+        "storyId": "CC-S01",
+        "workId": "work_62ce2939-c249-4b6d-b017-bdf73845c30d",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_architect",
+        "acceptanceSha256": "a8d99a9c15444ab76bbf342aa84657b57fa162bc5cb4542ee0d11eda5c4e8de0"
+      },
+      {
+        "storyId": "CC-S02",
+        "workId": "work_8127313b-be59-4886-a9db-ae19bba4d263",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_backend",
+        "acceptanceSha256": "2de0c39c3fb740ef96353afd9727c946294b8a5ca53fd61fa07eb79c127d0eed"
+      },
+      {
+        "storyId": "CC-S03",
+        "workId": "work_a5b4a04d-d8b8-4908-a84a-e5fef0ad3a66",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_import",
+        "acceptanceSha256": "cf763098529f113fd8e4dd61a4dd644227228dfd6f789057ffc1ddfdfc02b504"
+      },
+      {
+        "storyId": "CC-S04",
+        "workId": "work_15fc4f11-d23e-4678-a833-0be7253e5bcd",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_import",
+        "acceptanceSha256": "bc0573e3cae2c549d72208c66ceecc5c7b6a67db5d9bc2c65e0f0a19e594e014"
+      },
+      {
+        "storyId": "CC-S05",
+        "workId": "work_034859e6-dadc-40cd-bf5f-cdc80b41e279",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_backend",
+        "acceptanceSha256": "61ddc87efb2797ce212d0546792c482932cadba58f9565d586c3a6614f6b16c0"
+      },
+      {
+        "storyId": "CC-S06",
+        "workId": "work_fccb7abc-cf9f-4407-9d36-46dcb5d74bd9",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_designer",
+        "acceptanceSha256": "cf69cceec6edaf2cc976047296bb03db341c9a5ac2459432063cead7807f73d3"
+      },
+      {
+        "storyId": "CC-S07",
+        "workId": "work_d13698d7-9a40-4614-a77d-21b713a145f8",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_frontend",
+        "acceptanceSha256": "8b775a16997ee5527349008191176b0c2d77dd0b0a052eac03ee863cadfd49e7"
+      },
+      {
+        "storyId": "CC-S08",
+        "workId": "work_1e76d4bc-6f0d-4467-b866-1c4e7b80d062",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_frontend",
+        "acceptanceSha256": "9ddcd4f02c5cc88c0a8e2c7c9e3f08ddf2614e1808acc44c5201a53031e265d1"
+      },
+      {
+        "storyId": "CC-S09",
+        "workId": "work_8ca41fd4-d575-43f9-9d65-88fdc48a3a08",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_retrieval",
+        "acceptanceSha256": "f016ca74293e28e74ab46178916cbd2b890e89d5f487b995a5cb554d2e133793"
+      },
+      {
+        "storyId": "CC-S10",
+        "workId": "work_87af54c0-fee9-4f86-9ac1-b05ee1ba85b7",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_retrieval",
+        "acceptanceSha256": "d6e892af4326848d0de6dcea6ec049505ebd3322c9babcad50c305196bcb4c1e"
+      },
+      {
+        "storyId": "CC-S11",
+        "workId": "work_73606574-f2ed-4e75-b91f-19251df5e08b",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_quality",
+        "acceptanceSha256": "d752c4d037ff186712245da2cfe15e1c3bd91f13011a3c93be5719d7f1731b18"
+      },
+      {
+        "storyId": "CC-S12",
+        "workId": "work_895c3d74-55dd-4c95-8fb4-1823d5639350",
+        "revision": 3,
+        "status": "blocked",
+        "specialist": "collections_release",
+        "acceptanceSha256": "c1f404645dfd2397e5689e826c53912de8de71066aa366222b77a333d1113c8f"
+      },
+      {
+        "storyId": "CC-S13",
+        "workId": "work_9b26ee09-86c7-4a40-9a45-5070439195fb",
+        "revision": 2,
+        "status": "blocked",
+        "specialist": "collections_package",
+        "acceptanceSha256": "0fc47ffadabeaf0b2a06a74082b53e9097af76a9923fdf3a687894cc89425b55"
+      },
+      {
+        "storyId": "CC-S14",
+        "workId": "work_956f147c-929b-49f6-9379-c3177ef94141",
+        "revision": 2,
+        "status": "blocked",
+        "specialist": "collections_quality",
+        "acceptanceSha256": "45768a4e26fe4c0811055da3623e845590dcef5139c1682f3c92a55bc9dc420e"
+      }
+    ],
+    "newFactoryDraft": {
+      "revision": 2,
+      "status": "draft",
+      "drift": false,
+      "digest": "2bc4920ce753b6f36f362b8c7bb1f446ab9c9a8cf599d10297c303bdb1455016"
+    },
+    "spacecrewHealth": true,
+    "registeredOriginals": 27,
+    "activeOriginals": 25,
+    "staleEvidence": 0,
+    "staleReviewEvidence": 0,
+    "frozenRevision1Evidence": "original files preserved; registrations retired from active context only",
+    "collectionsImplementationRuns": 0,
+    "unrelatedRunsExcluded": [
+      "run_ddc98743-1111-4b35-98e0-e38f8d50d347"
+    ],
+    "roleContext": [
+      {
+        "role": "product",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 45799,
+        "warnings": []
+      },
+      {
+        "role": "architect",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 48272,
+        "warnings": []
+      },
+      {
+        "role": "engineer",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 48537,
+        "warnings": []
+      },
+      {
+        "role": "designer",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 48743,
+        "warnings": []
+      },
+      {
+        "role": "reviewer",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 49910,
+        "warnings": []
+      },
+      {
+        "role": "release",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 49060,
+        "warnings": []
+      },
+      {
+        "role": "coordinator",
+        "readyForWork": true,
+        "completeness": "partial",
+        "usedCharacters": 46577,
+        "warnings": []
+      }
+    ],
+    "independentReviewFile": true
+  },
+  "warnings": [
+    "Context budget may omit optional sources; consumers must inspect omissions and read assigned originals.",
+    "Existing concierge-v1-experience revision1 source drift is inherited and unrepaired.",
+    "Fikr Studio summary remains pending an available MCP connection.",
+    "Native activation of project MCP tools in a fresh trusted Codex session remains unverified."
+  ],
+  "errors": [],
+  "notExecuted": [
+    "Package scaffolding or implementation",
+    "Build/npm pack/tarball installation",
+    "Actual independent-host execution",
+    "Live LLM provider calls or model compatibility tests",
+    "Application tests, runtime migration or visitor transport",
+    "Package registry publication or deployment"
+  ],
+  "files": [
+    {
+      "path": ".factory/product/specs/conversational-collections.md",
+      "sha256": "2bc4920ce753b6f36f362b8c7bb1f446ab9c9a8cf599d10297c303bdb1455016"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "5a5259ceea74875332964d6fd7dbf8c2c7f319e6c94f6ff10dd3b6165a5b3423"
+    },
+    {
+      "path": "README.md",
+      "sha256": "66d3ddffcb6aeeda3f9fe2c50973e4f887f586964b92983c4e100e77e2add9d4"
+    },
+    {
+      "path": ".factory/team.yaml",
+      "sha256": "dc2d0e7cabed9c001ef81c3e4704f8f542e9d1c02cbe9fc67f56336e5a140000"
+    },
+    {
+      "path": ".factory/documents.yaml",
+      "sha256": "233160b3f18a67441a83670671822b44c05dd2aa1f7dd177d6257d43db9255a9"
+    },
+    {
+      "path": "docs/conversational-collections-research.md",
+      "sha256": "ae3092d8c721efdd80937af0780e8da52874d8c454fa18eb3f915d5fb0979241"
+    },
+    {
+      "path": "docs/collections/README.md",
+      "sha256": "815ef72b6e283aed884a295ac1b630af76bdc3a20b09c3e67574d4da69a3fb1f"
+    },
+    {
+      "path": "docs/collections/architecture.md",
+      "sha256": "9350d8c34d3f24d6a81f45aa27a63f7f37437bfbae377182f603a5e890c1b09e"
+    },
+    {
+      "path": "docs/collections/engine-api.md",
+      "sha256": "950ded3b344fa41ca8504da42ba31e24ce970e3d47d616a7f9738cd5af8ee6d7"
+    },
+    {
+      "path": "docs/collections/engine-independent-signoff.md",
+      "sha256": "b26c0a87506f91e460a47806bd56877efc88eb585be136152b636f9b9de8b376"
+    },
+    {
+      "path": "docs/collections/engine-planning-review.md",
+      "sha256": "ac4e26720b5e38ed26ef9b685dd4be1a9642d8b92f510bc4290199cdc58c4954"
+    },
+    {
+      "path": "docs/collections/fikr-studio-summary.md",
+      "sha256": "2b77fdd6a30d3dcdc9f2834137976f529283bd9c3f42ccd9a5ed1a18363053e6"
+    },
+    {
+      "path": "docs/collections/implementation-plan.md",
+      "sha256": "e2677126db35e2f7161f5fbabe1ce889a5d1476f5043f7fe2efd2218eb076038"
+    },
+    {
+      "path": "docs/collections/spacecrew-setup.md",
+      "sha256": "c50fbdd2fe4a2575e0ede62fb7b587a98a46e8e7caf7b84bdc5f6e4b0ac5767c"
+    },
+    {
+      "path": "docs/collections/stories.md",
+      "sha256": "caa4a20bbb3bcff0a142a06bdfcd815bd3450094959a0311d50929665a806d1a"
+    },
+    {
+      "path": "docs/collections/verification-plan.md",
+      "sha256": "73fba2d8d42fa2b5b51ee5655ed9e8b139961e9886b51415ea779152e29808e0"
+    },
+    {
+      "path": "docs/collections/agents/collections_architect.md",
+      "sha256": "ac04e5c985c7cdd39dcf7c87792816e5277645494a8732f90698d151a3142aaa"
+    },
+    {
+      "path": "docs/collections/agents/collections_backend.md",
+      "sha256": "260f83da9280db021ee9d223db866128ccf562d900305b09ff7e22eb14e54f38"
+    },
+    {
+      "path": "docs/collections/agents/collections_designer.md",
+      "sha256": "6ac1185ce20c892ddd390b730f4ec35a0e923e254c3a0156553ff07e20a1f98c"
+    },
+    {
+      "path": "docs/collections/agents/collections_frontend.md",
+      "sha256": "1914deb8e3f8065f84c083eb6afd24774caae8d60c99f0bdf54778c0ed630461"
+    },
+    {
+      "path": "docs/collections/agents/collections_import.md",
+      "sha256": "4a8d8c29cfe60147a86a54e3eef7a57707a6b5103221bb35aa0cec0eacd6cbf2"
+    },
+    {
+      "path": "docs/collections/agents/collections_package.md",
+      "sha256": "82a8159d37bf4c58bbff69e4400fe70e11c39bcdfc28d0a3b0c50e03223e5cb4"
+    },
+    {
+      "path": "docs/collections/agents/collections_quality.md",
+      "sha256": "c3be3bbc580b9c14c9fb4dcb6c808ee478c05f39040c4c1f7c2f673d34e7c77b"
+    },
+    {
+      "path": "docs/collections/agents/collections_release.md",
+      "sha256": "f517aeecc75406c74b3b74c808a899990925177fcd57b8455b78c05e769bb087"
+    },
+    {
+      "path": "docs/collections/agents/collections_retrieval.md",
+      "sha256": "0a4a1ae12f4f933be64732f149172e7b06e51c6529791cbbc9ee4fda585a9cd3"
+    },
+    {
+      "path": ".spacecrew/agents/architect.md",
+      "sha256": "ae60a5f72343d5288d3565db2defd3b2c4caefbdc4614dbfed13880a990560c6"
+    },
+    {
+      "path": ".spacecrew/agents/coordinator.md",
+      "sha256": "d96e9fa1804235012cdd46d3ad3b51305217726d42fa0b2b9650c8409ff40d79"
+    },
+    {
+      "path": ".spacecrew/agents/designer.md",
+      "sha256": "1f9faf1723706ad12091ca12307fe0dfb8f0e04ac80a405554eeb23e862a25cd"
+    },
+    {
+      "path": ".spacecrew/agents/engineer.md",
+      "sha256": "a16bb7e83f61335cf2dddc6bd9107d65b5e271fc18dadf1dae64f8b7ae94e35c"
+    },
+    {
+      "path": ".spacecrew/agents/knowledge.md",
+      "sha256": "dd124008392b70cfe1f3e0bc9287c9618e7a00a5e4824653c207a2cf0914896d"
+    },
+    {
+      "path": ".spacecrew/agents/product.md",
+      "sha256": "1072e7317cf60b26bfd1cb36f442bcce48f586861d67335891a4245e2837ff7d"
+    },
+    {
+      "path": ".spacecrew/agents/release.md",
+      "sha256": "72648e58be22c84827a0c8f90e1eb9ce0ec70cff40c928d2c77438f2fcd1325d"
+    },
+    {
+      "path": ".spacecrew/agents/reviewer.md",
+      "sha256": "ffafc0ccfcdee4aabbf012ac74f6e91b6d5b09f1f5f008e5ab32661cb2e04694"
+    },
+    {
+      "path": "docs/collections/story-manifest.json",
+      "sha256": "f42220c1a2ad8b70c308e5147cd49313f6b3998ce28a408824ea2f04b65306a5"
+    }
+  ]
+}

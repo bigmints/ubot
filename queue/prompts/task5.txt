@@ -1,4 +1,4 @@
-Update the Blackboard class in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/blackboard.ts to add typed key support.
+Update the Blackboard class in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/blackboard.ts to add typed key support.
 
 Add these new methods:
 

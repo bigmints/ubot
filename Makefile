@@ -1,279 +1,86 @@
-.PHONY: all build build-backend build-web install update uninstall clean dev help
-
-# ─── Shell & PATH (ensure nvm-managed node/npm is found) ────────────────────
 SHELL := /bin/bash
-# Dynamically find the nvm-managed node directory (works across versions & platforms)
-NVM_NODE_DIR := $(shell ls -d $(HOME)/.nvm/versions/node/v22.*/bin 2>/dev/null | tail -1)
-export PATH := $(NVM_NODE_DIR):$(HOME)/.local/bin:$(PATH)
+.DEFAULT_GOAL := build
 
-# ─── Variables ──────────────────────────────────────────────────────────────────
-UBOT_HOME ?= $(HOME)/.ubot
+CORE_DIR := youbot-core
+WEB_DIR := $(CORE_DIR)/web-ui
+CLI_DIR := cli
+YOUBOT_HOME ?= $(HOME)/.youbot
 INSTALL_BIN_DIR ?= $(HOME)/.local/bin
-CORE_DIR = ubot-core
-WEB_DIR = $(CORE_DIR)/web-ui
-CLI_DIR = cli
 
-# Marker file written after a successful first install
-INSTALL_MARKER = $(UBOT_HOME)/.installed
+.PHONY: check-deps deps build build-engine build-backend build-web test lint verify install update clean dev help
 
-# ─── Default ────────────────────────────────────────────────────────────────────
-all: build
-
-## check-deps: Verify critical system dependencies before installation
 check-deps:
-	@echo "🔍 Checking system dependencies..."
-	@if ! command -v node >/dev/null 2>&1; then \
-		echo "❌ Node.js is not installed! Ubot requires Node.js v22 or higher. Please install it."; \
-		exit 1; \
-	fi
-	@if ! command -v npm >/dev/null 2>&1; then \
-		echo "❌ NPM is not installed! Please install NPM."; \
-		exit 1; \
-	fi
-	@NODE_VER=$$(node -v | sed 's/v//' | cut -d. -f1); \
-	if [ "$$NODE_VER" -lt 22 ] 2>/dev/null; then \
-		echo "❌ Node.js v22 or higher is absolutely required (found $$(node -v)). Please upgrade."; \
-		exit 1; \
-	fi
-	@echo "   ✅ Environment validated."
+	@command -v node >/dev/null 2>&1 || { echo "Node.js is required" >&2; exit 1; }
+	@command -v npm >/dev/null 2>&1 || { echo "npm is required" >&2; exit 1; }
+	@major="$$(node -p 'process.versions.node.split(".")[0]')"; \
+	  [[ "$$major" -ge 22 ]] || { echo "Node.js 22 or newer is required (found $$(node -v))" >&2; exit 1; }
 
-## build: Build everything (backend + web UI)
-build: check-deps build-backend build-web
-	@echo ""
-	@echo "✅ Build complete! Run 'make install' to install."
+deps: check-deps
+	@cd packages/collection-engine && npm ci
+	@cd $(CORE_DIR) && npm ci
+	@cd $(WEB_DIR) && npm ci
+	@cd $(CORE_DIR)/webchat-relay && npm ci
 
-## build-backend: Compile TypeScript backend
-build-backend:
-	@echo "🔧 Building backend..."
+build-engine: check-deps
+	@cd packages/collection-engine && npm run build
+
+build-backend: check-deps build-engine
 	@cd $(CORE_DIR) && npm run build
-	@echo "   Backend build complete."
 
-## build-web: Build Next.js static export
-build-web:
-	@echo "🎨 Building web UI..."
+build-web: check-deps
 	@cd $(WEB_DIR) && npm run build
-	@echo "   Web UI build complete."
 
-## install: First-time install of ubot to ~/.ubot and CLI to ~/.local/bin
+build: deps build-backend build-web
+	@echo "Build complete."
+
+test: check-deps
+	@cd $(CORE_DIR) && npm test
+	@cd packages/collection-engine && npm test
+	@cd $(CORE_DIR)/webchat-relay && npm test
+
+lint: check-deps
+	@cd $(WEB_DIR) && npm run lint
+
+verify: build test lint
+	@cd packages/collection-engine && npm audit --omit=dev --audit-level=high
+	@cd $(CORE_DIR) && npm audit --omit=dev --audit-level=high
+	@cd $(WEB_DIR) && npm audit --omit=dev --audit-level=high
+	@cd $(CORE_DIR)/webchat-relay && npm audit --omit=dev --audit-level=high
+	@bash -n start.sh stop.sh cli/youbot $(CORE_DIR)/deploy.sh $(CORE_DIR)/deploy-relay.sh
+	@git diff --check
+	@echo "Verification complete."
+
 install: build
-	@if [ -f "$(INSTALL_MARKER)" ]; then \
-		echo ""; \
-		echo "❌ Ubot is already installed at $(UBOT_HOME)"; \
-		echo "   Use 'make update' to update to the latest code."; \
-		echo "   Use 'make install-force' to reinstall from scratch (keeps data)."; \
-		echo ""; \
-		exit 1; \
-	fi
-	@$(MAKE) --no-print-directory _do_install FIRST_INSTALL=1
-	@echo ""
-	@echo "✅ Ubot installed!"
-	@echo ""
-	@echo "   Get started:  ubot start"
-	@echo "   Dashboard:    http://localhost:11490"
-	@echo "   Config:       $(UBOT_HOME)/config.json"
-	@echo ""
-	@echo "   🔐 Login with the username and password you set above."
-	@echo "      To change later: edit server.access_username/access_password in config.json"
+	@echo "Installing Youbot into $(YOUBOT_HOME)..."
+	@install -d -m 700 "$(YOUBOT_HOME)" "$(YOUBOT_HOME)/data" "$(YOUBOT_HOME)/logs" \
+	  "$(YOUBOT_HOME)/sessions" "$(YOUBOT_HOME)/creds" "$(YOUBOT_HOME)/workspace" \
+	  "$(YOUBOT_HOME)/custom" "$(INSTALL_BIN_DIR)"
+	@rm -rf "$(YOUBOT_HOME)/lib.new" "$(YOUBOT_HOME)/web.new" "$(YOUBOT_HOME)/node_modules.new"
+	@cp -R "$(CORE_DIR)/dist" "$(YOUBOT_HOME)/lib.new"
+	@cp -R "$(WEB_DIR)/out" "$(YOUBOT_HOME)/web.new"
+	@cp -R "$(CORE_DIR)/node_modules" "$(YOUBOT_HOME)/node_modules.new"
+	@rm -rf "$(YOUBOT_HOME)/lib" "$(YOUBOT_HOME)/web" "$(YOUBOT_HOME)/node_modules"
+	@mv "$(YOUBOT_HOME)/lib.new" "$(YOUBOT_HOME)/lib"
+	@mv "$(YOUBOT_HOME)/web.new" "$(YOUBOT_HOME)/web"
+	@mv "$(YOUBOT_HOME)/node_modules.new" "$(YOUBOT_HOME)/node_modules"
+	@install -m 755 "$(CLI_DIR)/youbot" "$(INSTALL_BIN_DIR)/youbot"
+	@install -m 600 "$(CLI_DIR)/default-config.json" "$(YOUBOT_HOME)/default-config.json"
+	@if [[ ! -f "$(YOUBOT_HOME)/config.json" ]]; then \
+	  install -m 600 "$(CLI_DIR)/default-config.json" "$(YOUBOT_HOME)/config.json"; \
+	else chmod 600 "$(YOUBOT_HOME)/config.json"; fi
+	@touch "$(YOUBOT_HOME)/.installed"
+	@echo "Installed. Start with: youbot start"
 
-## install-force: Reinstall even if already installed (keeps user data)
-install-force: build
-	@echo ""
-	@echo "⚠️  Force-reinstalling Ubot to $(UBOT_HOME) ..."
-	@$(MAKE) --no-print-directory _do_install FIRST_INSTALL=1
-	@echo ""
-	@echo "✅ Ubot reinstalled!"
-	@$(MAKE) --no-print-directory _post_install_info
+update: install
 
-## update: Update an existing installation with the latest code
-update: build
-	@if [ ! -f "$(INSTALL_MARKER)" ]; then \
-		echo ""; \
-		echo "❌ Ubot is not installed yet."; \
-		echo "   Run 'make install' first."; \
-		echo ""; \
-		exit 1; \
-	fi
-	@echo ""
-	@echo "🔄 Updating Ubot at $(UBOT_HOME) ..."
-	@$(MAKE) --no-print-directory _do_install FIRST_INSTALL=0
-	@echo ""
-	@echo "✅ Ubot updated!"
-	@$(MAKE) --no-print-directory _post_install_info
-
-# ─── Internal: shared install/update logic ──────────────────────────────────────
-
-_do_install:
-	@echo ""
-	@echo "📦 $(if $(filter 1,$(FIRST_INSTALL)),Installing,Updating) Ubot at $(UBOT_HOME) ..."
-
-	@# ── Create directory structure ──────────────────────────────────────
-	@# User data directories (NEVER replaced by install):
-	@#   data/           → database (personas, skills, memories, chats)
-	@#   creds/          → OAuth credentials and tokens
-	@#   sessions/       → WhatsApp session data
-	@#   logs/           → Server logs
-	@#   browser-profile/→ Chrome profile for browser automation
-	@#   workspace/      → CLI project files
-	@#   custom/         → Custom tool modules
-	@#   config.json     → User configuration (merged, never overwritten)
-	@mkdir -p $(UBOT_HOME)/lib
-	@mkdir -p $(UBOT_HOME)/web
-	@mkdir -p $(UBOT_HOME)/data
-	@mkdir -p $(UBOT_HOME)/data/models
-	@mkdir -p $(UBOT_HOME)/logs
-	@mkdir -p $(UBOT_HOME)/sessions
-	@mkdir -p $(UBOT_HOME)/creds
-
-	@mkdir -p $(UBOT_HOME)/workspace
-	@mkdir -p $(UBOT_HOME)/custom/modules
-	@mkdir -p $(UBOT_HOME)/custom/staging
-	@mkdir -p $(UBOT_HOME)/workspace/skills
-
-	@# Copy default skills (only if skill dir doesn't already exist — respects user deletions)
-	@if [ -d $(CORE_DIR)/skills ]; then \
-		for skill_dir in $(CORE_DIR)/skills/*/; do \
-			skill_name=$$(basename "$$skill_dir"); \
-			if [ ! -d "$(UBOT_HOME)/workspace/skills/$$skill_name" ]; then \
-				cp -r "$$skill_dir" "$(UBOT_HOME)/workspace/skills/$$skill_name"; \
-			fi; \
-		done; \
-		echo "   Synced default skills to $(UBOT_HOME)/workspace/skills/"; \
-	fi
-
-	@# Copy default agents (e.g. Nexus orchestrator - respects user deletions)
-	@mkdir -p $(UBOT_HOME)/workspace/agents
-	@if [ -d $(CORE_DIR)/agents ]; then \
-		for agent_file in $(CORE_DIR)/agents/*; do \
-			if [ -f "$$agent_file" ]; then \
-				agent_name=$$(basename "$$agent_file"); \
-				if [ ! -e "$(UBOT_HOME)/workspace/agents/$$agent_name" ]; then \
-					cp "$$agent_file" "$(UBOT_HOME)/workspace/agents/$$agent_name"; \
-				fi; \
-			fi; \
-		done; \
-		echo "   Synced default agents to $(UBOT_HOME)/workspace/agents/"; \
-	fi
-
-
-	@# ── Application code (replaced on every install/update) ────────────
-	@# These are safe to replace — they contain only compiled code, not user data.
-
-	@# Copy compiled backend (clean copy to avoid stale files)
-	@rm -rf $(UBOT_HOME)/lib
-	@cp -R $(CORE_DIR)/dist $(UBOT_HOME)/lib
-	@echo "   Installed backend to $(UBOT_HOME)/lib/"
-
-	@# Copy node_modules (needed at runtime)
-	@mkdir -p $(UBOT_HOME)/node_modules
-	@cp -R $(CORE_DIR)/node_modules/* $(UBOT_HOME)/node_modules/ 2>/dev/null || true
-	@# Fix whisper addon platform naming (mac-arm64 → darwin-arm64)
-	@if [ -f $(CORE_DIR)/scripts/fix-whisper-addon.sh ]; then \
-		ADDON_DIR="$(UBOT_HOME)/node_modules/@kutalia/whisper-node-addon/dist"; \
-		if [ -d "$$ADDON_DIR" ]; then \
-			([ -d "$$ADDON_DIR/mac-arm64" ] && [ ! -e "$$ADDON_DIR/darwin-arm64" ] && ln -sf mac-arm64 "$$ADDON_DIR/darwin-arm64") || true; \
-			([ -d "$$ADDON_DIR/mac-x64" ] && [ ! -e "$$ADDON_DIR/darwin-x64" ] && ln -sf mac-x64 "$$ADDON_DIR/darwin-x64") || true; \
-		fi; \
-	fi
-	@# Rebuild native modules for the current Node.js version (prevents ERR_DLOPEN_FAILED)
-	@cd $(UBOT_HOME) && npm rebuild 2>/dev/null || true
-	@echo "   Installed dependencies to $(UBOT_HOME)/node_modules/"
-
-	@# Copy static web UI (clean copy)
-	@if [ -d $(WEB_DIR)/out ]; then \
-		rm -rf $(UBOT_HOME)/web; \
-		mkdir -p $(UBOT_HOME)/web; \
-		cp -r $(WEB_DIR)/out/* $(UBOT_HOME)/web/; \
-		echo "   Installed web UI to $(UBOT_HOME)/web/"; \
-	else \
-		echo "   ⚠️  No web export found (expected $(WEB_DIR)/out/)"; \
-	fi
-
-	@# ── Config (merge, never overwrite) ────────────────────────────────
-	@if [ ! -f $(UBOT_HOME)/config.json ]; then \
-		cp $(CLI_DIR)/default-config.json $(UBOT_HOME)/config.json; \
-		echo "   Created default config at $(UBOT_HOME)/config.json"; \
-	else \
-		python3 $(CLI_DIR)/merge-config.py $(UBOT_HOME)/config.json $(CLI_DIR)/default-config.json; \
-	fi
-
-	@# ── Copy Migrations explicitly for Setup Wizard ───────────────
-	@rm -rf $(UBOT_HOME)/migrations
-	@cp -R $(CORE_DIR)/supabase/migrations $(UBOT_HOME)/migrations
-	@echo "   Prepared auto-migration scripts in $(UBOT_HOME)/migrations/"
-
-	@# ── Interactive Initialization Wizard (first install only) ──
-	@if [ "$(FIRST_INSTALL)" = "1" ]; then \
-		echo ""; \
-		UBOT_HOME=$(UBOT_HOME) node $(UBOT_HOME)/lib/cli/wizard.js; \
-		echo ""; \
-	fi
-
-	@# Install CLI to PATH
-	@mkdir -p $(INSTALL_BIN_DIR)
-	@cp $(CLI_DIR)/ubot $(INSTALL_BIN_DIR)/ubot
-	@chmod +x $(INSTALL_BIN_DIR)/ubot
-	@echo "   Installed CLI to $(INSTALL_BIN_DIR)/ubot"
-
-	@# ── Write install marker ───────────────────────────────────────────
-	@date -u +"%Y-%m-%dT%H:%M:%SZ" > "$(INSTALL_MARKER)"
-	@echo "   Install marker written."
-
-_post_install_info:
-	@# ── Auto-restart if server is running ──────────────────────────────
-	@if [ -f $(UBOT_HOME)/ubot.pid ] && kill -0 $$(cat $(UBOT_HOME)/ubot.pid) 2>/dev/null; then \
-		echo ""; \
-		echo "🔄 Server is running — restarting with new code..."; \
-		$(INSTALL_BIN_DIR)/ubot restart; \
-	else \
-		echo ""; \
-		echo "   Start with:   ubot start"; \
-	fi
-	@echo "   Dashboard:    http://localhost:11490"
-	@echo "   Config:       $(UBOT_HOME)/config.json"
-
-## uninstall: Remove ubot CLI (keeps data)
-uninstall:
-	@echo "🗑  Removing ubot CLI..."
-	@rm -f $(INSTALL_BIN_DIR)/ubot
-	@echo "   Removed CLI from $(INSTALL_BIN_DIR)/ubot"
-	@echo ""
-	@echo "   Note: Data is preserved at $(UBOT_HOME)/"
-	@echo "   To remove everything: make uninstall-all"
-
-## uninstall-all: Remove ubot CLI and all data
-uninstall-all: uninstall
-	@echo "🗑  Removing all ubot data..."
-	@rm -rf $(UBOT_HOME)
-	@echo "   Removed $(UBOT_HOME)/"
-
-## clean: Remove build artifacts
 clean:
-	@echo "🧹 Cleaning..."
-	@cd $(CORE_DIR) && npm run clean 2>/dev/null || true
-	@rm -rf $(WEB_DIR)/out $(WEB_DIR)/.next
-	@echo "   Clean complete."
+	@cd $(CORE_DIR) && npm run clean
+	@rm -rf "$(WEB_DIR)/.next" "$(WEB_DIR)/out"
 
-## dev: Run in development mode (existing behavior)
-dev:
-	@cd $(CORE_DIR) && npm run dev
+dev: check-deps
+	@trap 'kill 0' EXIT INT TERM; \
+	  (cd $(CORE_DIR) && PORT=5081 YOUBOT_HOST=127.0.0.1 NODE_ENV=development npm run dev) & \
+	  (cd $(WEB_DIR) && npm run dev -- -p 5080)
 
-## deps: Install all dependencies
-deps:
-	@echo "📥 Installing dependencies..."
-	@cd $(CORE_DIR) && npm install
-	@cd $(WEB_DIR) && npm install
-	@echo "   Dependencies installed."
-
-## help: Show this help
 help:
-	@echo "🤖 Ubot Makefile"
-	@echo ""
-	@echo "Usage:"
-	@echo "  make [target]"
-	@echo ""
-	@echo "Targets:"
-	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## /  /'
-	@echo ""
-	@echo "Variables:"
-	@echo "  UBOT_HOME        Runtime directory (default: ~/.ubot)"
-	@echo "  INSTALL_BIN_DIR   CLI install directory (default: ~/.local/bin)"
+	@echo "Targets: deps build test lint verify install update clean dev"

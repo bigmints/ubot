@@ -1,50 +1,94 @@
-#!/bin/bash
-# start.sh — Start Ubot Core (Backend API + Next.js UI on port 4080)
-set -e
-ulimit -n 65536 2>/dev/null || true
+#!/usr/bin/env bash
+# Build and start a production-mode Youbot instance from this checkout.
+set -Eeuo pipefail
+umask 077
 
-DIR="$(cd "$(dirname "$0")/ubot-core" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CORE_DIR="$ROOT_DIR/youbot-core"
+WEB_DIR="$CORE_DIR/web-ui"
+PID_FILE="$CORE_DIR/youbot.pid"
+LOG_FILE="$CORE_DIR/youbot.log"
+PORT="${PORT:-5080}"
+YOUBOT_HOST="${YOUBOT_HOST:-127.0.0.1}"
 
-# Clear stale Turbopack cache (prevents EMFILE on restart)
-rm -rf "$DIR/web-ui/.next"
-
-echo "🛑 Killing any existing processes..."
-# Kill by saved PID files (and their process groups)
-for pidfile in "$DIR/ubot.pid" "$DIR/web-ui.pid"; do
-  if [ -f "$pidfile" ]; then
-    pid=$(cat "$pidfile")
-    # Kill the entire process group
-    kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
-    rm -f "$pidfile"
-  fi
+for command_name in node npm curl lsof ps; do
+  command -v "$command_name" >/dev/null 2>&1 || {
+    echo "Missing required command: $command_name" >&2
+    exit 1
+  }
 done
-# Kill by port (catches any stragglers)
-lsof -ti:4080 | xargs kill -9 2>/dev/null || true
-lsof -ti:4081 | xargs kill -9 2>/dev/null || true
-# Kill zombie child processes by pattern
-pkill -9 -f 'tsx watch src/index.ts' 2>/dev/null || true
-pkill -9 -f 'concurrently.*dev:server.*dev:css' 2>/dev/null || true
-pkill -9 -f 'tailwindcss.*input.css.*output.css.*watch' 2>/dev/null || true
-sleep 1
 
-# 1) Start backend API on internal port 4081
-echo "🔧 Starting backend API on :4081..."
-cd "$DIR"
-SURL="http://127.0.0.1:54321"
-SKEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
-SANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
+pid_belongs_to_checkout() {
+  local pid="$1" cwd command_line
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1)"
+  command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  [[ "$cwd" == "$CORE_DIR" && "$command_line" == *"dist/index.js"* ]]
+}
 
-PORT=4081 SUPABASE_URL="$SURL" SUPABASE_SERVICE_ROLE_KEY="$SKEY" nohup bash -c 'ulimit -n 65536 2>/dev/null; exec npm run dev' > "$DIR/ubot.log" 2>&1 &
-echo $! > "$DIR/ubot.pid"
+if [[ -f "$PID_FILE" ]]; then
+  existing_pid="$(cat "$PID_FILE")"
+  if kill -0 "$existing_pid" 2>/dev/null; then
+    if pid_belongs_to_checkout "$existing_pid"; then
+      echo "Youbot is already running (PID $existing_pid)."
+      echo "Dashboard: http://$YOUBOT_HOST:$PORT"
+      exit 0
+    fi
+    echo "PID file points to a process not owned by this checkout; refusing to continue." >&2
+    exit 1
+  fi
+  rm -f "$PID_FILE"
+fi
 
-# 2) Start Next.js UI on port 4080 (user-facing)
-echo "🎨 Starting Next.js UI on :4080 (Turbopack)..."
-cd "$DIR/web-ui"
-PORT=4080 WATCHPACK_POLLING=true NEXT_PUBLIC_SUPABASE_URL="$SURL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$SANON" nohup bash -c 'ulimit -n 65536 2>/dev/null; exec npm run dev' > "$DIR/web-ui.log" 2>&1 &
-echo $! > "$DIR/web-ui.pid"
+if lsof -tiTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "Port $PORT is already in use; refusing to stop an unrelated process." >&2
+  exit 1
+fi
 
-sleep 4
-echo ""
-echo "✅ Ubot Core running!"
-echo "📊 Dashboard: http://localhost:4080"
-echo "📄 Logs: tail -f $DIR/ubot.log $DIR/web-ui.log"
+[[ -d "$CORE_DIR/node_modules" ]] || (cd "$CORE_DIR" && npm ci)
+[[ -d "$WEB_DIR/node_modules" ]] || (cd "$WEB_DIR" && npm ci)
+
+echo "Building backend..."
+(cd "$CORE_DIR" && npm run build)
+
+echo "Building dashboard..."
+(cd "$WEB_DIR" && npm run build)
+
+echo "Preparing static dashboard assets..."
+rm -rf "$CORE_DIR/web"
+mkdir -p "$CORE_DIR/web"
+cp -R "$WEB_DIR/out/." "$CORE_DIR/web/"
+
+echo "Starting Youbot on http://$YOUBOT_HOST:$PORT ..."
+: >"$LOG_FILE"
+chmod 600 "$LOG_FILE"
+(
+  cd "$CORE_DIR"
+  nohup env \
+    PORT="$PORT" \
+    YOUBOT_HOST="$YOUBOT_HOST" \
+    YOUBOT_HOME="$CORE_DIR" \
+    NODE_ENV=production \
+    node dist/index.js >"$LOG_FILE" 2>&1 &
+  echo "$!" >"$PID_FILE"
+)
+
+started_pid="$(cat "$PID_FILE")"
+for _ in {1..30}; do
+  if curl --silent --fail --max-time 2 "http://$YOUBOT_HOST:$PORT/health" >/dev/null; then
+    echo "Youbot is ready (PID $started_pid)."
+    echo "Dashboard: http://$YOUBOT_HOST:$PORT"
+    echo "Logs: $LOG_FILE"
+    exit 0
+  fi
+  if ! kill -0 "$started_pid" 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+
+echo "Youbot failed its readiness check." >&2
+kill "$started_pid" 2>/dev/null || true
+rm -f "$PID_FILE"
+tail -n 80 "$LOG_FILE" >&2 || true
+exit 1

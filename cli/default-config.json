@@ -3,7 +3,7 @@
         "port": 11490
     },
     "database": {
-        "path": "data/ubot.db"
+        "path": "data/youbot.db"
     },
     "owner": {
         "phone": "",

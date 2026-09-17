@@ -1,4 +1,4 @@
-Add a promise-tracker middleware to the handler pipeline in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/handler.ts.
+Add a promise-tracker middleware to the handler pipeline in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/handler.ts.
 
 ## Problem
 The LLM sometimes ignores the system prompt and says things like "I'll get back to you" without actually scheduling a follow-up. This middleware acts as a safety net.

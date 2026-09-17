@@ -1,6 +1,6 @@
 Fix the follow-up checker so it actually sends messages when an agent produces a follow-up response.
 
-File to modify: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/automation/followups/checker.ts
+File to modify: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/automation/followups/checker.ts
 
 ## Current Problem
 

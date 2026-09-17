@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-14T07:59:56.177590+00:00",
+  "scope": "Planning artifacts and Spacecrew initialization only; no application implementation acceptance",
+  "result": "pass",
+  "checks": {
+    "stories": 12,
+    "specialistProfiles": 8,
+    "requirements": 24,
+    "requirementCoverage": "complete",
+    "dependencyGraph": "acyclic",
+    "persistedStoryReadback": "pass",
+    "storyStates": "blocked; assigned-not-dispatched",
+    "implementationRuns": 0,
+    "knowledgeOriginals": 22,
+    "documentFreshness": "current",
+    "storeIntegrity": [
+      {
+        "integrity_check": "ok"
+      }
+    ],
+    "spacecrewHealth": true,
+    "newFactorySpec": {
+      "id": "conversational-collections",
+      "revision": 1,
+      "status": "draft",
+      "drift": false,
+      "digest": "f1c35298bdc9ce24e969d0725c0165d7c76ee180c4aa52db64a1d63373e11a66"
+    },
+    "codexAdapterProjectPin": "pass",
+    "directMcpObserved": {
+      "toolCount": 25,
+      "projectId": "project_5959df4c-f72a-4e90-b42a-3e8371153e7f",
+      "serverVersion": "0.5.9",
+      "method": "Root connected SDK stdio client, discovered tools and read project_get during this task; caller-reported observation"
+    },
+    "roleContextReadiness": [
+      {
+        "role": "coordinator",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 48355
+      },
+      {
+        "role": "product",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 44507
+      },
+      {
+        "role": "architect",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 42240
+      },
+      {
+        "role": "engineer",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 49202
+      },
+      {
+        "role": "designer",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 47142
+      },
+      {
+        "role": "reviewer",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 47480
+      },
+      {
+        "role": "release",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 42905
+      },
+      {
+        "role": "knowledge",
+        "readyForWork": true,
+        "blockedBy": [],
+        "warnings": [],
+        "usedCharacters": 48425
+      }
+    ],
+    "independentPlanningReviewPresent": true
+  },
+  "warnings": [
+    "Inherited concierge-v1-experience revision 1 has source drift; preserved for reconciliation before the new product decision.",
+    "Context readiness may omit optional documents within the budget; agents must inspect omissions and read assigned originals.",
+    "Native activation in a fresh trusted Codex task remains unverified.",
+    "Fikr Studio summary transmission pending unavailable MCP connection."
+  ],
+  "errors": [],
+  "notExecuted": [
+    "Application tests for collections",
+    "Live model/OCR extraction evaluation",
+    "Real visitor-channel delivery",
+    "Installed-package migration/runtime checks",
+    "Implementation dispatch",
+    "Release or deployment"
+  ],
+  "files": [
+    {
+      "path": ".factory/product/specs/conversational-collections.md",
+      "sha256": "f1c35298bdc9ce24e969d0725c0165d7c76ee180c4aa52db64a1d63373e11a66"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "2c05a5bc9e2e9364a2c998ff641072de6e6f41b30f0ea6d0e6ad4e1ecd30b07a"
+    },
+    {
+      "path": "README.md",
+      "sha256": "3099835d3f908ab3b79d3adecb126966ac03bc6b5d2d3b28eab54e553295a6de"
+    },
+    {
+      "path": "youbot-core/AGENTS.md",
+      "sha256": "7c0ce796efec667d4200093939847c3ba417c396eb0122d16a666088ba6bbf90"
+    },
+    {
+      "path": ".factory/team.yaml",
+      "sha256": "fa09a2e38578c2f826fb44de98496d9769a1391004865cb00e455469682b4bcd"
+    },
+    {
+      "path": ".factory/documents.yaml",
+      "sha256": "3d6f5208c695a2ea07efe0b6183482f719d5bf161f8d6adbf2a339839765b61c"
+    },
+    {
+      "path": "docs/conversational-collections-research.md",
+      "sha256": "0146b19a5e86b256cc08416f20d86d7aeefdd74d3470f0d13b3bafc5351e3ff1"
+    },
+    {
+      "path": "docs/collections/README.md",
+      "sha256": "ddc631c4b70bb30268093e98393be1d9b4829785e7ac4a0e793c51b29a73594b"
+    },
+    {
+      "path": "docs/collections/architecture.md",
+      "sha256": "bb3bea0915471a09d787267c4d7ed62c9657abc4f3d60dcde5616414e08d2c0e"
+    },
+    {
+      "path": "docs/collections/fikr-studio-summary.md",
+      "sha256": "c1c778a7bf8efac22198bf30ac74421cc34407a6c8be780ed1689ecf6756923a"
+    },
+    {
+      "path": "docs/collections/implementation-plan.md",
+      "sha256": "5e9adef0af04fed92fd22c0ddc7543459e40477225cc91ab1c28be4b72510f15"
+    },
+    {
+      "path": "docs/collections/planning-review.md",
+      "sha256": "50558db629970d6743c172607596b12553e1a23cba32cb91ceb11e7518943023"
+    },
+    {
+      "path": "docs/collections/spacecrew-setup.md",
+      "sha256": "4256e2ccb04a0653aa2277ffb94db0b6bf503109f7b0b82b161a04504099f626"
+    },
+    {
+      "path": "docs/collections/stories.md",
+      "sha256": "7f758abcf9b89022e3b35f552d1ff97c7a0cb9f6dc28c6faca8e546832f0f224"
+    },
+    {
+      "path": "docs/collections/verification-plan.md",
+      "sha256": "30b4be22555c81b6a58a705cfdaa04eaa8eb2687d91fbbb4ced5a48bc9f7786e"
+    },
+    {
+      "path": "docs/collections/agents/collections_architect.md",
+      "sha256": "3a11a6b9c1beb32073e5fe6393b4954b3c933f8996aaf03892974b5d66a919e7"
+    },
+    {
+      "path": "docs/collections/agents/collections_backend.md",
+      "sha256": "3569f2fb0da7c815f033dd1319e0bd10b07d2d2102d271abd545dcafd432ac20"
+    },
+    {
+      "path": "docs/collections/agents/collections_designer.md",
+      "sha256": "29352bb4fa3a755e0e7538eb6097a4bfbe9f4f2644896ddfbbe508b9feca0fa2"
+    },
+    {
+      "path": "docs/collections/agents/collections_frontend.md",
+      "sha256": "8c135f524498b94e9e114d823bc453904b50cb1143f7cf323a611ec4bdf729e3"
+    },
+    {
+      "path": "docs/collections/agents/collections_import.md",
+      "sha256": "f612b32aca8427db0ca630b45b2015b82d0b95ebca2204b28141ec2231bd30dd"
+    },
+    {
+      "path": "docs/collections/agents/collections_quality.md",
+      "sha256": "38e01bfab0158df1c0e598b2f22413a727a6c03a879329f1836e4137432116b7"
+    },
+    {
+      "path": "docs/collections/agents/collections_release.md",
+      "sha256": "60cc5cbcf20d44f01156aa1d1f5c939a14811804df5c5e75d7827a0724f645ee"
+    },
+    {
+      "path": "docs/collections/agents/collections_retrieval.md",
+      "sha256": "d7bd16ce093ea91fd33c197bd38952ef4ad4342187829a46989438ae9c5a7a96"
+    },
+    {
+      "path": ".spacecrew/agents/architect.md",
+      "sha256": "7973cddb63630bf3d722c7cb9a6c24bd97177890ecfce20cf368088fb13378de"
+    },
+    {
+      "path": ".spacecrew/agents/coordinator.md",
+      "sha256": "10eaf68d4484b53135996520d3adebaa3fafb4b4213db47cb7001fea13a1887b"
+    },
+    {
+      "path": ".spacecrew/agents/designer.md",
+      "sha256": "1f9faf1723706ad12091ca12307fe0dfb8f0e04ac80a405554eeb23e862a25cd"
+    },
+    {
+      "path": ".spacecrew/agents/engineer.md",
+      "sha256": "54745306118df713cc89ddf67903887e5414d47087e6d97f2d39d381fb879d16"
+    },
+    {
+      "path": ".spacecrew/agents/knowledge.md",
+      "sha256": "dd124008392b70cfe1f3e0bc9287c9618e7a00a5e4824653c207a2cf0914896d"
+    },
+    {
+      "path": ".spacecrew/agents/product.md",
+      "sha256": "1072e7317cf60b26bfd1cb36f442bcce48f586861d67335891a4245e2837ff7d"
+    },
+    {
+      "path": ".spacecrew/agents/release.md",
+      "sha256": "6cd2fd1df10cb51c89079c738a59256ed36dd4750832efe0f19a3ca92bfd3b54"
+    },
+    {
+      "path": ".spacecrew/agents/reviewer.md",
+      "sha256": "c7cdcab1331b3f68165c4350c83bcfa1d64acd33701318fb4039cb82ffbbd4a4"
+    },
+    {
+      "path": "docs/collections/story-manifest.json",
+      "sha256": "5c324d41f431c19af754ce20c30d917b6696936c53723c91784a2bc0c2882ef0"
+    }
+  ]
+}

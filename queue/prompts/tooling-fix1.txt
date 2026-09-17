@@ -1,7 +1,7 @@
-Fix TWO critical bugs in the Ubot tooling system:
+Fix TWO critical bugs in the Youbot tooling system:
 
 ## Bug 1: Dead 'browser' module disable (registry.ts)
-Remove the hardcoded 'browser' module from ALWAYS_DISABLED in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/tools/registry.ts. This is a dead code path since browser tools come from MCP (Playwright), not the browser module.
+Remove the hardcoded 'browser' module from ALWAYS_DISABLED in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/tools/registry.ts. This is a dead code path since browser tools come from MCP (Playwright), not the browser module.
 
 Find and remove or comment out this line:
 ```typescript
@@ -11,7 +11,7 @@ const ALWAYS_DISABLED = new Set(['browser']);
 Also remove 'browser' from the module descriptions in tool-selector.ts if it's listed there as a disabled module.
 
 ## Bug 2: Classification failure fallback (tool-selector.ts)
-Fix /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/tool-selector.ts
+Fix /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/tool-selector.ts
 
 The current code in selectToolsForMessage() has this dangerous fallback:
 ```typescript

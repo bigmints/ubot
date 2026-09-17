@@ -1,0 +1,313 @@
+/**
+ * Memory Store
+ * SQLite-backed long-term memory for contacts and facts.
+ * Stores key-value facts per contact that persist across sessions.
+ * Also stores YAML soul documents per persona.
+ */
+
+import { v4 as uuidv4 } from "uuid";
+import type { DatabaseConnection } from "../data/database/types.js";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export type MemoryCategory =
+	| "identity"
+	| "preference"
+	| "fact"
+	| "relationship"
+	| "note"
+	| "summary";
+
+export interface MemoryEntry {
+	id: string;
+	contactId: string; // WhatsApp JID or LID
+	category: MemoryCategory;
+	key: string; // e.g. "name", "language", "birthday"
+	value: string; // the actual fact
+	source: string; // where this was learned ("extracted" | "manual")
+	confidence: number; // 0-1, how confident the extraction was
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Soul Document Types                                                */
+/* ------------------------------------------------------------------ */
+
+export interface SoulDocument {
+	personaId: string;
+	content: string;
+	updatedAt: Date;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Store interface & implementation                                   */
+/* ------------------------------------------------------------------ */
+
+interface MemoryRow {
+	id: string;
+	contact_id: string;
+	category: string;
+	key: string;
+	value: string;
+	source: string;
+	confidence: number;
+	created_at: string;
+	updated_at: string;
+}
+
+function rowToMemory(row: MemoryRow): MemoryEntry {
+	return {
+		id: row.id,
+		contactId: row.contact_id,
+		category: row.category as MemoryCategory,
+		key: row.key,
+		value: row.value,
+		source: row.source,
+		confidence: row.confidence,
+		createdAt: new Date(row.created_at),
+		updatedAt: new Date(row.updated_at),
+	};
+}
+
+export interface MemoryStore {
+	saveMemory(
+		contactId: string,
+		category: MemoryCategory,
+		key: string,
+		value: string,
+		source?: string,
+		confidence?: number,
+		ttlSeconds?: number,
+	): Promise<MemoryEntry>;
+	getMemories(
+		contactId: string,
+		category?: MemoryCategory,
+	): Promise<MemoryEntry[]>;
+	getAllMemories(): Promise<MemoryEntry[]>;
+	searchMemories(query: string): Promise<MemoryEntry[]>;
+	deleteMemory(id: string): Promise<boolean>;
+	clearContactMemories(contactId: string): Promise<void>;
+	formatForPrompt(contactId: string): Promise<string>;
+
+	getDocument(personaId: string): Promise<SoulDocument | null>;
+	saveDocument(personaId: string, content: string): Promise<SoulDocument>;
+	deleteDocument(personaId: string): Promise<boolean>;
+	listDocuments(): Promise<SoulDocument[]>;
+}
+
+export function createMemoryStore(db: DatabaseConnection): MemoryStore {
+	const getClient = () => db.get_client();
+
+	return {
+		async saveMemory(
+			contactId,
+			category,
+			key,
+			value,
+			source = "extracted",
+			confidence = 0.8,
+			ttlSeconds?: number,
+		): Promise<MemoryEntry> {
+			const now = new Date().toISOString();
+			const expiresAt = ttlSeconds
+				? new Date(Date.now() + ttlSeconds * 1000).toISOString()
+				: null;
+
+			// Check existing memory
+			const { data: existing } = await getClient()
+				.from("youbot_memories")
+				.select("*")
+				.eq("contact_id", contactId)
+				.eq("category", category)
+				.eq("key", key)
+				.single();
+
+			if (existing) {
+				await getClient()
+					.from("youbot_memories")
+					.update({
+						value,
+						source,
+						confidence,
+						updated_at: now,
+						expires_at: expiresAt,
+					})
+					.eq("id", existing.id);
+
+				console.log(
+					`[Memory] Updated: ${contactId} → ${category}/${key} = "${value}"`,
+				);
+				return {
+					...rowToMemory(existing),
+					value,
+					source,
+					confidence,
+					updatedAt: new Date(now),
+				};
+			}
+
+			const id = uuidv4();
+			await getClient().from("youbot_memories").insert({
+				id,
+				contact_id: contactId,
+				category,
+				key,
+				value,
+				source,
+				confidence,
+				expires_at: expiresAt,
+				created_at: now,
+				updated_at: now,
+			});
+
+			console.log(
+				`[Memory] Saved: ${contactId} → ${category}/${key} = "${value}"`,
+			);
+			return {
+				id,
+				contactId,
+				category,
+				key,
+				value,
+				source,
+				confidence,
+				createdAt: new Date(now),
+				updatedAt: new Date(now),
+			};
+		},
+
+		async getMemories(contactId, category?): Promise<MemoryEntry[]> {
+			let query = getClient()
+				.from("youbot_memories")
+				.select("*")
+				.eq("contact_id", contactId);
+
+			if (category) {
+				query = query.eq("category", category);
+			}
+
+			const { data, error } = await query.order("updated_at", {
+				ascending: false,
+			});
+			if (error || !data) return [];
+			return data.map(rowToMemory);
+		},
+
+		async getAllMemories(): Promise<MemoryEntry[]> {
+			const { data, error } = await getClient()
+				.from("youbot_memories")
+				.select("*")
+				.order("updated_at", { ascending: false });
+			if (error || !data) return [];
+			return data.map(rowToMemory);
+		},
+
+		async searchMemories(query): Promise<MemoryEntry[]> {
+			const { data, error } = await getClient()
+				.from("youbot_memories")
+				.select("*")
+				.or(`value.ilike.%${query}%,key.ilike.%${query}%`)
+				.order("updated_at", { ascending: false });
+			if (error || !data) return [];
+			return data.map(rowToMemory);
+		},
+
+		async deleteMemory(id): Promise<boolean> {
+			const { error } = await getClient()
+				.from("youbot_memories")
+				.delete()
+				.eq("id", id);
+			return !error;
+		},
+
+		async clearContactMemories(contactId): Promise<void> {
+			await getClient()
+				.from("youbot_memories")
+				.delete()
+				.eq("contact_id", contactId);
+		},
+
+		async formatForPrompt(contactId): Promise<string> {
+			const memories = await this.getMemories(contactId);
+			if (memories.length === 0) return "";
+
+			const grouped = new Map<string, MemoryEntry[]>();
+			for (const m of memories) {
+				const list = grouped.get(m.category) || [];
+				list.push(m);
+				grouped.set(m.category, list);
+			}
+
+			let result = "## What you know about this contact:\n";
+			for (const [category, items] of grouped) {
+				result += `\n### ${category.charAt(0).toUpperCase() + category.slice(1)}:\n`;
+				for (const item of items) {
+					result += `- ${item.key}: ${item.value}\n`;
+				}
+			}
+			return result;
+		},
+
+		/* ---- Soul Documents ---- */
+
+		async getDocument(personaId): Promise<SoulDocument | null> {
+			const { data, error } = await getClient()
+				.from("youbot_soul_documents")
+				.select("*")
+				.eq("persona_id", personaId)
+				.single();
+
+			if (error || !data) return null;
+			return {
+				personaId: data.persona_id,
+				content: data.content,
+				updatedAt: new Date(data.updated_at),
+			};
+		},
+
+		async saveDocument(personaId, content): Promise<SoulDocument> {
+			const now = new Date().toISOString();
+			const existing = await this.getDocument(personaId);
+
+			if (existing) {
+				await getClient()
+					.from("youbot_soul_documents")
+					.update({ content, updated_at: now })
+					.eq("persona_id", personaId);
+			} else {
+				await getClient()
+					.from("youbot_soul_documents")
+					.insert({ persona_id: personaId, content, updated_at: now });
+			}
+			console.log(
+				`[Soul] Document saved for ${personaId} (${content.length} chars)`,
+			);
+			return { personaId, content, updatedAt: new Date(now) };
+		},
+
+		async deleteDocument(personaId): Promise<boolean> {
+			const { error } = await getClient()
+				.from("youbot_soul_documents")
+				.delete()
+				.eq("persona_id", personaId);
+			return !error;
+		},
+
+		async listDocuments(): Promise<SoulDocument[]> {
+			const { data, error } = await getClient()
+				.from("youbot_soul_documents")
+				.select("*")
+				.order("updated_at", { ascending: false });
+
+			if (error || !data) return [];
+			return data.map((r: any) => ({
+				personaId: r.persona_id,
+				content: r.content,
+				updatedAt: new Date(r.updated_at),
+			}));
+		},
+	};
+}

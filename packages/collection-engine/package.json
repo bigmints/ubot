@@ -1,0 +1,45 @@
+{
+  "name": "@youbot/collection-engine",
+  "version": "0.1.0",
+  "description": "Provider-neutral tools for organizing and publishing already-extracted collection data",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist-cjs/index.js"
+    },
+    "./conformance": {
+      "types": "./dist/conformance.d.ts",
+      "import": "./dist/conformance.js",
+      "require": "./dist-cjs/conformance.js"
+    }
+  },
+  "files": [
+    "dist",
+    "dist-cjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "clean": "node -e \"const fs=require('node:fs'); for(const path of ['dist','dist-cjs']) fs.rmSync(path,{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "llm-tools",
+    "collections",
+    "headless"
+  ],
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

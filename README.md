@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="ubot-core/web/public/ubot.svg" width="80" alt="Ubot Logo" />
+  <img src="youbot-core/branding/youbot.svg" width="80" alt="Youbot Logo" />
 </p>
 
-<h1 align="center">Ubot</h1>
-<p align="center"><strong>Your Personal AI Operating System</strong></p>
+<h1 align="center">Youbot</h1>
+<p align="center"><strong>Your AI concierge for visitors</strong></p>
 <p align="center">
-  Open-source, self-hosted AI assistant that connects to your messaging apps, tools, and services.<br/>
+  Open-source, self-hosted concierge that helps visitors on behalf of you or your organization.<br/>
   Runs locally. Privacy-first. Extensible via MCP.
 </p>
 
@@ -17,11 +17,24 @@
 
 ---
 
-## What is Ubot?
+## Start here
 
-Ubot is a **self-hosted AI assistant** that acts as your personal operating system for digital life. Connect it to WhatsApp, Telegram, iMessage, Gmail, and more — then control everything through natural conversation. It browses the web, sends messages, manages files, schedules tasks, and replies to people on your behalf.
+For macOS or Linux, use the reviewed user-scoped installer below. Windows users can open [START HERE.md](START%20HERE.md) for the launcher instructions.
 
-Unlike cloud-based assistants, Ubot runs **entirely on your machine**. Your data never leaves your computer.
+- **Self-hosted:** free software; you manage your computer and AI account.
+- **Version 1:** self-hosted on macOS, Linux, and Windows. Paid managed hosting is planned for phase two and is not part of this release.
+
+The instructions below are for developers and existing installations.
+
+## What is Youbot?
+
+Youbot is a **self-hosted AI concierge** that helps visitors using the information and boundaries its owner supplies. The owner configures the concierge, connects supported channels, follows visitor conversations, and takes over when a decision or personal reply is needed. Channel integrations and available actions depend on configuration and authorization.
+
+Youbot's server runs on your own computer. Connected messaging services and configured AI providers receive the information needed for the requests you send through them.
+
+### Collections
+
+Youbot includes a reusable headless collection engine with provider-neutral tools. Owners can add catalogues or written information, review organized items through cards, galleries, or schedules, publish selected facts, and keep visitor answers current through conversational updates. Other projects can use the same package with their own model, authentication, and interface. See the [collection engine package](packages/collection-engine/README.md) and [collections documentation](docs/collections/README.md).
 
 ### Key Capabilities
 
@@ -58,18 +71,15 @@ Unlike cloud-based assistants, Ubot runs **entirely on your machine**. Your data
 ## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/Bigmints-com/ubot.git
-cd ubot
-
-# Install dependencies + build + install
-make install
-
-# Start
-ubot start
+curl --proto '=https' --tlsv1.2 -fsS https://youbot.live/install.sh -o install.sh
+less install.sh
+bash install.sh
+~/.local/bin/youbot start
 ```
 
 Dashboard: **http://localhost:11490**
+
+The installer runs without `sudo`, resolves the requested source version to an immutable Git commit, verifies any downloaded private Node.js runtime, and keeps application releases separate from your settings and data. Add `~/.local/bin` to `PATH` if you want to run `youbot` without the full path. For a manual source build, clone this repository and run `make verify && make install`.
 
 ### Connect Your Channels
 
@@ -85,10 +95,13 @@ Dashboard: **http://localhost:11490**
 ## Architecture
 
 ```
-ubot/
+youbot/
+├── install.sh                # User-scoped macOS/Linux installer
+├── packages/
+│   └── collection-engine/    # Reusable provider-neutral collection engine
 ├── Makefile                  # Build + install pipeline
 ├── start.sh / stop.sh        # Dev mode scripts
-└── ubot-core/                # Main application
+└── youbot-core/              # Main application
     ├── src/
     │   ├── api/              # REST API (custom HTTP router)
     │   ├── engine/           # LLM orchestrator, tool routing, unified handler
@@ -99,7 +112,8 @@ ubot/
     │   ├── memory/           # Soul system, conversation store, personas
     │   ├── data/             # SQLite database & config management
     │   └── logger/           # Ring-buffer structured logging
-    └── web/                  # Next.js 16 + shadcn/ui dashboard
+    ├── web-ui/               # Next.js 16 + shadcn/ui dashboard source
+    └── webchat-relay/        # Public website and visitor relay
 ```
 
 ### Message Flow (LLM-First)
@@ -118,32 +132,37 @@ All valid messages — from both the owner and visitors — go through the LLM o
 
 | What     | Where                                 |
 | -------- | ------------------------------------- |
-| Config   | `~/.ubot/config.json`                 |
-| Database | `~/.ubot/data/ubot.db` (SQLite)       |
-| Skills   | `~/.ubot/skills/<name>/SKILL.md`      |
-| Identity | `~/.ubot/data/SOUL.md`, `IDENTITY.md` |
-| Backend  | `~/.ubot/lib/` (compiled JS)          |
-| Web UI   | `~/.ubot/web/` (Next.js static)       |
-| Logs     | `~/.ubot/logs/`                       |
+| Config   | `~/.youbot/config.json`                 |
+| Database | `~/.youbot/data/youbot.db` (SQLite)       |
+| Skills   | `~/.youbot/skills/<name>/SKILL.md`      |
+| Identity | `~/.youbot/data/SOUL.md`, `IDENTITY.md` |
+| Backend  | `~/.youbot/current/lib/` (compiled JS)  |
+| Web UI   | `~/.youbot/current/web/` (Next.js static) |
+| Logs     | `~/.youbot/logs/`                       |
 
 ---
 
 ## CLI
 
 ```bash
-ubot start             # Start on port 11490
-ubot stop              # Graceful shutdown
-ubot restart           # Stop + start
-ubot status            # Show PID, port, dashboard URL
-ubot logs              # Last 50 log lines
-ubot logs -f           # Follow logs in real-time
-ubot config            # Show current config
-ubot config edit       # Open config in $EDITOR
-ubot config set k v    # Set a config value
-ubot config get k      # Get a config value
-ubot doctor            # Health check
-ubot open              # Open dashboard in browser
+youbot start             # Start on port 11490
+youbot stop              # Graceful shutdown
+youbot restart           # Stop + start
+youbot status            # Show PID, port, dashboard URL
+youbot logs              # Last 50 log lines
+youbot logs -f           # Follow logs in real-time
+youbot backup            # Create a verified private backup
+youbot backup-verify DIR # Verify hashes and SQLite integrity
+youbot restore DIR       # Offline, recoverable restore
+youbot config            # Show current config
+youbot config edit       # Open config in $EDITOR
+youbot config set k v    # Set a config value
+youbot config get k      # Get a config value
+youbot doctor            # Health check
+youbot open              # Open dashboard in browser
 ```
+
+The supported production profile is one loopback-bound process on one trusted host with local SQLite storage. Read the [operations guide](youbot-core/docs/operations.md) before using real visitor data; it covers permissions, backups, restore drills, updates, monitoring, and the boundary for broader deployments.
 
 ---
 
@@ -157,24 +176,24 @@ ubot open              # Open dashboard in browser
 ./stop.sh
 
 # Run tests
-cd ubot-core && npx vitest
+cd youbot-core && npx vitest
 
 # Build + deploy to runtime
-make install           # Builds, copies to ~/.ubot/, restarts
+make install           # Builds and copies to ~/.youbot/; restart separately
 ```
 
-> **Important**: `npm run build` only compiles to `ubot-core/dist/`. The runtime loads from `~/.ubot/lib/`. Always use `make install` to deploy changes.
+> **Important**: `npm run build` only compiles to `youbot-core/dist/`. The runtime loads from `~/.youbot/lib/`. Always use `make install` to deploy changes.
 
 ---
 
 ## Configuration
 
-Config lives at `~/.ubot/config.json`:
+Config lives at `~/.youbot/config.json`:
 
 ```json
 {
   "server": { "port": 11490 },
-  "database": { "path": "data/ubot.db" },
+  "database": { "path": "data/youbot.db" },
   "owner": {
     "phone": "",
     "telegram_id": "",
@@ -235,7 +254,7 @@ Respond warmly and ask how you can help today.
 Mention the person's name if you know it.
 ```
 
-Skills are stored in `~/.ubot/skills/<skill-name>/SKILL.md` and are injected as LLM context when their fast filters match an incoming message. The LLM decides whether and how to follow them.
+Skills are stored in `~/.youbot/skills/<skill-name>/SKILL.md` and are injected as LLM context when their fast filters match an incoming message. The LLM decides whether and how to follow them.
 
 Create skills via the web dashboard (**Skills** page), the `create_skill` tool, or by writing the files directly.
 

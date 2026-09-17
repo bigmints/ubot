@@ -1,0 +1,31 @@
+						// But if critical, force break.
+						if (loopCheck.severity === "critical") {
+							finalContent =
+								"I was repeating the same action without making progress. Let me try a different approach.";
+							break;
+						}
+					}
+				}
+
+				// If this was the last iteration, use whatever text we have
+				if (iteration >= currentConfig.maxToolIterations) {
+					finalContent =
+						llmResult.content || "I completed the requested actions.";
+
+					const todos = null;
+					const pendingCount = todos.filter(
+						(t: any) => t.status === "pending" || t.status === "in_progress",
+					).length;
+
+					if (pendingCount > 0) {
+						const currentCount = continuationCount.get(sessionId) || 0;
+						if (currentCount < 3) {
+							continuationCount.set(sessionId, currentCount + 1);
+							log.info(
+								"Agent",
+								`Task continuation scheduled: ${pendingCount} todos remaining (Attempt ${currentCount + 1}/3)`,
+							);
+
+							messages.push({
+								role: "system",
+								content:

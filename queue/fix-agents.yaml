@@ -1,6 +1,6 @@
 queue:
   - name: "Extend AgentDefinition schema"
-    prompt: "I need you to extend the AgentDefinition interface in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/types.ts (around line 294) to add these fields:
+    prompt: "I need you to extend the AgentDefinition interface in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/types.ts (around line 294) to add these fields:
 
 1. `fallbackAgent?: string;` — ID of an agent to delegate to if this one fails
 2. `errorPolicy?: 'retry_once' | 'escalate' | 'fail_silently';` — How to handle failures
@@ -10,12 +10,12 @@ queue:
 Also update the agent-loader.ts to handle the new `inheritsFrom` field by merging allowedTools from the parent agent.
 
 Important: Only modify the types.ts and agent-loader.ts files. Do NOT change any other files. Return a summary of what you changed."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Add autonomyTier enforcement"
-    prompt: "I need you to add runtime enforcement of autonomyTier in the orchestrator at /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/orchestrator.ts.
+    prompt: "I need you to add runtime enforcement of autonomyTier in the orchestrator at /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/orchestrator.ts.
 
 The autonomy tier system (T1/T2/T3) exists in AgentDefinition but is NOT enforced at runtime. Add a function `filterToolsByTier(allowedTools: string[], tier: 'T1'|'T2'|'T3'): string[]` that:
 
@@ -28,12 +28,12 @@ Then integrate this into the subagent runner so that when `delegate_to_agent` sp
 Look at the existing tool definitions to understand which tools are dangerous. The key dangerous tools are: cli_triage, exec, cli_run with shell commands that could modify system files.
 
 Only modify orchestrator.ts. Return a summary of what you changed."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Add inheritsFrom to agent loader"
-    prompt: "Update the agent-loader.ts at /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/agent-loader.ts to handle the new `inheritsFrom` field.
+    prompt: "Update the agent-loader.ts at /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/agent-loader.ts to handle the new `inheritsFrom` field.
 
 When loading an agent definition, if `inheritsFrom` is specified:
 1. Look up the parent agent from the already-loaded agents list
@@ -44,12 +44,12 @@ When loading an agent definition, if `inheritsFrom` is specified:
 Also update the `saveAgentYaml` function to write the `inheritsFrom` field to YAML.
 
 Only modify agent-loader.ts. Return a summary of what you changed."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Create publisher agent"
-    prompt: "Create a new file at /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/agents/publisher.agent.yaml
+    prompt: "Create a new file at /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/agents/publisher.agent.yaml
 
 This agent should be a general-purpose publisher that can:
 - Publish articles to Substack, Medium, Dev.to
@@ -72,12 +72,12 @@ The system prompt should be detailed and include:
 - Error handling if publishing fails
 
 Return the full YAML content."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Add typed blackboard keys"
-    prompt: "Update the Blackboard class in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/blackboard.ts to add typed key support.
+    prompt: "Update the Blackboard class in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/blackboard.ts to add typed key support.
 
 Add these new methods:
 
@@ -100,6 +100,6 @@ interface BlackboardKey {
 ```
 
 Only modify blackboard.ts. Return a summary of what you changed."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo

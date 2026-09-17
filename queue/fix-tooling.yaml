@@ -1,6 +1,6 @@
 queue:
   - name: "Fix browser module disable + classification fallback"
-    prompt: "Fix TWO critical bugs in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/tool-selector.ts:
+    prompt: "Fix TWO critical bugs in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/tool-selector.ts:
 
 1. Remove the hardcoded 'browser' module from ALWAYS_DISABLED in registry.ts (it's a dead code path since browser tools come from MCP). Remove this line: const ALWAYS_DISABLED = new Set(['browser']);
 
@@ -13,12 +13,12 @@ queue:
 3. In the catch block for JSON parsing, instead of returning all tools, return only tools from ALWAYS_INCLUDE_MODULES with a warning log.
 
 Return a summary of all changes made."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Split ToolContext into focused interfaces"
-    prompt: "Refactor /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/tools/types.ts to reduce the god object coupling in ToolContext.
+    prompt: "Refactor /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/tools/types.ts to reduce the god object coupling in ToolContext.
 
 Currently ToolContext has 15 get*() methods with 'any' return types. Split it into smaller, focused interfaces:
 
@@ -33,12 +33,12 @@ export interface ToolContext extends ToolDatabaseContext, ToolMessagingContext, 
 This maintains backward compatibility but makes the dependencies explicit and type-safe.
 
 Return a summary of all changes made."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Add runtime tool enable/disable API"
-    prompt: "Add runtime tool enable/disable capability to /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/tools/registry.ts.
+    prompt: "Add runtime tool enable/disable capability to /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/tools/registry.ts.
 
 Currently DISABLED_MODULES is computed once at startup. Add:
 
@@ -49,18 +49,18 @@ Currently DISABLED_MODULES is computed once at startup. Add:
 2. Update getDisabledModules() to also check a runtime-disabled set
 
 3. Add a simple API endpoint at /api/tools/toggle (POST) that accepts { module: string, enabled: boolean }
-   - Add this to /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/api/index.ts
+   - Add this to /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/api/index.ts
    - Returns { success: boolean, message: string }
 
 4. Add a GET endpoint at /api/tools/status that returns all module names and their enabled/disabled status
 
 Return a summary of all changes made."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Improve safeExecutor error handling"
-    prompt: "Improve error handling in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/tools/types.ts.
+    prompt: "Improve error handling in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/tools/types.ts.
 
 The current safeExecutor only logs err.message. Update it to:
 
@@ -75,16 +75,16 @@ The current safeExecutor only logs err.message. Update it to:
 4. Update ToolExecutionResult type to include optional 'category' and 'stack' fields
 
 Return a summary of all changes made."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Add tool execution metrics"
-    prompt: "Add tool execution metrics tracking to /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/orchestrator.ts.
+    prompt: "Add tool execution metrics tracking to /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/orchestrator.ts.
 
 Currently there's no way to measure which tools fail most, average latency, or token usage per tool. Add:
 
-1. A simple metrics collector class in /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/metrics.ts:
+1. A simple metrics collector class in /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/metrics.ts:
    - Track: toolName, success (bool), duration (ms), tokenUsage (if available)
    - Store in memory with a sliding window (last 1000 entries)
    - Provide: getStats(toolName?), getTotalStats()
@@ -99,12 +99,12 @@ Currently there's no way to measure which tools fail most, average latency, or t
 4. Log a summary every 100 tool executions: "Metrics: 500 tools called, 98% success, avg 1.2s"
 
 Return a summary of all changes made."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo
 
   - name: "Add tool versioning and rollback"
-    prompt: "Add tool versioning to /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/tools/types.ts and registry.ts.
+    prompt: "Add tool versioning to /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/tools/types.ts and registry.ts.
 
 Add:
 
@@ -120,6 +120,6 @@ Add:
 5. Update the tool discovery process to read version from package.json or a version field in the module
 
 Return a summary of all changes made."
-    workdir: /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core
+    workdir: /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core
     model: qwen/qwen3.6-35b-a3b
     approval_mode: yolo

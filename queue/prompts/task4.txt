@@ -1,4 +1,4 @@
-Create a new file at /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/agents/publisher.agent.yaml
+Create a new file at /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/agents/publisher.agent.yaml
 
 This agent should be a general-purpose publisher that can:
 - Publish articles to Substack, Medium, Dev.to

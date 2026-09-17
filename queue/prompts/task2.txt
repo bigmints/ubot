@@ -1,4 +1,4 @@
-Add runtime enforcement of autonomyTier in the orchestrator at /Users/pretheesh/Projects/ubot-workspace/ubot/ubot-core/src/engine/orchestrator.ts.
+Add runtime enforcement of autonomyTier in the orchestrator at /Users/pretheesh/Projects/youbot-workspace/youbot/youbot-core/src/engine/orchestrator.ts.
 
 The autonomy tier system (T1/T2/T3) exists in AgentDefinition but is NOT enforced at runtime.
 

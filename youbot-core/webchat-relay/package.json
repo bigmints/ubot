@@ -1,0 +1,16 @@
+{
+  "name": "youbot-webchat-relay",
+  "version": "2.3.0",
+  "description": "Cloud relay for YOUBOT webchat channel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^8.7.1"
+  }
+}

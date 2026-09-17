@@ -1,0 +1,408 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// YOUBOT Configuration Reference
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// This is a JSONC (JSON with Comments) reference file documenting ALL available
+// configuration options. Copy the sections you need to your config.json.
+//
+// Your actual config.json must be valid JSON (no comments).
+//
+// Resolution order for overlapping settings:
+//   1. Environment variables (deploy-time override)
+//   2. config.json (this file)
+//   3. Built-in defaults
+//
+// File location: YOUBOT looks for config.json at:
+//   1. $YOUBOT_HOME/config.json (if YOUBOT_HOME is set)
+//   2. ./config.json (current working directory)
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+
+{
+
+  // ─── Meta ──────────────────────────────────────────────────────────────────
+  // Version tracking for config migrations
+
+  "meta": {
+    "version": "3.0"
+  },
+
+
+  // ─── Server ────────────────────────────────────────────────────────────────
+
+  "server": {
+
+    // Backend API port
+    // Default: 11490
+    "port": 4081,
+
+    // Frontend dev server port (Next.js).
+    // Used in dev mode for proxying. Production mode serves built frontend directly.
+    // Override: DEV_FRONTEND_PORT env var
+    // Default: 3015
+    "frontend_port": 4080,
+
+    // Deployment mode. Controls which features are available.
+    // Override: YOUBOT_MODE env var
+    //   "local"        → Full power, self-hosted (default)
+    //   "cloud"        → Single-tenant dedicated cloud
+    //   "cloud-shared" → Multi-tenant shared SaaS
+    // Default: "local"
+    "mode": "local",
+
+
+    // ─── Authentication ──────────────────────────────────────────────────
+    // Auth is MANDATORY. If mode is "local" and no password is set,
+    // one will be auto-generated on first boot and saved here.
+
+    "auth": {
+
+      // Auth mode:
+      //   "local" → Username/password login screen (default)
+      //   "sso"   → External SSO provider (e.g. Supabase, OAuth)
+      "mode": "local",
+
+      // ── Local Mode Fields ──────────────────────────────────────────────
+      // Only used when mode is "local"
+
+      // Login username. Default: "admin"
+      "username": "admin",
+
+      // Login password. If omitted in "local" mode, auto-generated on boot.
+      "password": "change-me",
+
+      // ── SSO Mode Fields ────────────────────────────────────────────────
+      // Only used when mode is "sso"
+
+      // SSO provider name (for logging/debugging)
+      // Example: "supabase", "auth0", "keycloak"
+      // "provider": "supabase",
+
+      // SSO login page URL. Users are redirected here when not authenticated.
+      // "auth_url": "https://auth.example.com",
+
+      // Cookie name containing the SSO session token.
+      // Default: "session"
+      // "cookie_name": "session"
+    }
+  },
+
+
+  // ─── Database ──────────────────────────────────────────────────────────────
+  // Database configuration.
+  // Supports "supabase" for cloud or local postgres database.
+
+  "database": {
+    "provider": "supabase",
+    "supabase_url": "https://your-project.supabase.co",
+    "supabase_service_key": "your-service-key"
+  },
+
+
+  // ─── Workspace ─────────────────────────────────────────────────────────────
+  // Where user-generated files are stored (skills, documents, uploads, etc.)
+
+  "workspace": {
+
+    // Storage provider:
+    //   "local" → Local filesystem (default)
+    //   "gcs"   → Google Cloud Storage (for cloud deployments)
+    "provider": "local",
+
+    // Local: relative or absolute path to workspace directory.
+    // GCS: bucket name.
+    // Default: "./workspace"
+    "path": "./workspace"
+
+    // GCS only: key prefix for tenant isolation
+    // "prefix": "tenant-123/"
+  },
+
+
+  // ─── Custom Apps Directory ─────────────────────────────────────────────────
+  // Where YOUBOT looks for custom app manifests.
+  // Each app in this dir should have a manifest.ts/manifest.js exporting a CustomApp.
+  // Default: "custom/apps"
+
+  "apps_dir": "custom/apps",
+
+
+  // ─── Theme / Branding ──────────────────────────────────────────────────────
+  // Customize the dashboard appearance. Applied at runtime by ThemeInjector.
+  // Custom app themes (from apps_dir) override these values.
+
+  "theme": {
+
+    // App name shown in title bar, sidebar header, login screen
+    "app_name": "Youbot",
+
+    // Short description (used in meta tags)
+    "description": "AI Agent Platform",
+
+    // Logo image URL. Shown in sidebar header.
+    // Can be relative to public/ dir or an absolute URL.
+    // "logo_url": "/logo.svg",
+
+    // Favicon URL
+    // "favicon_url": "/favicon.ico",
+
+    // CSS color overrides. Applied as CSS custom properties on :root.
+    // Use HSL format for consistency with shadcn/ui theme system.
+    "colors": {
+      // "primary": "217 91% 60%",
+      // "background": "240 10% 3.9%",
+      // "foreground": "0 0% 98%",
+      // "sidebar": "240 5.9% 10%",
+      // "accent": "240 3.7% 15.9%",
+      // "border": "240 3.7% 15.9%"
+    },
+
+    // Google Font names
+    "fonts": {
+      // "heading": "Inter",
+      // "body": "Inter"
+    }
+  },
+
+
+  // ─── Owner Identity ────────────────────────────────────────────────────────
+  // The bot owner's contact details. Used for owner detection in messaging.
+
+  "owner": {
+    // Phone number with country code (for WhatsApp owner detection)
+    "phone": "+1234567890",
+
+    // Telegram user ID (numeric)
+    "telegram_id": "123456789",
+
+    // Telegram username (without @)
+    "telegram_username": "myusername"
+  },
+
+
+  // ─── Channels ──────────────────────────────────────────────────────────────
+  // Messaging platform integrations. Each channel can be enabled/disabled.
+
+  "channels": {
+
+    // WhatsApp (local mode only — requires WhatsApp Web connection)
+    "whatsapp": {
+      "enabled": false,
+      "auto_reply": false
+    },
+
+    // Telegram Bot
+    "telegram": {
+      "enabled": false,
+      // Bot token from @BotFather
+      "token": "YOUR_TELEGRAM_BOT_TOKEN",
+      "auto_reply": true
+    },
+
+    // iMessage (local mode only — macOS with Messages.app)
+    // "imessage": {
+    //   "enabled": false,
+    //   "server_url": "http://localhost:1234",
+    //   "password": "imessage-bridge-password",
+    //   "auto_reply": false
+    // },
+
+    // Webchat (embeddable widget)
+    "webchat": {
+      // Unique token for this webchat instance
+      "connection_token": "",
+      "enabled": true,
+      "auto_reply": true,
+
+      // Widget customization
+      "widget_title": "Ask me anything",
+      "widget_color": "#6366f1",
+      "welcome_message": "Hi there! How can I help you?",
+      "avatar_url": "",
+
+      // Relay server for public-facing webchat (optional)
+      "relay_url": "",
+      "bot_secret": "",
+      "owner_key": ""
+    }
+  },
+
+
+  // ─── Agent ─────────────────────────────────────────────────────────────────
+  // AI agent behavior configuration
+
+  "agent": {
+    // Max messages included in conversation context
+    // Higher = more context but slower and more expensive
+    "max_history_messages": 20
+
+    // Max tool call iterations per turn
+    // "max_tool_iterations": 10,
+
+    // Custom system prompt (replaces default)
+    // "system_prompt": "You are a helpful AI assistant..."
+  },
+
+
+  // ─── Defaults ──────────────────────────────────────────────────────────────
+  // Purpose-based routing: which capability.provider to use for each purpose.
+  // Format: "purpose": "capability.provider"
+
+  "defaults": {
+    "chat": "models.gemini",
+    "email": "google.gmail",
+    "calendar": "google.calendar",
+    "search": "mcp.tavily",
+    "maps": "google.places",
+    "cli": "cli.gemini",
+    "documents": "google.docs",
+    "spreadsheets": "google.sheets",
+    "storage": "google.drive",
+    "contacts": "google.contacts",
+    "browser": "mcp.playwright"
+  },
+
+
+  // ─── Capabilities ──────────────────────────────────────────────────────────
+  // All integrations, tools, and AI providers.
+
+  "capabilities": {
+
+    // ── LLM Providers ────────────────────────────────────────────────────
+    "models": {
+      "enabled": true,
+      "default": "gemini",
+      "providers": {
+        "gemini": {
+          "enabled": true,
+          "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
+          "apiKey": "YOUR_GEMINI_API_KEY",
+          "model": "models/gemini-2.0-flash"
+        },
+        "ollama": {
+          "enabled": true,
+          "baseUrl": "http://localhost:11434/v1",
+          "model": "llama3.2:3b"
+        }
+        // "openai": {
+        //   "enabled": false,
+        //   "apiKey": "YOUR_OPENAI_API_KEY",
+        //   "model": "gpt-4o"
+        // },
+        // OpenAI-compatible providers (vLLM, LM Studio, Open Router, etc.)
+        // "my-custom-api": {
+        //   "enabled": true,
+        //   "baseUrl": "https://your-api.example.com/v1",
+        //   "apiKey": "YOUR_API_KEY",
+        //   "model": "llama-3.1-70b"
+        // }
+      }
+    },
+
+    // ── Web Search ───────────────────────────────────────────────────────
+    "search": {
+      "enabled": true,
+      "default": "serper",
+      "providers": {
+        "serper": {
+          "enabled": true,
+          "apiKey": "YOUR_SERPER_API_KEY"
+        },
+        "duckduckgo": {
+          "enabled": true
+        }
+      }
+    },
+
+    // ── CLI / Code Execution ─────────────────────────────────────────────
+    "cli": {
+      "enabled": true,
+      "default": "gemini",
+      "providers": {
+        "gemini": { "enabled": true, "timeout": 300000 },
+        "claude": { "enabled": false, "timeout": 300000 },
+        "openai": { "enabled": false, "timeout": 300000 },
+        "ollama": { "enabled": true, "timeout": 300000 }
+      }
+    },
+
+    // ── Filesystem Access (local mode only) ──────────────────────────────
+    "filesystem": {
+      "enabled": true,
+      "allowed_paths": [
+        "~/Documents",
+        "~/Downloads",
+        "~/Desktop",
+        "~/Projects"
+      ]
+    },
+
+    // ── Google Services ──────────────────────────────────────────────────
+    "google": {
+      "enabled": true,
+      "apiKey": "",
+      "services": {
+        "calendar": {
+          "enabled": true,
+          "credentials": {
+            "client_id": "YOUR_GOOGLE_CLIENT_ID",
+            "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
+            "redirect_uris": ["http://localhost:4081/oauth2callback"]
+          }
+        },
+        "gmail": {
+          "enabled": true,
+          "credentials": {
+            "client_id": "YOUR_GOOGLE_CLIENT_ID",
+            "client_secret": "YOUR_GOOGLE_CLIENT_SECRET",
+            "redirect_uris": ["http://localhost:4081/oauth2callback"]
+          }
+        }
+      }
+    },
+
+    // ── Apple Services (local mode only, macOS) ──────────────────────────
+    "apple": {
+      "enabled": true,
+      "services": {
+        "calendar": { "enabled": true },
+        "contacts": { "enabled": true },
+        "notes": { "enabled": true },
+        "mail": { "enabled": true }
+      }
+    },
+
+    // ── MCP (Model Context Protocol) Servers ─────────────────────────────
+    // External tool servers that extend YOUBOT's capabilities.
+    "mcp": {
+      "enabled": true,
+      "servers": {
+        // Each server is a subprocess launched by YOUBOT
+        "playwright": {
+          "command": "npx",
+          "args": ["@playwright/mcp@latest"],
+          "env": {},
+          "enabledTools": [
+            "browser_navigate",
+            "browser_snapshot",
+            "browser_click",
+            "browser_type",
+            "browser_take_screenshot"
+          ]
+        }
+        // "tavily-mcp": {
+        //   "command": "npx",
+        //   "args": ["-y", "tavily-mcp@latest"],
+        //   "env": { "TAVILY_API_KEY": "YOUR_TAVILY_KEY" },
+        //   "enabledTools": ["tavily_search", "tavily_extract"]
+        // }
+      }
+    },
+
+    // ── Feature Toggles ──────────────────────────────────────────────────
+    "browser": { "enabled": true },
+    "memory":  { "enabled": true },
+    "vault":   { "enabled": true },
+    "media":   { "enabled": true }
+  }
+}
