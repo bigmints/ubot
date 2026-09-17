@@ -14,15 +14,15 @@ public/_not-found/
 public/css/output.css
 
 # ── Runtime data ──────────────────────────────
-sessions/
-data/
-workspace/
+/sessions/
+/data/
+/workspace/
 *.db
 *.db-shm
 *.db-wal
 *.pid
-runs/
-browser-profile/
+/runs/
+/browser-profile/
 
 # ── Credentials & secrets ─────────────────────
 creds/
