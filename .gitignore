@@ -29,6 +29,9 @@ creds/
 .env
 .env.*
 !.env.example
+.picorunner-data/
+packages/collection-engine/dist-cjs/
+youbot-core/web/
 
 # ── Agent tooling (private) ───────────────────
 .agents/skills/
