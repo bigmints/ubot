@@ -1,0 +1,27 @@
+schema = 1
+name = "Youbot"
+
+[runtime]
+kind = "node"
+version = "22"
+package_manager = "npm"
+workspace = "."
+
+[[setup.steps]]
+kind = "dependencies"
+locked = true
+
+[launch]
+command = ["npm", "run", "start"]
+working_directory = "."
+host = "127.0.0.1"
+port = 5080
+port_env = "PORT"
+
+[health]
+type = "http"
+path = "/health"
+timeout_seconds = 180
+
+[persistence]
+paths = [".picorunner-data"]

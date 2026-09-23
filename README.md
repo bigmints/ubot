@@ -13,6 +13,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" /></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%E2%89%A522-green" alt="Node.js ≥22" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" /></a>
+  <a href="https://picorunner.com/launch/?repository=https%3A%2F%2Fgithub.com%2FBigmints-com%2Fubot"><img src="https://picorunner.com/badges/launch.svg" alt="Launch on PicoRunner" /></a>
 </p>
 
 ---
