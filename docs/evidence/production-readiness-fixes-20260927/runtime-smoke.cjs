@@ -1,0 +1,33 @@
+const fs=require('node:fs'); const path=require('node:path'); const os=require('node:os'); const net=require('node:net');
+const {spawn,spawnSync}=require('node:child_process');const assert=require('node:assert/strict');
+const node='/Users/pretheesh/.local/share/youbot/runtime/node/bin/node';
+const stage='/private/tmp/youbot-readiness-fixes-20260927';
+const evidence='/Users/pretheesh/Projects/youbot/docs/evidence/production-readiness-fixes-20260927';
+const home=fs.mkdtempSync(path.join(os.tmpdir(),'youbot-readiness-runtime-'));let child;const checks=[];
+const env={...process.env,PATH:path.dirname(node)+':'+process.env.PATH,YOUBOT_HOME:home,NODE_ENV:'production'};delete env.VITEST;
+const run=(cmd,args,options={})=>{const r=spawnSync(cmd,args,{env,encoding:'utf8',...options});if(r.status!==0)throw Error(`${cmd} exited ${r.status}: ${r.stderr}`);return r.stdout;};
+const stop=async()=>{if(!child||child.exitCode!==null)return; const p=child;await new Promise(resolve=>{const t=setTimeout(()=>p.kill('SIGKILL'),10000);p.once('exit',()=>{clearTimeout(t);resolve()});p.kill('SIGTERM')});child=null;};
+async function start(){const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
+const log=fs.openSync(path.join(evidence,'runtime-private-fixture.log'),'a');child=spawn(node,[path.join(home,'lib/index.js')],{cwd:home,env:{...env,PORT:String(port)},stdio:['ignore',log,log]});fs.closeSync(log);
+const base=`http://127.0.0.1:${port}`;
+for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error('Runtime exited before health');try{const r=await fetch(base+'/health');if(r.ok)return base;}catch{}await new Promise(r=>setTimeout(r,100));}throw Error('Health timeout');}
+(async()=>{try{
+fs.writeFileSync(path.join(evidence,'packaged-install.log'),run('make',['-s','-o','build','install',`YOUBOT_HOME=${home}`,`INSTALL_BIN_DIR=${home}/bin`],{cwd:stage}));
+const config={server:{host:'127.0.0.1',auth:{mode:'local',username:'fixture-owner',password:'fixture-password-20260927'}},api:{keys:[{key:'fixture-client-a',name:'same name',scopes:['chat']},{key:'fixture-client-b',name:'same name',scopes:['chat']}]},database:{path:'data/youbot.db'},channels:{whatsapp:{enabled:false},telegram:{enabled:false},webchat:{enabled:false},imessage:{enabled:false}},capabilities:{models:{enabled:false,providers:{}},cli:{enabled:false},google:{enabled:false},search:{enabled:false}},mcpServers:[],marker:'before-backup'};
+fs.writeFileSync(path.join(home,'config.json'),JSON.stringify(config),{mode:0o600});
+const base=await start();const get=(url,headers={})=>fetch(base+url,{headers});
+assert.equal((await get('/api/chat/config')).status,401);checks.push('unauthenticated owner config denied');
+const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'fixture-owner',password:'fixture-password-20260927'})});assert.equal(login.status,200);const cookie=login.headers.get('set-cookie').split(';')[0];const owner={cookie,'content-type':'application/json'};
+const a={authorization:'Bearer fixture-client-a','content-type':'application/json'};const b={authorization:'Bearer fixture-client-b','content-type':'application/json'};
+for(const url of ['/api/chat/config','/api/logs','/api/config/model-routing'])assert.equal((await get(url,a)).status,403);checks.push('non-owner config, logs and routing denied');
+assert.equal((await fetch(base+'/api/shutdown',{method:'POST',headers:a})).status,403);assert.equal((await get('/health')).status,200);checks.push('non-owner shutdown denied, runtime stays healthy');
+const create=async headers=>{const r=await fetch(base+'/api/chat/sessions',{method:'POST',headers,body:JSON.stringify({name:'fixture'})});assert.equal(r.status,200);return (await r.json()).session.id;};
+const ownerId=await create(owner);const aId=await create(a);const bId=await create(b);assert.notEqual(aId,bId);
+let sessions=(await (await get('/api/chat/sessions',a)).json()).sessions;assert.deepEqual(sessions.map(x=>x.id),[aId]);checks.push('owner and same-name API-key sessions are isolated');
+await fetch(base+'/api/chat/sessions/delete',{method:'POST',headers:a,body:JSON.stringify({sessionId:ownerId})});sessions=(await (await get('/api/chat/sessions',owner)).json()).sessions;assert(sessions.some(x=>x.id===ownerId));checks.push('foreign session deletion cannot delete owner data');
+assert.equal((await get('/api/chat/config',owner)).status,200);checks.push('owner configuration preserved');
+await stop();
+const backup=path.join(home,'backups','readiness');const cli=path.join(home,'bin/youbot');run('bash',[cli,'backup',backup]);run('bash',[cli,'backup-verify',backup]);config.marker='after-backup';fs.writeFileSync(path.join(home,'config.json'),JSON.stringify(config),{mode:0o600});run('bash',[cli,'restore',backup]);assert.equal(JSON.parse(fs.readFileSync(path.join(home,'config.json'))).marker,'before-backup');checks.push('installed CLI backup, integrity verification and offline restore passed');
+const restart=await start();assert.equal((await fetch(restart+'/health')).status,200);checks.push('installed runtime healthy after restore and restart');
+fs.writeFileSync(path.join(evidence,'runtime-smoke.json'),JSON.stringify({node:run(node,['--version']).trim(),home,checks,result:'passed'},null,2));console.log(JSON.stringify({result:'passed',checks}));
+}finally{await stop();}})().catch(e=>{console.error(e.stack);process.exitCode=1});

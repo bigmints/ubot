@@ -11,6 +11,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { isIP } = require('node:net');
 const { serveWebsite, RESERVED_PATH_SEGMENTS } = require('./website/serve.cjs');
 const { createPersistence } = require('./persistence.js');
 const { createRelayTelemetry } = require('./telemetry.js');
@@ -28,6 +29,12 @@ const MAX_ACTIVE_TENANTS = Number(process.env.MAX_ACTIVE_TENANTS || 5_000);
 const MAX_PENDING_PER_TENANT = Number(process.env.MAX_PENDING_PER_TENANT || 50);
 const MAX_SESSIONS_PER_TENANT = Number(process.env.MAX_SESSIONS_PER_TENANT || 1_000);
 const MAX_HISTORY = 100;
+// Trust no forwarded identity by default. Set only for a fixed, enforced ingress chain.
+const TRUSTED_PROXY_HOPS = Number(process.env.RELAY_TRUSTED_PROXY_HOPS || 0);
+if (!Number.isInteger(TRUSTED_PROXY_HOPS) || TRUSTED_PROXY_HOPS < 0 || TRUSTED_PROXY_HOPS > 8) {
+  throw new Error('RELAY_TRUSTED_PROXY_HOPS must be an integer from 0 to 8');
+}
+const MAX_RATE_LIMIT_KEYS = 10_000;
 const relayTelemetry = createRelayTelemetry({ salt: SIGNING_SECRET });
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9]|-(?!-)){1,38}[a-z0-9]$/;
 const RESERVED_SLUGS = new Set([
@@ -95,15 +102,24 @@ function validateSlug(value) {
   return { valid: true, slug, reason: '' };
 }
 
-function clientAddress(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket.remoteAddress || 'unknown';
+function clientAddress(req, trustedProxyHops = TRUSTED_PROXY_HOPS) {
+  const peer = req.socket.remoteAddress || 'unknown';
+  if (!trustedProxyHops) return peer;
+  const chain = String(req.headers['x-forwarded-for'] || '').split(',').map(value => value.trim());
+  // Count from the trusted right side; a caller can prepend arbitrary values.
+  const candidate = chain[chain.length - trustedProxyHops];
+  if (!candidate || !isIP(candidate)) return peer;
+  return isIP(candidate) === 6 ? new URL(`http://[${candidate}]`).hostname : candidate;
 }
 
 function takeRateLimit(key, limit, windowMs) {
   const now = Date.now();
   const current = rateLimits.get(key);
   if (!current || current.resetAt <= now) {
+    if (!current && rateLimits.size >= MAX_RATE_LIMIT_KEYS) {
+      cleanupRateLimits();
+      if (rateLimits.size >= MAX_RATE_LIMIT_KEYS) return false;
+    }
     rateLimits.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }
@@ -384,7 +400,7 @@ async function handleTenantRequest(req, res, tenantId, publicId, route, url) {
 
   if (route === '/api/message' && method === 'POST') {
     const rateKey = `message:${tenantId}:${clientAddress(req)}`;
-    if (!takeRateLimit(rateKey, 30, 60_000)) {
+    if (!takeRateLimit(rateKey, 30, 60_000) || !takeRateLimit(`tenant-messages:${tenantId}`, 120, 60_000)) {
       jsonResponse(res, { error: 'Too many messages. Please wait a moment.' }, 429, { 'Retry-After': '60' });
       return;
     }
@@ -660,6 +676,9 @@ async function handleRequest(req, res) {
   if (pathname === '/widget.js' && method === 'GET') {
     if (servePublicFile(res, 'widget.js', 'application/javascript; charset=utf-8', true)) return;
   }
+  if (pathname === '/session-transport.js' && method === 'GET') {
+    if (servePublicFile(res, 'session-transport.js', 'application/javascript; charset=utf-8', true)) return;
+  }
   if (pathname === '/telemetry.js' && method === 'GET') {
     if (servePublicFile(res, 'telemetry.js', 'application/javascript; charset=utf-8', true)) return;
   }
@@ -717,4 +736,5 @@ module.exports = {
   botSecretFor,
   ownerKeyFor,
   validateSlug,
+  clientAddress,
 };

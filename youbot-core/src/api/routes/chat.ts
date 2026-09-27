@@ -1,3 +1,4 @@
+import { canAccessApiRoute, clientSessionPrefix, resolveChatSession } from '../middleware/access.js';
 import http from 'http';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -16,11 +17,21 @@ export async function handleChatRoutes(
   ctx: ApiContext,
 ): Promise<boolean> {
 
+  const pathname = url.split('?')[0];
+  const chatRoute = pathname === '/api/chat' || pathname.startsWith('/api/chat/')
+    || pathname === '/api/whatsapp/messages' || pathname === '/api/llm-providers' || pathname.startsWith('/api/llm-providers/');
+  if (chatRoute && !canAccessApiRoute(ctx.auth, method, url)) {
+    error(res, 'Forbidden', 403);
+    return true;
+  }
+  const ownPrefix = clientSessionPrefix(ctx.auth);
+  const ownsSession = (id: string) => ctx.auth?.isOwner === true || Boolean(ownPrefix && id.startsWith(ownPrefix));
+
   // ── Poll async job result ─────────────────────────────────
   if (url.startsWith('/api/chat/job/') && method === 'GET') {
     const jobId = url.replace('/api/chat/job/', '').split('?')[0];
     const job = await ctx.asyncJobStore?.get(jobId);
-    if (!job) {
+    if (!job || !ownsSession(job.sessionId)) {
       error(res, 'Job not found', 404);
       return true;
     }
@@ -52,17 +63,10 @@ export async function handleChatRoutes(
 
     const message = body.message || body.content || '';
     const isOwner = ctx.auth?.isOwner ?? false;
-    let sessionId = body.sessionId || 'web-console';
+    const sessionId = resolveChatSession(ctx.auth, body.sessionId ?? 'web-console');
+    if (!sessionId) { error(res, 'Invalid sessionId', 400); return true; }
 
-    // Sandbox non-owner sessions to prevent access to dashboard threads
-    if (!isOwner) {
-      const clientPrefix = ctx.auth?.clientName ? `api_${ctx.auth.clientName.replace(/\W+/g, '_')}_` : 'api_anon_';
-      if (!sessionId.startsWith(clientPrefix)) {
-        sessionId = `${clientPrefix}${sessionId}`;
-      }
-    }
-
-    if (!message.trim()) {
+    if (typeof message !== 'string' || !message.trim()) {
       error(res, 'Message is required');
       return true;
     }
@@ -300,7 +304,7 @@ export async function handleChatRoutes(
         res.writeHead(200, {
           'Content-Type': mimeMap[ext] || 'application/octet-stream',
           'Content-Length': stat.size,
-          'Cache-Control': 'public, max-age=86400',
+          'Cache-Control': 'private, no-store',
         });
         fs.createReadStream(filePath).pipe(res);
       } else {
@@ -312,31 +316,13 @@ export async function handleChatRoutes(
     return true;
   }
 
-  if (url === '/api/chat/history' && method === 'GET') {
-    if (!ctx.agentOrchestrator) {
-      json(res, { messages: [] });
-      return true;
-    }
-    const urlObj = new URL(url, 'http://localhost');
-    const sessionId = urlObj.searchParams.get('sessionId') || 'web-console';
-    const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
-    const store = ctx.agentOrchestrator.getConversationStore();
-    const messages = await store.getHistory(sessionId, limit);
-    json(res, { messages });
-    return true;
-  }
-
-  if (url.startsWith('/api/chat/history') && method === 'GET') {
-    if (!ctx.agentOrchestrator) {
-      json(res, { messages: [] });
-      return true;
-    }
-    const qIdx = url.indexOf('?');
-    const params = qIdx >= 0 ? new URLSearchParams(url.slice(qIdx)) : new URLSearchParams();
-    const sessionId = params.get('sessionId') || 'web-console';
-    const limit = parseInt(params.get('limit') || '50', 10);
-    const store = ctx.agentOrchestrator.getConversationStore();
-    const messages = await store.getHistory(sessionId, limit);
+  if (pathname === '/api/chat/history' && method === 'GET') {
+    const params = new URL(req.url || url, 'http://localhost').searchParams;
+    const sessionId = resolveChatSession(ctx.auth, params.get('sessionId') ?? 'web-console');
+    if (!sessionId) { error(res, 'Invalid sessionId', 400); return true; }
+    const limit = Math.min(200, Math.max(1, Number(params.get('limit')) || 50));
+    const messages = ctx.agentOrchestrator
+      ? await ctx.agentOrchestrator.getConversationStore().getHistory(sessionId, limit) : [];
     json(res, { messages });
     return true;
   }
@@ -347,7 +333,8 @@ export async function handleChatRoutes(
       return true;
     }
     const body = await parseBody(req) as any;
-    const sessionId = body.sessionId || 'web-console';
+    const sessionId = resolveChatSession(ctx.auth, body.sessionId ?? 'web-console');
+    if (!sessionId) { error(res, 'Invalid sessionId', 400); return true; }
     await ctx.agentOrchestrator.getConversationStore().clearSession(sessionId);
     json(res, { cleared: true, sessionId });
     return true;
@@ -359,7 +346,7 @@ export async function handleChatRoutes(
       return true;
     }
     const allSessions = await ctx.agentOrchestrator.getConversationStore().listSessions();
-    const sessions = allSessions.filter((s: any) => !s.id.startsWith('subagent-'));
+    const sessions = allSessions.filter((s: any) => !s.id.startsWith('subagent-') && ownsSession(s.id));
     json(res, { sessions });
     return true;
   }
@@ -374,7 +361,7 @@ export async function handleChatRoutes(
       const body = await parseBody(req) as any;
       const { v4: uuidv4 } = await import('uuid');
       const store = ctx.agentOrchestrator.getConversationStore();
-      const id = uuidv4();
+      const id = resolveChatSession(ctx.auth, uuidv4())!;
       const name = body.name || 'New Thread';
       const session = await store.createSession(id, 'web', name);
       json(res, { session });
@@ -392,7 +379,8 @@ export async function handleChatRoutes(
       return true;
     }
     const body = await parseBody(req) as any;
-    const { sessionId, name } = body;
+    const { name } = body;
+    const sessionId = resolveChatSession(ctx.auth, body.sessionId);
     if (!sessionId || !name) {
       error(res, 'sessionId and name are required');
       return true;
@@ -410,7 +398,7 @@ export async function handleChatRoutes(
       return true;
     }
     const body = await parseBody(req) as any;
-    const { sessionId } = body;
+    const sessionId = resolveChatSession(ctx.auth, body.sessionId);
     if (!sessionId) {
       error(res, 'sessionId is required');
       return true;

@@ -54,6 +54,8 @@ export interface EngineHook {
 
 export interface AuthResult {
   authenticated: boolean;
+  clientId?: string;
+  isOwner?: boolean;
   clientName?: string;
   error?: string;
   scopes?: string[];

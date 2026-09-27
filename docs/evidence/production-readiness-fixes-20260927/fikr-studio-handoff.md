@@ -1,0 +1,5 @@
+# Pending Fikr Studio handoff
+
+Youbot production-readiness remediation on baseline 7e6c8b9 is implemented in the working tree. Fixed non-owner owner-data/relay-secret access, direct bearer/SSO admin-route authorization, credential-scoped session/job isolation, the make-install local package symlink, and spoofable relay forwarded-address throttling. Independent review passed after finding and verifying the SSO correction. Supported Node 22 checks pass 546 automated tests, builds, installer fixtures, and a real disposable installed runtime with login/API boundaries and CLI backup/restore/restart.
+
+Canonical evidence: docs/evidence/production-readiness-fixes-20260927/README.md. No deployment or production data changes. The current npm production dependency audit passed after explicit metadata-egress approval: zero known vulnerabilities across all four packages. Live ingress verification and release authorization remain separate. Fikr Studio MCP tooling was unavailable, so delivery of this summary is pending.

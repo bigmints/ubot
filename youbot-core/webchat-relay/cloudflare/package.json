@@ -1,0 +1,18 @@
+{
+  "name": "youbot-cloudflare-relay",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-assets.mjs",
+    "test": "node --test test/*.test.mjs scripts/migration.test.mjs",
+    "dev": "npm run build && wrangler dev",
+    "check": "npm run build && wrangler deploy --dry-run",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0",
+    "miniflare": "^4.0.0",
+    "esbuild": "^0.25.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "youbot-relay", "main": "src/worker.js", "compatibility_date": "2026-07-30",
+  "account_id": "c6663484f96b52d2803e1a262cc272fe",
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [{"pattern": "youbot.live/*", "zone_name": "youbot.live"}],
+  "assets": {"directory": "./dist/assets", "binding": "ASSETS", "run_worker_first": true},
+  "durable_objects": {"bindings": [{"name": "REGISTRY", "class_name": "RelayRegistry"}, {"name": "TENANTS", "class_name": "RelayTenant"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["RelayRegistry", "RelayTenant"]}],
+  "vars": {"MIGRATION_MODE": "false", "PUBLIC_BASE_URL": "https://youbot.live"},
+  "observability": {"enabled": false}
+}

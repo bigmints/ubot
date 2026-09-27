@@ -1,0 +1,47 @@
+[
+  {
+    "url": "/api/chat/sessions",
+    "isOwner": false,
+    "status": 200,
+    "payload": {
+      "sessions": [
+        {
+          "id": "owner-thread"
+        }
+      ]
+    }
+  },
+  {
+    "url": "/api/chat/history",
+    "isOwner": false,
+    "status": 200,
+    "payload": {
+      "messages": [
+        {
+          "content": "fixture owner-only text"
+        }
+      ]
+    }
+  },
+  {
+    "url": "/api/chat/config",
+    "isOwner": false,
+    "status": 200,
+    "payload": {
+      "ownerPhone": "",
+      "ownerTelegramId": "",
+      "ownerTelegramUsername": "",
+      "primaryEscalationChannel": "both",
+      "webchatEnabled": true,
+      "webchatToken": "",
+      "webchatRelayUrl": "",
+      "webchatRelaySlug": "",
+      "webchatBotSecret": "fixture-bot-secret",
+      "webchatOwnerKey": "fixture-owner-key",
+      "webchatWidgetTitle": "",
+      "webchatWidgetColor": "#6366f1",
+      "webchatWelcomeMessage": "",
+      "webchatAvatarUrl": ""
+    }
+  }
+]

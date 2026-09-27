@@ -1,0 +1,17 @@
+{
+  "Makefile": "20c6f3baf0b093a76f8d1abf10910751936c922fe58bbe702cad86b2a1b152f1",
+  "test/make-install.test.sh": "bb168c02b83512d17cf362408533a17b876053831aa3ed8f3d35a05e0b8c1f78",
+  "youbot-core/deploy-relay.sh": "c4c9d10cf89eb277df0bfe8e2009119270c2d30c296a01a0653bfd8297df3b95",
+  "youbot-core/docs/operations.md": "1d55883b3cb897088d3fc197c6f78ab5b62446c176be54a91201a219610606f1",
+  "youbot-core/docs/production-readiness-audit.md": "53475902a02d19973c121b444e5cef554f2aea8b59a9da1d94c4c31be6eeb3db",
+  "youbot-core/src/api/index.ts": "9b2a8057bafa68cc998cc177b61132db00403c99cc9a6eea685b868f224e6c67",
+  "youbot-core/src/api/middleware/access.ts": "020a4edf3415b84aeeca988d7a016e74f74f69e249c140d44bc43d69f91a01d5",
+  "youbot-core/src/api/middleware/auth.ts": "a45fb60bd4dfa278fe5e0fde5fdde33c9ffc98dd776f5122ffa5e53f432046a2",
+  "youbot-core/src/api/routes/chat-access.test.ts": "229152d7fcca42c1a98166eb216349e04fd22fa7fc281690b89c4e869b6f533d",
+  "youbot-core/src/api/routes/chat.ts": "dadb117b050d6b87d1d52c234143d48acd62b24a6ec181afe618b077eaf5e196",
+  "youbot-core/src/hooks/extensions.ts": "b3ea0724a544b8be7cb544e9533586c6e24c97b3b89154674ffaa058ec46d717",
+  "youbot-core/src/index.ts": "9c8593cb181cd08661d10c8978b50907bce6af3ddad6fd2d498d65cd4191aba4",
+  "youbot-core/src/server-security.test.ts": "1e918881eddfdef83052cab04548a787229871b8c13fda4563afead476a0d2d1",
+  "youbot-core/webchat-relay/server.js": "846d143957afe1ec0fcceb579adabe0695c4700c5efb282c557b5627eb01ca27",
+  "youbot-core/webchat-relay/test/rate-limit-security.test.js": "dc596614ddeca198c1226938d5bd982b9657e4d9975a8a8e16d26267d2afc002"
+}

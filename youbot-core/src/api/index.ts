@@ -1,3 +1,4 @@
+import { canAccessApiRoute } from './middleware/access.js';
 import { isVisitorFacingReply } from '../engine/visitor-reply.js';
 import { parseConciergeProfile } from "../concierge/profile.js";
 import { getConciergeStore } from "../concierge/store.js";
@@ -1886,26 +1887,6 @@ export async function handleApiRoute(
   wrapResponse(res);
   let clientName: string | undefined;
 
-  if (url === '/api/config/model-routing' && method === 'GET') {
-    const cfg = loadYoubotConfig();
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(cfg.modelRouting || {}));
-    return true;
-  }
-
-if (url === '/api/config/model-routing' && method === 'PUT') {
-    const payload = await parseBody(req) as { routing?: unknown; _error?: string };
-    if (payload._error) {
-      json(res, { error: payload._error }, 413);
-      return true;
-    }
-    const cfg = loadYoubotConfig();
-    cfg.modelRouting = payload.routing || {};
-    saveYoubotConfig(cfg);
-    json(res, { success: true });
-    return true;
-  }
-
   // ── Health check (unauthenticated) ─────────────────────
   if (url === '/api/health' && method === 'GET') {
     let database = false;
@@ -1981,6 +1962,31 @@ if (url === '/api/config/model-routing' && method === 'PUT') {
       clientName = authResult.clientName;
       currentAuth = authResult;
     }
+  }
+
+  if (requiresAuth(method, url) && !canAccessApiRoute(currentAuth, method, url)) {
+    json(res, { error: 'Forbidden: Owner access required for this endpoint.' }, 403);
+    return true;
+  }
+
+  if (url === '/api/config/model-routing' && method === 'GET') {
+    const cfg = loadYoubotConfig();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(cfg.modelRouting || {}));
+    return true;
+  }
+
+  if (url === '/api/config/model-routing' && method === 'PUT') {
+    const payload = await parseBody(req) as { routing?: unknown; _error?: string };
+    if (payload._error) {
+      json(res, { error: payload._error }, 413);
+      return true;
+    }
+    const cfg = loadYoubotConfig();
+    cfg.modelRouting = payload.routing || {};
+    saveYoubotConfig(cfg);
+    json(res, { success: true });
+    return true;
   }
 
   // ── Rate limiting ──────────────────────────────────────

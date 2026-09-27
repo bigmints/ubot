@@ -4,6 +4,7 @@ import path from 'path';
 
 import { handleApiRoute, initializeApi } from './api/index.js';
 import { setSessionValidator } from './api/middleware/auth.js';
+import { canAccessApiRoute } from './api/middleware/access.js';
 import { metricsCollector } from './metrics/index.js';
 import { log } from './logger/ring-buffer.js';
 import { createConnection, createDefaultConfig } from './data/database/connection.js';
@@ -477,6 +478,11 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
         const { authenticate: apiAuth } = await import('./api/middleware/auth.js');
         const result = apiAuth(req);
         if (result.authenticated && result.clientName !== 'default (no keys configured)') {
+          if (!canAccessApiRoute(result, method, url)) {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Forbidden: Owner access required for this endpoint.' }));
+            return;
+          }
           authorized = true;
         }
       }
@@ -484,7 +490,19 @@ async function handleRequest(req: http.IncomingMessage, res: http.ServerResponse
       // SSO auth is fail-closed when the plugin is absent, rejects the
       // session, or encounters an error.
       if (!authorized && resolvedAuth.mode === 'sso') {
-        authorized = await authenticateSsoRequest(req);
+        try {
+          const result = await getHooks().auth?.authenticate(req);
+          if (result?.authenticated) {
+            if (!canAccessApiRoute(result, method, url)) {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Forbidden: Owner access required for this endpoint.' }));
+              return;
+            }
+            authorized = true;
+          }
+        } catch {
+          authorized = false;
+        }
       }
 
       if (!authorized) {

@@ -1,5 +1,7 @@
 # Youbot production-readiness audit
 
+**Current follow-up:** The September 27 assessment found authorization, manual-install packaging, and relay-throttling defects. The remediation and current verification limits are recorded in [the September 27 remediation report](../../docs/evidence/production-readiness-fixes-20260927/README.md). The release decision below is historical and applies only to its recorded revision.
+
 **Audit date:** 2026-09-17
 
 **Verified application source:** `48535b17e34c328060cb600dfa5084b06a88ab8a`

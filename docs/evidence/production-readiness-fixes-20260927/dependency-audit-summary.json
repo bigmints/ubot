@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-09-27T11:07:46.059443+00:00",
+  "command": "npm audit --omit=dev --json",
+  "results": [
+    {
+      "package": "packages/collection-engine",
+      "exit": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "error": null,
+      "lockfileSha256": "d43964682ec0fc014950dc507db1749e5c95e8c4c07e72ef5098501355a53b97",
+      "report": "audit-packages-collection-engine.json"
+    },
+    {
+      "package": "youbot-core",
+      "exit": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "error": null,
+      "lockfileSha256": "ecc7fa5c08a6f6341df6a5c522caca722217037e582639456d3d882ba33b2281",
+      "report": "audit-youbot-core.json"
+    },
+    {
+      "package": "youbot-core/web-ui",
+      "exit": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "error": null,
+      "lockfileSha256": "e1f3390c274b04ddf5ec07c169460bc4bc87e5ad4b0592808eb5d0057a84bfd1",
+      "report": "audit-youbot-core-web-ui.json"
+    },
+    {
+      "package": "youbot-core/webchat-relay",
+      "exit": 0,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "error": null,
+      "lockfileSha256": "6e9e316a088567376febf05711f66a5c7f276e130d6150e228d7309402cd43da",
+      "report": "audit-youbot-core-webchat-relay.json"
+    }
+  ]
+}

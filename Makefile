@@ -34,6 +34,8 @@ build: deps build-backend build-web
 	@echo "Build complete."
 
 test: check-deps
+	@bash test/make-install.test.sh
+	@bash test/install-sh.test.sh
 	@cd $(CORE_DIR) && npm test
 	@cd packages/collection-engine && npm test
 	@cd $(CORE_DIR)/webchat-relay && npm test
@@ -59,6 +61,11 @@ install: build
 	@cp -R "$(CORE_DIR)/dist" "$(YOUBOT_HOME)/lib.new"
 	@cp -R "$(WEB_DIR)/out" "$(YOUBOT_HOME)/web.new"
 	@cp -R "$(CORE_DIR)/node_modules" "$(YOUBOT_HOME)/node_modules.new"
+	@rm -rf "$(YOUBOT_HOME)/node_modules.new/@youbot/collection-engine"
+	@mkdir -p "$(YOUBOT_HOME)/node_modules.new/@youbot/collection-engine"
+	@cp -R packages/collection-engine/dist packages/collection-engine/dist-cjs \
+	  packages/collection-engine/package.json "$(YOUBOT_HOME)/node_modules.new/@youbot/collection-engine/"
+	@node -e 'require(process.argv[1])' "$(abspath $(YOUBOT_HOME))/node_modules.new/@youbot/collection-engine/dist-cjs/index.js"
 	@rm -rf "$(YOUBOT_HOME)/lib" "$(YOUBOT_HOME)/web" "$(YOUBOT_HOME)/node_modules"
 	@mv "$(YOUBOT_HOME)/lib.new" "$(YOUBOT_HOME)/lib"
 	@mv "$(YOUBOT_HOME)/web.new" "$(YOUBOT_HOME)/web"

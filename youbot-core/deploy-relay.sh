@@ -4,6 +4,14 @@
 set -Eeuo pipefail
 umask 077
 
+# Cloud Run was retired for the free Cloudflare relay. Keep this script as an
+# explicit recovery path without recreating billable services by accident.
+if [[ "${ALLOW_LEGACY_CLOUD_RUN_DEPLOY:-}" != "true" ]]; then
+  echo "Cloud Run relay deployment is retired. Use webchat-relay/cloudflare (see docs/cloudflare-relay/README.md)." >&2
+  echo "A deliberate Google recovery requires ALLOW_LEGACY_CLOUD_RUN_DEPLOY=true and will resume hosting charges." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RELAY_DIR="$SCRIPT_DIR/webchat-relay"
 PROJECT="${GCP_PROJECT:-youbot-live}"
@@ -174,7 +182,7 @@ cp -R "$RELAY_DIR"/. "$BUILD_CONTEXT"/
 install -m 755 "$SCRIPT_DIR/../install.sh" "$BUILD_CONTEXT/install.sh"
 
 DEPLOY_ENV_ARGS=(
-  --update-env-vars "NODE_ENV=production,RELAY_STORAGE=firestore,PUBLIC_BASE_URL=$PUBLIC_BASE_URL"
+  --update-env-vars "NODE_ENV=production,RELAY_STORAGE=firestore,PUBLIC_BASE_URL=$PUBLIC_BASE_URL,RELAY_TRUSTED_PROXY_HOPS=1"
   --update-secrets "RELAY_SIGNING_SECRET=$SIGNING_SECRET_REF"
 )
 

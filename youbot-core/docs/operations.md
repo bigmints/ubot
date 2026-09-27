@@ -4,6 +4,10 @@ This guide covers the supported production profile: one Youbot process on one tr
 
 It does not approve direct internet exposure, multiple Youbot processes sharing one home directory, or horizontal scaling. Those profiles need TLS termination, trusted-proxy rules, shared sessions and rate limits, centralized secrets, a managed database, and deployment-specific security testing.
 
+## Public relay deployment
+
+The public relay and website run on the Cloudflare `youbot-relay` Worker. Cloud Run has been retired. Use [the Cloudflare runbook](../../docs/cloudflare-relay/README.md) for deployment, identity preservation and rollback; the legacy Cloud Run deployment script is disabled by default. The personal runtime remains on the trusted host described below.
+
 ## Install and verify
 
 For macOS or Linux, download and review the public user-scoped installer:
@@ -45,6 +49,12 @@ The health endpoint is intentionally minimal. It reports readiness only after SQ
 - Change the dashboard password before widening network access.
 - Never publish the local dashboard directly. If remote access is required, place an authenticated TLS reverse proxy in front of it and validate forwarded-proxy behavior.
 - Treat every backup as a secret: it contains configuration, conversations, credentials, workspaces, and the SQLite database. Encrypt backups before copying them off-host.
+
+### API client isolation
+
+Keys with `isOwner: true` are administrative credentials. Other keys can submit chat, list/create/rename/clear/delete their own sessions, read their own history, and poll their own jobs. A non-empty scope list must include `chat`. Configuration, relay credentials, provider discovery, uploaded-file retrieval, logs, metrics, and shutdown remain owner-only. Session aliases are resolved into a namespace derived from credential identity, not the key's display name. Rotating a key creates a new namespace. Historical sessions using the old display-name namespace remain owner-visible; they are not automatically reassigned to a key because names can collide.
+
+SSO extensions must return explicit `isOwner: true` for owner access. Non-owner extension identities must supply a stable, unique `clientId`; a display name is not an authorization identity. Missing identity or privileges fail closed.
 
 ## Back up
 
@@ -125,6 +135,8 @@ Runtime logs are created with mode `0600`. Production logs intentionally omit me
 ## Webchat relay
 
 The shared public webchat relay is a separate Cloud Run workload. `deploy-relay.sh` provisions a dedicated service account, Firestore access, and a Secret Manager-backed signing secret. Repeat deployments preserve unrelated service environment variables and the existing signing secret. Rotating that secret invalidates previously issued tenant links and bot credentials.
+
+The relay ignores `X-Forwarded-For` by default and uses its socket peer for per-client throttling. `RELAY_TRUSTED_PROXY_HOPS` can select a validated address counting from the right of the forwarded chain. The direct Cloud Run deployment sets this to `1`; verify that the enforced ingress appends the actual peer as the rightmost address before release. A caller-supplied prefix must never change its quota. If a CDN or additional proxy is added, revalidate the full chain and prevent routes that bypass the trusted proxies; do not simply trust the leftmost address. Invalid or missing forwarded addresses fall back to the socket peer. Each tenant also has a 120-message/minute cap, and the in-process quota map is bounded. These limits reset on restart and do not establish multi-instance abuse protection.
 
 Run the relay test and dependency audit before any authorized deployment:
 

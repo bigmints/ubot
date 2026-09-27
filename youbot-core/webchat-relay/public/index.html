@@ -111,6 +111,7 @@
     </div>
   </div>
 
+  <script src="/session-transport.js"></script>
   <script>
     const TENANT_ID = location.pathname.split('/').filter(Boolean)[0] || '';
     const BASE = location.origin + '/' + encodeURIComponent(TENANT_ID);
@@ -156,44 +157,49 @@
     // Session
     let sid = '';
     try { sid = localStorage.getItem(SK_SESSION) || ''; } catch {}
-    if (!sid) { sid = 'wc_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); try { localStorage.setItem(SK_SESSION, sid); } catch {} }
+    if (!sid) { sid = 'wc_' + YoubotSessionTransport.id(); try { localStorage.setItem(SK_SESSION, sid); } catch {} }
 
     // Load history
     try { const s = localStorage.getItem(SK_HISTORY); if (s) { const saved = JSON.parse(s); if (Array.isArray(saved)) messages = saved.filter(m => m && ['u', 'b'].includes(m.r) && Number.isFinite(m.ts)).slice(-300); } } catch {}
     function saveHist() { try { localStorage.setItem(SK_HISTORY, JSON.stringify(messages.slice(-300))); } catch {} }
 
+    loading = messages.some(m => m.pending);
+
     // Owner replies can arrive after the visitor's original request has finished.
     const SK_RECEIVED = SK_HISTORY + '_received';
     let receivedReplies = [];
     try { const saved = JSON.parse(localStorage.getItem(SK_RECEIVED) || '[]'); if (Array.isArray(saved)) receivedReplies = saved.slice(-300); } catch {}
-    let checkingReplies = false;
-    async function receiveReplies() {
-      if (checkingReplies || document.hidden) return;
-      checkingReplies = true;
-      try {
-        const response = await fetch(BASE + '/api/history?session=' + encodeURIComponent(sid), { cache: 'no-store' });
-        if (!response.ok) return;
-        const data = await response.json();
-        let changed = false;
-        for (const event of data.messages || []) {
-          if (event.delivery !== 'session' || !event.id || receivedReplies.includes(event.id)) continue;
-          receivedReplies.push(event.id);
-          if (!messages.some(message => message.id === event.id)) {
-            messages.push({ id: event.id, r: 'b', t: event.content, ts: new Date(event.timestamp).getTime() });
-            changed = true;
+    let sending = false, transportMode = null;
+    function applyHistory(data, push) {
+      let changed = false;
+      for (const event of data.messages || []) {
+        const submitted = event.requestId && messages.find(m => m.r === 'u' && m.requestId === event.requestId);
+        if (submitted) { submitted.failed = false; if (event.messageId) submitted.messageId = event.messageId; }
+        if (event.delivery !== 'session' || !event.id || receivedReplies.includes(event.id)) continue;
+        receivedReplies.push(event.id);
+        if (!messages.some(message => message.id === event.id)) {
+          messages.push({ id: event.id, r: 'b', t: event.content, ts: new Date(event.timestamp).getTime() });
+          changed = true;
+        }
+        for (const message of messages) {
+          if ((event.requestId && message.requestId === event.requestId) || (event.messageId && message.messageId === event.messageId)) {
+            message.pending = false; message.failed = false;
           }
         }
-        receivedReplies = receivedReplies.slice(-300);
-        try { localStorage.setItem(SK_RECEIVED, JSON.stringify(receivedReplies)); } catch {}
-        if (changed) { saveHist(); render(); }
-      } catch { /* Keep the conversation and draft intact while offline. */ }
-      finally { checkingReplies = false; }
+      }
+      if (push && Array.isArray(data.pending)) {
+        for (const message of messages) {
+          if (message.requestId) message.pending = data.pending.some(p => p.requestId === message.requestId || (message.messageId && p.messageId === message.messageId));
+        }
+        loading = sending || data.pending.length > 0;
+      } else if (changed) loading = sending || messages.some(m => m.pending);
+      receivedReplies = receivedReplies.slice(-300);
+      try { localStorage.setItem(SK_RECEIVED, JSON.stringify(receivedReplies)); } catch {}
+      saveHist(); render();
     }
-    setInterval(receiveReplies, 3000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) receiveReplies(); });
-    window.addEventListener('online', receiveReplies);
-    // Run after the page has initialized its composer and renderer.
-    setTimeout(receiveReplies, 0);
+    let transport;
+    // Initialize after the composer and renderer have mounted.
+    setTimeout(() => { transport = YoubotSessionTransport.create({ base: BASE, session: sid, onHistory: applyHistory, onMode: mode => { transportMode = mode; } }); }, 0);
 
     function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmtTime(ts) { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
@@ -223,7 +229,7 @@
           content = '<div class="msg-img"><img src="' + esc(m.img) + '" alt="Attached image" /></div>';
           if (m.t) content += '<div class="msg-text" style="margin-top:6px">' + esc(m.t) + '</div>';
         } else content = '<div class="msg-text">' + esc(m.t) + '</div>';
-        h += '<div class="msg ' + cls + '">' + content + '<div class="msg-time">' + (m.failed ? 'Delivery not confirmed' : fmtTime(m.ts)) + '</div></div>';
+        h += '<div class="msg ' + cls + '">' + content + '<div class="msg-time">' + (m.failed ? 'Delivery not confirmed' : m.pending ? 'Waiting for a reply' : fmtTime(m.ts)) + '</div></div>';
       }
       if (loading) h += '<div class="typing" role="status" aria-label="Waiting for a reply"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
       // Retain unchanged transcript nodes so the live log announces only new content.
@@ -283,41 +289,55 @@
       document.getElementById('feedback').textContent = '';
       const now = Date.now();
       stopPlayback();
-      if (audio) messages.push({ r: 'u', t: '', audio: audioB64, dur: audioDur, ts: now });
-      else if (imageB64) messages.push({ r: 'u', t: text, img: imageB64, ts: now });
-      else messages.push({ r: 'u', t: text, ts: now });
-      const submitted = messages[messages.length - 1];
-      saveHist(); loading = true; render();
+      const retry = messages.findLast(m => m.failed && m.t === (text || '') && (m.audio || null) === (audioB64 || null) && (m.img || null) === (imageB64 || null));
+      const submitted = retry || { r: 'u', t: text || '', ts: now, requestId: YoubotSessionTransport.id() };
+      if (!retry) {
+        if (audio) { submitted.audio = audioB64; submitted.dur = audioDur; }
+        if (imageB64) submitted.img = imageB64;
+        messages.push(submitted);
+      }
+      submitted.failed = false; submitted.pending = true;
+      saveHist(); sending = true; loading = true; render();
+      const controller = new AbortController();
+      const deadline = setTimeout(() => controller.abort(), transportMode === 'push' ? 15000 : 190000);
       try {
-        const body = { session: sid, message: text || '' };
+        const body = { session: sid, message: text || '', requestId: submitted.requestId };
         if (OWNER_KEY) body.ownerKey = OWNER_KEY;
         if (audioB64) body.audio = audioB64;
         if (imageB64) body.image = imageB64;
         const r = await fetch(BASE + '/api/message', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify(body), signal: controller.signal,
         });
         if (r.ok) {
           const d = await r.json();
+          submitted.messageId = d.messageId;
+          submitted.pending = r.status === 202 && d.accepted === true;
           if (d.response) messages.push({ r: 'b', t: d.response, ts: Date.now() });
+          if (submitted.pending) transport?.refresh();
           window.youbotTelemetry?.event('relay_message', { outcome: d.timeout ? 'timeout' : 'replied', media_kind: mediaKind });
         }
         else throw new Error('Request failed');
       } catch {
         window.youbotTelemetry?.event('relay_message', { outcome: 'client_error', media_kind: mediaKind });
-        submitted.failed = true;
+        submitted.failed = true; submitted.pending = false;
         document.getElementById('feedback').textContent = 'We couldn’t confirm delivery. Check your connection before trying again.';
-        if (!audio && !imageB64 && !document.getElementById('input').value) { document.getElementById('input').value = text; resizeInput(); }
+        if (!audio && !imageB64 && !document.getElementById('input').value) { document.getElementById('input').value = text; try { localStorage.setItem(SK_HISTORY + '_draft', text); } catch {} resizeInput(); }
       }
-      loading = false; saveHist(); render();
+      finally { clearTimeout(deadline); }
+      sending = false; loading = messages.some(m => m.pending); saveHist(); render();
+      if (submitted.failed) transport?.refresh();
     }
 
     // ── Text send ──
+    try { document.getElementById('input').value = localStorage.getItem(SK_HISTORY + '_draft') || ''; } catch {}
+    document.getElementById('input').addEventListener('input', () => { try { localStorage.setItem(SK_HISTORY + '_draft', document.getElementById('input').value); } catch {} });
     document.getElementById('send-btn').addEventListener('click', () => {
       const inp = document.getElementById('input');
       const t = inp.value.trim();
       if (!t || loading || recording || processingVoice) return;
       inp.value = '';
+      try { localStorage.removeItem(SK_HISTORY + '_draft'); } catch {}
       resizeInput();
       sendMessage(t);
     });

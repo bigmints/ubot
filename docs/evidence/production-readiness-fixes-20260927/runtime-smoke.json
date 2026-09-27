@@ -1,0 +1,15 @@
+{
+  "node": "v22.23.2",
+  "home": "/var/folders/0z/qw52dc6j5x3gzczqjsny2mg40000gn/T/youbot-readiness-runtime-LseodF",
+  "checks": [
+    "unauthenticated owner config denied",
+    "non-owner config, logs and routing denied",
+    "non-owner shutdown denied, runtime stays healthy",
+    "owner and same-name API-key sessions are isolated",
+    "foreign session deletion cannot delete owner data",
+    "owner configuration preserved",
+    "installed CLI backup, integrity verification and offline restore passed",
+    "installed runtime healthy after restore and restart"
+  ],
+  "result": "passed"
+}

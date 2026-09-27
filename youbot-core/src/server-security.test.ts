@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream';
 import type http from 'node:http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setApiKeysForTesting } from './api/middleware/auth.js';
 import {
   applySecurityHeaders,
   handleRequest,
@@ -37,6 +38,24 @@ function responseMock() {
 
 describe('server security boundaries', () => {
   beforeEach(() => resetState());
+
+  it('enforces non-owner permissions at the real production gate before direct routes execute', async () => {
+    setApiKeysForTesting([{ key: 'fixture-non-owner', name: 'client', scopes: ['chat'], isOwner: false }]);
+    const prior = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      for (const [method, url] of [['GET', '/api/logs'], ['GET', '/api/metrics'], ['GET', '/api/auth/profile'], ['POST', '/api/shutdown'], ['PUT', '/api/config/model-routing']]) {
+        const response = responseMock();
+        await handleRequest({ method, url, headers: { authorization: 'Bearer fixture-non-owner' }, socket: {} } as http.IncomingMessage,
+          response as unknown as http.ServerResponse);
+        expect(response.writeHead).toHaveBeenCalledWith(403, { 'Content-Type': 'application/json' });
+      }
+    } finally {
+      if (prior === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prior;
+      setApiKeysForTesting([]);
+    }
+  });
 
   it('binds to loopback by default while honoring explicit configuration', () => {
     expect(resolveServerHost(undefined, {})).toBe('127.0.0.1');

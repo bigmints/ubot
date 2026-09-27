@@ -26,6 +26,8 @@ export interface ApiKey {
 
 export interface AuthResult {
   authenticated: boolean;
+  /** Stable trusted identity, never taken from request data or a display name. */
+  clientId?: string;
   clientName?: string;
   scopes?: string[];
   isOwner?: boolean;
@@ -121,6 +123,7 @@ export function authenticate(req: http.IncomingMessage): AuthResult {
 
     return {
       authenticated: true,
+      clientId: crypto.createHash('sha256').update(matched.key).digest('hex'),
       clientName: matched.name,
       scopes: matched.scopes,
       isOwner: matched.isOwner === true,

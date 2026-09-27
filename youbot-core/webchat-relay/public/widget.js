@@ -8,7 +8,7 @@
  *
  * The widget talks to the cloud relay, which bridges to the local YOUBOT.
  */
-(function () {
+(async function () {
   "use strict";
 
   const script = document.currentScript;
@@ -22,6 +22,17 @@
     telemetryScript.dataset.youbotTelemetry = "relay_ui";
     telemetryScript.referrerPolicy = "no-referrer";
     document.head.appendChild(telemetryScript);
+  }
+
+  if (!window.YoubotSessionTransport) {
+    try {
+      await new Promise((resolve, reject) => {
+        const transportScript = document.createElement('script');
+        transportScript.src = new URL('/session-transport.js', BASE_URL).href;
+        transportScript.onload = resolve; transportScript.onerror = reject;
+        document.head.appendChild(transportScript);
+      });
+    } catch { return; }
   }
 
   // ── State ───────────────────────────────────────────────
@@ -40,7 +51,7 @@
   const STORAGE_KEY = "youbot_webchat_session_" + BASE_URL;
   try { sessionId = localStorage.getItem(STORAGE_KEY) || ""; } catch {}
   if (!sessionId) {
-    sessionId = "wc_" + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
+    sessionId = "wc_" + YoubotSessionTransport.id();
     try { localStorage.setItem(STORAGE_KEY, sessionId); } catch {}
   }
 
@@ -222,74 +233,70 @@
     } catch {}
   }
 
-  async function fetchHistory() {
-    if (isLoading) return;
-    try {
-      const r = await fetch(`${BASE_URL}/api/history?session=${sessionId}`);
-      if (r.ok) {
-        const d = await r.json();
-        if (d.messages?.length && !isLoading) {
-          messages = d.messages.map(m => ({
-            id: m.id,
-            role: m.role === "user" ? "user" : "bot",
-            text: m.content,
-            time: new Date(m.timestamp),
-          }));
-          renderMessages();
+  const HISTORY_KEY = STORAGE_KEY + '_history';
+  try {
+    const saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    if (Array.isArray(saved)) messages = saved.filter(m => m && ['user', 'bot'].includes(m.role)).slice(-300).map(m => ({ ...m, time: new Date(m.time) }));
+  } catch {}
+  function saveHistory() { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-300))); } catch {} }
+  let sending = false, transport, transportMode = null;
+  function applyHistory(data, push) {
+    const initialHistory = messages.length === 0;
+    for (const event of data.messages || []) {
+      if (!event.id) continue;
+      const match = messages.find(m => m.id === event.id || (event.role === 'user' && event.requestId && m.requestId === event.requestId));
+      if (match) { match.id = event.id; match.failed = false; }
+      else if (push || event.delivery === 'session' || initialHistory) {
+        messages.push({ id: event.id, requestId: event.requestId, role: event.role === 'user' ? 'user' : 'bot', text: event.content, time: new Date(event.timestamp) });
+      }
+      if (event.role !== 'user') {
+        for (const message of messages) {
+          if ((event.requestId && event.requestId === message.requestId) || (event.messageId && event.messageId === message.messageId)) { message.pending = false; message.failed = false; }
         }
       }
-    } catch {}
-  }
-
-  let checkingReplies = false;
-  async function receiveReplies() {
-    if (!isOpen || document.hidden || checkingReplies) return;
-    checkingReplies = true;
-    try {
-      const response = await fetch(`${BASE_URL}/api/history?session=${encodeURIComponent(sessionId)}`, { cache: 'no-store' });
-      if (!response.ok) return;
-      const data = await response.json();
-      let changed = false;
-      for (const event of data.messages || []) {
-        if (event.delivery !== 'session' || !event.id || messages.some(message => message.id === event.id)) continue;
-        messages.push({ id: event.id, role: 'bot', text: event.content, time: new Date(event.timestamp) });
-        changed = true;
+    }
+    if (push && Array.isArray(data.pending)) {
+      for (const message of messages) {
+        if (message.requestId && message.role === 'user') message.pending = data.pending.some(p => p.requestId === message.requestId || (message.messageId && p.messageId === message.messageId));
       }
-      if (changed) renderMessages();
-    } catch { /* Retry when the visitor reconnects. */ }
-    finally { checkingReplies = false; }
+      isLoading = sending || data.pending.length > 0;
+    } else isLoading = sending || messages.some(m => m.pending);
+    saveHistory(); renderMessages();
   }
-  setInterval(receiveReplies, 3000);
-  document.addEventListener('visibilitychange', receiveReplies);
-  window.addEventListener('online', receiveReplies);
 
   async function sendMessage(text) {
     window.youbotTelemetry?.event('relay_message', { outcome: 'accepted', media_kind: 'text' });
-    messages.push({ role: "user", text, time: new Date() });
-    isLoading = true;
-    renderMessages();
+    const retry = messages.findLast(m => m.failed && m.role === 'user' && m.text === text);
+    const submitted = retry || { role: 'user', text, time: new Date(), requestId: YoubotSessionTransport.id() };
+    if (!retry) messages.push(submitted);
+    submitted.failed = false; submitted.pending = true;
+    sending = true; isLoading = true;
+    saveHistory(); renderMessages();
 
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), transportMode === 'push' ? 15000 : 190000);
     try {
       const r = await fetch(`${BASE_URL}/api/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session: sessionId, message: text }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: sessionId, message: text, requestId: submitted.requestId }), signal: controller.signal,
       });
-      if (r.ok) {
-        const d = await r.json();
-        if (d.response) messages.push({ role: "bot", text: d.response, time: new Date() });
-        window.youbotTelemetry?.event('relay_message', { outcome: d.timeout ? 'timeout' : 'replied', media_kind: 'text' });
-      } else {
-        window.youbotTelemetry?.event('relay_message', { outcome: 'client_error', media_kind: 'text' });
-        messages.push({ role: "bot", text: "Sorry, something went wrong.", time: new Date() });
-      }
+      if (!r.ok) throw new Error('Request failed');
+      const d = await r.json();
+      submitted.messageId = d.messageId;
+      submitted.pending = r.status === 202 && d.accepted === true;
+      if (d.response) messages.push({ role: 'bot', text: d.response, time: new Date() });
+      if (submitted.pending) transport?.refresh();
+      window.youbotTelemetry?.event('relay_message', { outcome: d.timeout ? 'timeout' : 'replied', media_kind: 'text' });
     } catch {
+      submitted.failed = true; submitted.pending = false;
       window.youbotTelemetry?.event('relay_message', { outcome: 'client_error', media_kind: 'text' });
-      messages.push({ role: "bot", text: "Connection error. Please try again.", time: new Date() });
+      const input = document.getElementById('youbot-input');
+      if (input && !input.value) { input.value = text; try { localStorage.setItem(STORAGE_KEY + '_draft', text); } catch {} }
     }
-
-    isLoading = false;
-    renderMessages();
+    finally { clearTimeout(deadline); }
+    sending = false; isLoading = messages.some(m => m.pending);
+    saveHistory(); renderMessages();
+    if (submitted.failed) transport?.refresh();
   }
 
   function escapeHtml(t) { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
@@ -302,7 +309,7 @@
     if (messages.length === 0) html += `<div class="youbot-msg youbot-msg-welcome">${escapeHtml(widgetConfig.welcomeMessage)}</div>`;
     for (const msg of messages) {
       const cls = msg.role === "user" ? "youbot-msg-user" : "youbot-msg-bot";
-      html += `<div class="youbot-msg ${cls}">${escapeHtml(msg.text)}<div class="youbot-msg-time">${formatTime(msg.time)}</div></div>`;
+      html += `<div class="youbot-msg ${cls}">${escapeHtml(msg.text)}<div class="youbot-msg-time">${msg.failed ? 'Delivery not confirmed — try again' : msg.pending ? 'Waiting for a reply' : formatTime(msg.time)}</div></div>`;
     }
     if (isLoading) html += `<div class="youbot-typing"><div class="youbot-typing-dot"></div><div class="youbot-typing-dot"></div><div class="youbot-typing-dot"></div></div>`;
     container.innerHTML = html;
@@ -339,6 +346,8 @@
     const panel = document.getElementById("youbot-panel");
     const input = document.getElementById("youbot-input");
     const sendBtn = document.getElementById("youbot-send");
+    try { input.value = localStorage.getItem(STORAGE_KEY + '_draft') || ''; } catch {}
+    input.addEventListener('input', () => { try { localStorage.setItem(STORAGE_KEY + '_draft', input.value); } catch {} });
 
     bubble.addEventListener("click", () => {
       isOpen = !isOpen;
@@ -348,7 +357,8 @@
       panel.classList.toggle("youbot-visible", isOpen);
       if (isOpen) {
         fetchConfig();
-        if (messages.length === 0) fetchHistory();
+        if (!transport) transport = YoubotSessionTransport.create({ base: BASE_URL, session: sessionId, onHistory: applyHistory, onMode: mode => { transportMode = mode; }, active: () => isOpen });
+        else transport.refresh();
         renderMessages();
         setTimeout(() => input.focus(), 300);
       }
@@ -357,7 +367,8 @@
     const handleSend = () => {
       const text = input.value.trim();
       if (!text || isLoading) return;
-      input.value = "";
+      input.value = '';
+      try { localStorage.removeItem(STORAGE_KEY + '_draft'); } catch {}
       sendMessage(text);
     };
 
